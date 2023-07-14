@@ -31,7 +31,7 @@ struct Relation<S, T> {
 
 impl<P, Q> Morphism<P, Q> for Relation<P, Q> {}
 
-impl<S, M, T> ComposeLeft<S, M, T, Relation<M, T>> for Relation<S, T> {
+impl<S, M, T> ComposeLeft<S, M, T, Relation<M, T>> for Relation<S, M> {
     type Output = Relation<S, T>;
 
     fn compose_left(self, left: Relation<M, T>) -> Self::Output {
