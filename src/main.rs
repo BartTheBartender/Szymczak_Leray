@@ -22,18 +22,20 @@ fn main() {
 }*/
 
 mod endo_category;
-use endo_category::Morphism;
+use endo_category::{ComposeLeft, Morphism};
 
 struct Relation<S, T> {
     s: S,
     t: T,
 }
 
-impl<P, Q> Morphism<P, Q> for Relation<P, Q> {
-    fn compose<S, M, T, L: Relation<S, M>, R: Relation<M, T>, O: Relation<S, T>>(
-        left: L,
-        right: R,
-    ) -> O {
+impl<P, Q> Morphism<P, Q> for Relation<P, Q> {}
+
+impl<S, M, T> ComposeLeft<S, M, T, Relation<M, T>> for Relation<S, T> {
+    type Output = Relation<S, T>;
+
+    fn compose_left(self, left: Relation<M, T>) -> Self::Output {
+        todo!()
     }
 }
 

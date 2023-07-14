@@ -1,6 +1,9 @@
 pub trait Morphism<P, Q> {
-    fn compose<S, M, T, L: Morphism<S, M>, R: Morphism<M, T>, O: Morphism<S, T>>(
-        left: L,
-        right: R,
-    ) -> O;
+    // tu wszystkie te rzeczy, które były wcześniej, jak source czy kernel
+}
+
+pub trait ComposeLeft<S, M, T, Lhs: Morphism<M, T>> {
+    type Output: Morphism<S, T>;
+
+    fn compose_left(self, left: Lhs) -> Self::Output;
 }
