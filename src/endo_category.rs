@@ -1,14 +1,6 @@
-//lorem ipsum
-use std::ops::Mul;
-
-pub trait Object {} //
-
-pub trait Morphism<source: Object, target: Object>: Mul {
-    fn source(&self) -> Object;
-    fn target(&self) -> Object;
-    fn kernel(&self) -> Self;
-    fn cokernel(&self) -> Self;
-    fn is_zero(&self) -> bool;
+pub trait Morphism<P, Q> {
+    fn compose<S, M, T, L: Morphism<S, M>, R: Morphism<M, T>, O: Morphism<S, T>>(
+        left: L,
+        right: R,
+    ) -> O;
 }
-
-pub trait EndoMorphism: Morphism {}
