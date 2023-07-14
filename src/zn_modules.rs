@@ -96,6 +96,8 @@ impl<const DIMENSION: usize, const TC_INDEX: usize> Mul for ZnModElement<DIMENSI
     }
 }
 
+///////////////////////////////////////////////////////////////////////////////////////////////
+
 //a generic Z/n module
 pub struct ZnModule<const DIMENSION: usize, const TC_INDEX: usize>(
     pub Container<ZnModElement<DIMENSION, TC_INDEX>>,

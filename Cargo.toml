@@ -1,7 +1,11 @@
 [package]
-name = "szymczak_lerray"
+name = "szymczak_leray"
 version = "0.1.0"
 edition = "2021"
+
+[package.metadata.incomplete]
+torsion_coeff.rs = ["unused_variables", "dead_code"]
+
 
 # See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
 
