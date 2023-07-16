@@ -1,28 +1,25 @@
 //submodules
-mod morphism;
-mod relation;
+pub mod morphism;
+pub mod relation;
 
 //imports from external sources
+use rayon::prelude::*;
 use std::collections::HashMap;
 
-//imports from crate
+//imports from the crate
 use crate::endocategory::morphism::*;
 use crate::TorsionCoeff;
 
 pub struct Endocategory<M: Morphism> {
-    hom_set: HashMap<(TorsionCoeff, TorsionCoeff), Vec<M>>,
-    //do you think we should add all possible pairs of TorsionCoeffs here?
+    hom_sets: HashMap<(TorsionCoeff, TorsionCoeff), Vec<M>>,
 }
 
 impl<M: Morphism> Endocategory<M> {
-    pub fn generate_orbit_endocategory(&self) -> HashMap<TorsionCoeff, Vec<(M, Vec<M>)>> {
+    pub fn generate_orbits(&self) -> HashMap<TorsionCoeff, Vec<HashMap<M, Vec<M>>>> {
         todo!()
-        //for torsion_coeff in some Vec<TorsionCoeff> paralelly call generate_orbits_hom_set and insert into output
     }
 
-    pub fn generate_orbit_hom_set(&self, torsion_coeff: TorsionCoeff) -> Vec<(M, Vec<M>)> {
+    fn generate_orbits_hom_set(hom_set: &Vec<M>) -> Vec<M> {
         todo!()
-
-        //for every morphism generate_orbit_hom_set calls generate_orbit in Morphism trait (i wish i had function overloading... ;D )
     }
 }

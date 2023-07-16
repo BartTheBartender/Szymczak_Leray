@@ -10,3 +10,4 @@ torsion_coeff.rs = ["unused_variables", "dead_code"]
 # See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
 
 [dependencies]
+rayon = "1.7.0"
