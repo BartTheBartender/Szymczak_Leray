@@ -1,4 +1,4 @@
-use std::io::Error;
+use crate::error::Error;
 
 pub trait Morphism: Eq + Sized {
     fn compose_left(&self, other: &Self) -> Result<Self, Error>;

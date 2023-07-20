@@ -6,6 +6,7 @@ type Int = u8;
 type TorsionCoeff = Vec<Int>;
 
 mod endocategory;
+mod error;
 //mod szymczak_category;
 
 use crate::endocategory::*;
