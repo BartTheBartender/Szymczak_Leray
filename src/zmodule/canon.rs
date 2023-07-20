@@ -39,7 +39,7 @@ pub fn canonise_torsion_coeff(torsion_coeff: TorsionCoeff) -> TorsionCoeff {
         for class in new_torsion_coeff.iter_mut() {
             if class.iter().all(|&y| are_coprime(x, y)) {
                 class.push(x);
-                break 'outer;
+                continue 'outer;
             }
         }
         new_torsion_coeff.push(vec![x]);
@@ -105,9 +105,13 @@ impl CanonZModule {
         }
     }
 
-    fn coset(&self, element: &<Self as ZModule>::Element, subgroup: &Coset<Self>) -> Coset<Self> {
+    fn coset(
+        &self,
+        element: &<Self as ZModule>::Element,
+        image_of_subgroup: &Coset<Self>,
+    ) -> Coset<Self> {
         Coset::new(
-            subgroup
+            image_of_subgroup
                 .set
                 .iter()
                 .map(|el| self.add_unchecked(el, element))
@@ -188,4 +192,48 @@ pub fn submodules_of_cyclic_module(module: CanonZModule) -> Vec<CanonToCanon> {
         CanonToCanon::new_unchecked(source, target.clone(), vec![vec![divisor]])
     })
     .collect()
+}
+
+#[cfg(test)]
+mod test {
+    use super::*;
+    use crate::error::Error;
+
+    #[test]
+    fn canonising_torsion_coefficients() {
+        assert_eq!(canonise_torsion_coeff(vec![2, 2]), vec![2, 2]);
+        assert_eq!(canonise_torsion_coeff(vec![2, 3, 3]), vec![3, 6]);
+        assert_eq!(canonise_torsion_coeff(vec![2, 4, 3, 2]), vec![2, 4, 6]);
+    }
+
+    #[test]
+    fn addition() {
+        let z3sq = CanonZModule::new(vec![3, 3]);
+        assert_eq!(z3sq.add(&vec![1, 1], &vec![2, 1]), Ok(vec![0, 2]));
+        assert_eq!(z3sq.add(&vec![4, 1], &vec![2, 1]), Ok(vec![0, 2]));
+        assert_eq!(
+            z3sq.add(&vec![4, 1, 2], &vec![2, 1]),
+            Err(Error::InvalidElement)
+        );
+
+        let mut x = vec![1, 2];
+        let r = z3sq.increment(&mut x, &vec![1, 1]);
+        assert!(r.is_ok());
+        assert_eq!(x, vec![2, 0]);
+
+        let r = z3sq.increment(&mut x, &vec![1]);
+        assert!(r.is_err());
+        assert_eq!(x, vec![2, 0]);
+    }
+
+    #[test]
+    fn multiplication() {
+        let z3sq = CanonZModule::new(vec![3, 3]);
+        assert_eq!(z3sq.mul_by_scalar(2, &vec![2, 1]), Ok(vec![1, 2]));
+        assert_eq!(z3sq.mul_by_scalar(5, &vec![2, 4]), Ok(vec![1, 2]));
+        assert_eq!(
+            z3sq.mul_by_scalar(2, &vec![2, 1, 3]),
+            Err(Error::InvalidElement)
+        );
+    }
 }

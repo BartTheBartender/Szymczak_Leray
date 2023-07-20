@@ -85,7 +85,7 @@ impl CosetZModule<CanonZModule> {
         cycle
     }
 
-    pub fn canonise(self) -> CosetToCanon {
+    pub fn canonise(&self) -> CosetToCanon {
         // this can surely be done better, since this is fucking naive
 
         let cycles = self
@@ -120,7 +120,7 @@ impl CosetZModule<CanonZModule> {
             }
         }
         map.insert(self.zero(), target.zero());
-        CosetToCanon::new(Rc::new(self), Rc::new(target), map)
+        CosetToCanon::new(Rc::new(self.clone()), Rc::new(target), map)
     }
 }
 

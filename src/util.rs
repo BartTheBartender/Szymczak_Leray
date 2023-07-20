@@ -29,6 +29,34 @@ pub mod number {
         }
         vers
     }
+
+    #[cfg(test)]
+    mod test {
+        use super::*;
+
+        #[test]
+        fn divisors_of_small_ints() {
+            assert_eq!(divisors(6), vec![1, 2, 3, 6]);
+            assert_eq!(divisors(7), vec![1, 7]);
+            assert_eq!(divisors(8), vec![1, 2, 4, 8]);
+            assert_eq!(divisors(9), vec![1, 3, 9]);
+        }
+
+        #[test]
+        fn coprimality() {
+            assert!(are_coprime(1, 3));
+            assert!(are_coprime(2, 3));
+            assert!(!are_coprime(2, 4));
+        }
+
+        #[test]
+        fn versors() {
+            assert_eq!(versor(0, 3), vec![1, 0, 0]);
+            assert_eq!(versor(2, 3), vec![0, 0, 1]);
+            assert_eq!(versor(4, 4), vec![0, 0, 0, 0]);
+            assert_eq!(versor(1, 5), vec![0, 1, 0, 0, 0]);
+        }
+    }
 }
 
 pub mod iterator {
@@ -45,13 +73,6 @@ pub mod iterator {
             .collect()
     }
 
-    pub fn all_elements_equal<T>(iterator: &[T]) -> bool
-    where
-        T: PartialEq,
-    {
-        iterator.windows(2).all(|w| w[0] == w[1])
-    }
-
     pub trait Dedup<T: PartialEq + Clone> {
         fn clear_duplicates(&mut self);
     }
@@ -66,6 +87,35 @@ pub mod iterator {
                     true
                 }
             })
+        }
+    }
+
+    #[cfg(test)]
+    mod test {
+        use super::*;
+
+        #[test]
+        fn products() {
+            assert_eq!(
+                product(vec![0, 1], 3),
+                vec![
+                    vec![0, 0, 0],
+                    vec![0, 0, 1],
+                    vec![0, 1, 0],
+                    vec![0, 1, 1],
+                    vec![1, 0, 0],
+                    vec![1, 0, 1],
+                    vec![1, 1, 0],
+                    vec![1, 1, 1]
+                ]
+            );
+        }
+
+        #[test]
+        fn deduplicate() {
+            let mut og = vec![0, 1, 1, 2, 1, 3, 2, 1, 0, 2, 1, 4, 1];
+            og.clear_duplicates();
+            assert_eq!(og, vec![0, 1, 2, 3, 4])
         }
     }
 }

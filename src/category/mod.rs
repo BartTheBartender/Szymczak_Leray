@@ -1,7 +1,7 @@
 //submodules
 //pub mod map;
 pub mod morphism;
-pub mod relation;
+// pub mod relation;
 // pub mod torsion_coeff;
 // pub mod z_module;
 
