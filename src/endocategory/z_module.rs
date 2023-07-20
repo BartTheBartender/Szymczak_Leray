@@ -69,32 +69,6 @@ impl ZModule {
         }
     }
 
-    pub fn increment_left<'a>(
-        &'a self,
-        left: &'a mut Element,
-        right: &'a Element,
-    ) -> Result<&'a mut Element, Error> {
-        if left.len() == self.torsion_coeff.len() && right.len() == self.torsion_coeff.len() {
-            for index in 0..self.torsion_coeff.len() {
-                left[index] = (left[index] + right[index]) % self.torsion_coeff[index];
-            }
-            Ok(left)
-        } else {
-            Err(Error::new(
-                ErrorKind::InvalidInput,
-                "Invalid dimensions for elements!",
-            ))
-        }
-    }
-
-    pub fn increment_right<'a>(
-        &'a self,
-        left: &'a Element,
-        right: &'a mut Element,
-    ) -> Result<&'a mut Element, Error> {
-        self.increment_left(right, left)
-    }
-
     pub fn multiply_by_scalar(&self, scalar: Int, element: &Element) -> Result<Element, Error> {
         if element.len() == self.torsion_coeff.len() {
             let mut output = Element::with_capacity(element.len());
@@ -194,20 +168,21 @@ impl ZModule {
         x
     }
 
-    fn submodules_of_cyclic_module(self) -> HashSet<Self> {
-        let mut output: HashSet<Self> = HashSet::new();
+    fn submodules_of_cyclic_module(&self) -> HashSet<Self> {
+        let mut output: HashSet<ZModule> = HashSet::new();
+
         let self_len: Int = self.elements.len() as Int;
-        for order in torsion_coeff::tau(self_len) {
-            let step = self_len / order;
+        let orders = torsion_coeff::tau(self_len);
+
+        for order in orders {
             let mut elements: Vec<Element> = Vec::with_capacity(order as usize);
-            for index in (0..order).into() {
-                elements[index] = self.elements[step * index].clone();
+
+            for index in (0..self_len).step_by((self_len / order).into()).into() {
+                let element: Element = (self.elements[index]).clone();
+                elements.push(element);
             }
 
-            output.insert(ZModule {
-                torsion_coeff: self.torsion_coeff.clone(),
-                elements,
-            });
+            //wrap elements into Zmodule and insert into output
         }
 
         output
