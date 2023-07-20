@@ -1,21 +1,21 @@
 #![feature(specialization)]
 #![feature(let_chains)]
+#![allow(dead_code)]
+
 #[allow(unused_imports)]
-
-type Int = u8;
-type TorsionCoeff = Vec<Int>;
-
-mod endocategory;
+mod category;
 mod error;
+mod util;
+mod zmodule;
 //mod szymczak_category;
 
-use crate::endocategory::*;
-use bitvector::BitVector;
+// use crate::category::*;
+// use bitvector::BitVector;
 fn main() {
-    let source = vec![3];
-    let target = vec![2];
+    // let source = vec![3];
+    // let target = vec![2];
 
-    let m = z_module::ZModule::new(source, target);
+    // let m = z_module::ZModule::new(source, target);
 
     /*
     for element in &m.elements {
@@ -23,7 +23,7 @@ fn main() {
     }
     */
 
-    let a = m.maximal_cyclic_submodule();
+    // let a = m.maximal_cyclic_submodule();
 
-    println!("{:?}", &a.elements);
+    // println!("{:?}", &a.elements);
 }
