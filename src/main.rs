@@ -25,20 +25,4 @@ fn main() {
     let a = m.maximal_cyclic_submodule();
 
     println!("{:?}", &a.elements);
-
-    /*let max_element = m
-        .elements
-        .iter()
-        .max_by_key(|&element| m.order(element))
-        .unwrap();
-    let max_order = m.order(max_element);
-
-    println!(
-        "max_element = {:?}, max_order = {:?}",
-        &max_element, &max_order
-    );
-    for scalar in 0..max_order {
-        println!("{:?}", m.multiply_by_scalar(scalar, &max_element).unwrap());
-    }
-    */
 }
