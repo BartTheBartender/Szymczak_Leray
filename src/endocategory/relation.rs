@@ -1,9 +1,9 @@
 //imports from external sources
 use bitvector::BitVector;
-use std::io::{Error, ErrorKind};
 
 //imports form the crate
 use crate::endocategory::morphism::*;
+use crate::error::Error;
 use crate::TorsionCoeff;
 
 #[derive(PartialEq)]
@@ -18,13 +18,10 @@ impl Eq for Relation {}
 
 impl Morphism for Relation {
     fn compose_left(&self, other: &Self) -> Result<Self, Error> {
-        if self.source == other.target {
+        if self.target == other.source {
             todo!()
         } else {
-            Err(Error::new(
-                ErrorKind::InvalidInput,
-                "Cannot compose morphisms.",
-            ))
+            Err(Error::SourceTargetMismatch)
         }
     }
 
