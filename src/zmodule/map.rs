@@ -1,6 +1,7 @@
 use crate::{
     category::morphism::{Compose, Morphism},
     error::Error,
+    util::iterator::Dedup,
     zmodule::{
         canon::CanonZModule,
         coset::{Coset, CosetZModule},
@@ -62,6 +63,17 @@ impl CanonToCanon {
             true => Ok(self.evaluate_unchecked(v)),
             false => Err(Error::InvalidElement),
         }
+    }
+
+    pub fn image(&self) -> Vec<<CanonZModule as ZModule>::Element> {
+        let mut im: Vec<_> = self
+            .source()
+            .all_elements()
+            .iter()
+            .map(|element| self.evaluate_unchecked(element))
+            .collect();
+        im.clear_duplicates();
+        im
     }
 }
 

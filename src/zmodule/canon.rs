@@ -1,9 +1,14 @@
 use crate::{
+    category::morphism::{Compose, Morphism},
     util::{
-        iterator::product,
+        iterator::{product, Dedup},
         number::{are_coprime, divisors, versor},
     },
-    zmodule::{map::CanonToCanon, ZModule},
+    zmodule::{
+        coset::{Coset, CosetZModule},
+        map::{CanonToCanon, CanonToCoset},
+        ZModule,
+    },
 };
 
 use itertools::*;
@@ -98,6 +103,36 @@ impl CanonZModule {
                 todo!()
             }
         }
+    }
+
+    fn coset(&self, element: &<Self as ZModule>::Element, subgroup: &Coset<Self>) -> Coset<Self> {
+        Coset::new(
+            subgroup
+                .set
+                .iter()
+                .map(|el| self.add_unchecked(el, element))
+                .collect(),
+        )
+    }
+
+    fn cosets(&self, subgroup: CanonToCanon) -> CanonToCoset {
+        let imgroup: Coset<Self> = Coset::new(subgroup.image());
+        let mut cos = Vec::new();
+        let mut hom = HashMap::new();
+        for element in self.all_elements() {
+            let im = self.coset(&element, &imgroup);
+            cos.push(im.clone());
+            hom.insert(element, im);
+        }
+        cos.clear_duplicates();
+        let source = Rc::new(self.clone());
+        CanonToCoset::new(source.clone(), Rc::new(CosetZModule::new(cos, source)), hom)
+    }
+
+    fn quotient(&self, subgroup: CanonToCanon) -> CanonToCanon {
+        let cosets = self.cosets(subgroup);
+        cosets.compose_unchecked(&cosets.target().canonise())
+        // compose_canon_coset_canon(cosets.target().canonise(), cosets)
     }
 }
 
