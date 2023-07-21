@@ -18,8 +18,8 @@ pub type Int = u8;
 pub type TorsionCoeff = Vec<Int>;
 
 fn main() {
-    let left_krakowian = bitvec![0, 1, 1, 0, 1, 0, 0, 1];
-    let right_krakowian = bitvec![1, 0, 1, 1, 0, 1, 1, 1, 1, 0, 1, 0];
+    let left_krakowian = bitvec![1, 0, 0, 1, 0, 1, 0, 1, 1, 1, 1, 1];
+    let right_krakowian = bitvec![1, 0, 1, 1, 0, 1, 1, 0];
     let column_size: usize = 4;
 
     let result_krakowian =

@@ -32,8 +32,8 @@ impl Relation {
         output
     }
 
-    pub fn krakowian_product_unchecked(
-        //so far no couterexample against xD
+    pub unsafe fn krakowian_product_unchecked(
+        //so far no couterexample against and two for xD
         left: &BitVec,
         right: &BitVec,
         column_size: usize,
@@ -41,11 +41,9 @@ impl Relation {
         let left_columns = left.chunks(column_size);
         let right_columns = right.chunks(column_size);
 
-        left_columns
-            .flat_map(|left_column| {
-                print!("{}*", &left_column);
-                right_columns.clone().map(|right_column| {
-                    print!("{}=", &right_column);
+        right_columns
+            .flat_map(|right_column| {
+                left_columns.clone().map(|left_column| {
                     let mut dot_prod = false;
                     for index in 0..column_size {
                         if unsafe {
@@ -55,7 +53,6 @@ impl Relation {
                             break;
                         }
                     }
-                    println!("{}", &dot_prod);
                     dot_prod
                 })
             })
