@@ -2,6 +2,8 @@
 #[non_exhaustive]
 pub enum Error {
     SourceTargetMismatch,
+    InvalidElement,
+    PartialMap,
 }
 
 impl core::fmt::Display for Error {
@@ -9,6 +11,12 @@ impl core::fmt::Display for Error {
         match *self {
             Self::SourceTargetMismatch => {
                 write!(f, "cannot compose morphisms due to source/target mismatch.")
+            }
+            Self::InvalidElement => {
+                write!(f, "element dimension does not match module dimension.")
+            }
+            Self::PartialMap => {
+                write!(f, "element not found in map.")
             }
         }
     }
