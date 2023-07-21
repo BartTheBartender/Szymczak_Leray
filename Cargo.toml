@@ -11,6 +11,6 @@ torsion_coeff.rs = ["unused_variables", "dead_code"]
 
 [dependencies]
 rayon = "1.7.0"
-bitvector = "0.1.5"
+bitvec = "1.0.1"
 itertools = "0.11"
 gcd = "2.3"

@@ -9,6 +9,7 @@ use crate::{
         map::{CanonToCanon, CanonToCoset},
         ZModule,
     },
+    Int, TorsionCoeff,
 };
 
 use itertools::*;
@@ -16,8 +17,7 @@ use std::{collections::HashMap, rc::Rc};
 
 /* # torsion coefficients */
 
-pub type Zahl = u8;
-pub type TorsionCoeff = Vec<Zahl>;
+pub type Zahl = Int;
 
 pub fn all_torsion_coeffs(base: Zahl, max_dimension: Zahl) -> HashMap<Zahl, Vec<TorsionCoeff>> {
     (1..max_dimension + 1)
@@ -71,6 +71,11 @@ impl CanonZModule {
 
     pub fn dimension(&self) -> usize {
         self.torsion_coeff.len()
+    }
+
+    pub fn torsion_coeff(&self) -> TorsionCoeff {
+        // USE Rc<TorsionCoeff>, analogically with source() and tarrget()
+        self.torsion_coeff.clone()
     }
 
     // to było twoje `new`

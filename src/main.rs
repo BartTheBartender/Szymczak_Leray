@@ -1,6 +1,7 @@
 #![feature(specialization)]
 #![feature(let_chains)]
 #![allow(dead_code)]
+#![feature(associated_type_bounds)]
 
 #[allow(unused_imports)]
 mod category;
@@ -9,21 +10,20 @@ mod util;
 mod zmodule;
 //mod szymczak_category;
 
-// use crate::category::*;
-// use bitvector::BitVector;
+use crate::{category::relation::*, zmodule::canon::*};
+use bitvec::prelude::*;
+use std::rc::Rc;
+
+pub type Int = u8;
+pub type TorsionCoeff = Vec<Int>;
+
 fn main() {
-    // let source = vec![3];
-    // let target = vec![2];
+    let left_krakowian = bitvec![0, 1, 1, 0, 1, 0, 0, 1];
+    let right_krakowian = bitvec![1, 0, 1, 1, 0, 1, 1, 1, 1, 0, 1, 0];
+    let column_size: usize = 4;
 
-    // let m = z_module::ZModule::new(source, target);
+    let result_krakowian =
+        Relation::krakowian_product_unchecked(&left_krakowian, &right_krakowian, column_size);
 
-    /*
-    for element in &m.elements {
-        println!("order of {:?} is {}", element, m.order(&element));
-    }
-    */
-
-    // let a = m.maximal_cyclic_submodule();
-
-    // println!("{:?}", &a.elements);
+    print!("{}", &result_krakowian);
 }

@@ -1,24 +1,24 @@
-//submodules
 //pub mod map;
 pub mod morphism;
-// pub mod relation;
+pub mod relation;
 // pub mod torsion_coeff;
 // pub mod z_module;
 
 //imports from external sources
 // use rayon::prelude::*;
-// use std::collections::HashMap;
+use std::collections::{HashMap, HashSet};
 
 //imports from the crate
-/*
-use crate::category::morphism::*;
-use crate::zmodule::canon::TorsionCoeff;
 
-pub struct Endocategory<M: Morphism> {
-    hom_sets: HashMap<(TorsionCoeff, TorsionCoeff), Vec<M>>,
+use crate::category::morphism::*;
+use crate::TorsionCoeff;
+
+pub struct Endocategory<Source, Target, M: Morphism<Source, Target>> {
+    hom_sets: HashMap<(Source, Target), HashSet<M>>,
 }
 
-impl<M: Morphism> Endocategory<M> {
+/*
+impl<Source, Target, M: Morphism<Source, Target>> Endocategory<Source, Target, M> {
     pub fn generate_orbits(&self) -> HashMap<TorsionCoeff, Vec<HashMap<M, Vec<M>>>> {
         todo!()
     }
