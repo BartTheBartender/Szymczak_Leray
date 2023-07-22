@@ -1,5 +1,5 @@
 use crate::{error::Error, zmodule::ZModule};
-use std::{collections::HashSet, hash::Hash, sync::Arc};
+use std::{collections::HashSet, hash::Hash, rc::Rc, sync::Arc};
 
 pub trait Morphism<Source, Target> {
     fn source(&self) -> Arc<Source>;
@@ -25,25 +25,28 @@ pub trait Compose<Source, Middle: Eq, Target, Lhs: Morphism<Middle, Target>>:
 }
 
 pub trait EndoMorphism<Object: Eq>:
-    Sized + Hash + Eq + Clone + Morphism<Object, Object> + Compose<Object, Object, Object, Self>
+    Sized + Hash + Eq + PartialEq + Morphism<Object, Object> + Compose<Object, Object, Object, Self>
 {
     fn cycle(&self) -> Vec<Self> {
-        /*
-        let mut seen_iterations: HashSet<Self> = HashSet::new();
+        let mut seen_iterations = HashSet::new();
+        let self_rc = Rc::new(&self); //i dont know if this is allowed
+        seen_iterations.insert(Rc::downgrade(&self_rc));
 
-        seen_iterations.insert(self.clone());
+        let temporal_cycle =
+            std::iter::successors(Some(Rc::clone(&self_rc)), |curr_iteration_rc| {
+                let next_iteration = self_rc.compose_unchecked(curr_iteration_rc);
 
-        std::iter::successors(Some(self.clone()), |curr_iteration| {
-            let next_iteration = self.compose_unchecked(&curr_iteration);
-            if seen_iterations.contains(&next_iteration) {
-                None
-            } else {
-                seen_iterations.insert(next_iteration.clone());
-                Some(next_iteration)
-            }
-        })
-        .collect()
-        */
+                if seen_iterations.contains(&next_iteration) {
+                    None
+                } else {
+                    let next_iteration_rc = Rc::new(next_iteration);
+                    seen_iterations.insert(Rc::downgrade(&next_iteration_rc));
+                    Some(next_iteration_rc)
+                }
+            })
+            .collect();
+
+        //
         todo!()
     }
 }

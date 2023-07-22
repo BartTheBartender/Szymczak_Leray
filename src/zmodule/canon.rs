@@ -148,7 +148,7 @@ impl CanonZModule {
     }
 
     pub fn cardinality(&self) -> usize {
-        self.torsion_coeff.iter().fold(1u8, |acc, &x| acc * x) as usize
+        self.torsion_coeff.iter().product::<Int>() as usize
     }
 }
 
