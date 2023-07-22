@@ -22,8 +22,10 @@ fn main() {
     let right_krakowian = bitvec![1, 0, 1, 1, 0, 1, 1, 0];
     let column_size: usize = 4;
 
-    let result_krakowian =
-        Relation::krakowian_product_unchecked(&left_krakowian, &right_krakowian, column_size);
+    {
+        let result_krakowian =
+            Relation::krakowian_product_unchecked(&left_krakowian, &right_krakowian, column_size);
 
-    print!("{}", &result_krakowian);
+        print!("{}", &result_krakowian);
+    }
 }

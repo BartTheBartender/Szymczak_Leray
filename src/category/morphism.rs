@@ -1,9 +1,9 @@
 use crate::{error::Error, zmodule::ZModule};
-use std::rc::Rc;
+use std::{collections::HashSet, hash::Hash, sync::Arc};
 
 pub trait Morphism<Source, Target> {
-    fn source(&self) -> Rc<Source>;
-    fn target(&self) -> Rc<Target>;
+    fn source(&self) -> Arc<Source>;
+    fn target(&self) -> Arc<Target>;
 }
 
 pub trait Compose<Source, Middle: Eq, Target, Lhs: Morphism<Middle, Target>>:
@@ -25,10 +25,26 @@ pub trait Compose<Source, Middle: Eq, Target, Lhs: Morphism<Middle, Target>>:
 }
 
 pub trait EndoMorphism<Object: Eq>:
-    Sized + Morphism<Object, Object> + Compose<Object, Object, Object, Self>
+    Sized + Hash + Eq + Clone + Morphism<Object, Object> + Compose<Object, Object, Object, Self>
 {
-    fn orbit(&self) -> Vec<Self> {
-        todo!() // use composing ofc
+    fn cycle(&self) -> Vec<Self> {
+        /*
+        let mut seen_iterations: HashSet<Self> = HashSet::new();
+
+        seen_iterations.insert(self.clone());
+
+        std::iter::successors(Some(self.clone()), |curr_iteration| {
+            let next_iteration = self.compose_unchecked(&curr_iteration);
+            if seen_iterations.contains(&next_iteration) {
+                None
+            } else {
+                seen_iterations.insert(next_iteration.clone());
+                Some(next_iteration)
+            }
+        })
+        .collect()
+        */
+        todo!()
     }
 }
 
@@ -43,17 +59,17 @@ pub trait AbelianEndoMorphism<Object: ZModule + Eq>:
 {
     fn high_kernel(&self) -> Self {
         // probably not the fastest, but will work consistently
-        self.orbit()
+        self.cycle()
             .pop()
-            .expect("orbit will contain at least self")
+            .expect("cycle will contain at least one iteration")
             .kernel()
     }
 
     fn high_cokernel(&self) -> Self {
         // probably not the fastest, but will work consistently
-        self.orbit()
+        self.cycle()
             .pop()
-            .expect("orbit will contain at least self")
+            .expect("cycle will contain at least one iteration")
             .cokernel()
     }
 }

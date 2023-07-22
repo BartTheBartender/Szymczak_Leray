@@ -6,7 +6,7 @@ use crate::{
 };
 use core::hash::Hash;
 use itertools::Itertools;
-use std::{collections::HashMap, rc::Rc};
+use std::{collections::HashMap, sync::Arc};
 
 /* # elements */
 
@@ -39,7 +39,7 @@ where
     Parent::Element: Clone + Eq,
 {
     buffer: Vec<Coset<Parent>>,
-    parent: Rc<Parent>,
+    parent: Arc<Parent>,
 }
 
 impl<Parent> CosetZModule<Parent>
@@ -47,7 +47,7 @@ where
     Parent: ZModule + Clone + Eq,
     Parent::Element: Clone + Eq,
 {
-    pub fn new(buffer: Vec<Coset<Parent>>, parent: Rc<Parent>) -> Self {
+    pub fn new(buffer: Vec<Coset<Parent>>, parent: Arc<Parent>) -> Self {
         Self { buffer, parent }
     }
 
@@ -120,7 +120,7 @@ impl CosetZModule<CanonZModule> {
             }
         }
         map.insert(self.zero(), target.zero());
-        CosetToCanon::new(Rc::new(self.clone()), Rc::new(target), map)
+        CosetToCanon::new(Arc::new(self.clone()), Arc::new(target), map)
     }
 }
 

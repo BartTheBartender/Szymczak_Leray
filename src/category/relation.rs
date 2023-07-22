@@ -9,30 +9,21 @@ use crate::{
 };
 
 use bitvec::vec::BitVec;
-use rayon;
 use std::{
     collections::HashSet,
     fmt::{self, Display},
-    rc::Rc,
+    sync::Arc,
 };
 
 pub struct Relation {
-    pub source: Rc<CanonZModule>,
-    pub target: Rc<CanonZModule>,
+    pub source: Arc<CanonZModule>,
+    pub target: Arc<CanonZModule>,
     pub matrix_normal: BitVec,
-    pub matrix_transpose: BitVec,
+    pub matrix_transposed: BitVec,
 }
 
 impl Relation {
-    pub fn source_size(&self) -> usize {
-        let mut output: usize = 1;
-        for x in self.source.torsion_coeff() {
-            output *= x as usize;
-        }
-        output
-    }
-
-    pub unsafe fn krakowian_product_unchecked(
+    pub fn krakowian_product_unchecked(
         //so far no couterexample against and two for xD
         left: &BitVec,
         right: &BitVec,
@@ -69,7 +60,7 @@ impl PartialEq for Relation {
 impl Display for Relation {
     //again, iterators...
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-        let rows = self.matrix_transpose.chunks(self.source_size());
+        let rows = self.matrix_transposed.chunks(self.source.cardinality());
         let mut output = String::new();
 
         for row in rows {
@@ -88,12 +79,12 @@ impl Display for Relation {
 }
 
 impl Morphism<CanonZModule, CanonZModule> for Relation {
-    fn source(&self) -> Rc<CanonZModule> {
-        Rc::clone(&self.source)
+    fn source(&self) -> Arc<CanonZModule> {
+        Arc::clone(&self.source)
     }
 
-    fn target(&self) -> Rc<CanonZModule> {
-        Rc::clone(&self.target)
+    fn target(&self) -> Arc<CanonZModule> {
+        Arc::clone(&self.target)
     }
 }
 
@@ -102,9 +93,40 @@ impl Compose<CanonZModule, CanonZModule, CanonZModule, Relation> for Relation {
     type Output = Relation;
 
     fn compose_unchecked(&self, other: &Relation) -> Self::Output {
-        rayon::join(|| todo!(), || todo!());
+        //consider switching from Rc to Arc and implementing it as below:
+        /*
+        rayon::join(
+            || {
+                Relation::krakowian_product_unchecked(
+                    other.matrix_transpose,
+                    self.matrix_normal,
+                    self.target_size(),
+                )
+            },
+            || todo!(),
+        );
+        */
 
-        todo!()
+        let column_size = self.target.cardinality();
+
+        let output_normal = Relation::krakowian_product_unchecked(
+            other.matrix_transposed.as_ref(),
+            self.matrix_normal.as_ref(),
+            column_size,
+        );
+
+        let output_transposed = Relation::krakowian_product_unchecked(
+            self.matrix_normal.as_ref(),
+            other.matrix_transposed.as_ref(),
+            column_size,
+        );
+
+        Relation {
+            source: self.source(),
+            target: other.target(),
+            matrix_normal: output_normal,
+            matrix_transposed: output_transposed,
+        }
     }
 }
 

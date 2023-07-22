@@ -13,7 +13,7 @@ use crate::{
 };
 
 use itertools::*;
-use std::{collections::HashMap, rc::Rc};
+use std::{collections::HashMap, sync::Arc};
 
 /* # torsion coefficients */
 
@@ -74,7 +74,6 @@ impl CanonZModule {
     }
 
     pub fn torsion_coeff(&self) -> TorsionCoeff {
-        // USE Rc<TorsionCoeff>, analogically with source() and tarrget()
         self.torsion_coeff.clone()
     }
 
@@ -134,14 +133,22 @@ impl CanonZModule {
             hom.insert(element, im);
         }
         cos.clear_duplicates();
-        let source = Rc::new(self.clone());
-        CanonToCoset::new(source.clone(), Rc::new(CosetZModule::new(cos, source)), hom)
+        let source = Arc::new(self.clone());
+        CanonToCoset::new(
+            source.clone(),
+            Arc::new(CosetZModule::new(cos, source)),
+            hom,
+        )
     }
 
     fn quotient(&self, subgroup: CanonToCanon) -> CanonToCanon {
         let cosets = self.cosets(subgroup);
         cosets.compose_unchecked(&cosets.target().canonise())
         // compose_canon_coset_canon(cosets.target().canonise(), cosets)
+    }
+
+    pub fn cardinality(&self) -> usize {
+        self.torsion_coeff.iter().fold(1u8, |acc, &x| acc * x) as usize
     }
 }
 
@@ -183,7 +190,7 @@ impl ZModule for CanonZModule {
 }
 
 pub fn submodules_of_cyclic_module(module: CanonZModule) -> Vec<CanonToCanon> {
-    let target = Rc::new(module);
+    let target = Arc::new(module);
     divisors(
         target
             .as_ref()
@@ -193,7 +200,7 @@ pub fn submodules_of_cyclic_module(module: CanonZModule) -> Vec<CanonToCanon> {
     )
     .into_iter()
     .map(|divisor| {
-        let source = Rc::new(CanonZModule::new_unchecked(vec![divisor]));
+        let source = Arc::new(CanonZModule::new_unchecked(vec![divisor]));
         CanonToCanon::new_unchecked(source, target.clone(), vec![vec![divisor]])
     })
     .collect()

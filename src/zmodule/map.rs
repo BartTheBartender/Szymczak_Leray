@@ -8,21 +8,21 @@ use crate::{
         ZModule,
     },
 };
-use std::{collections::HashMap, rc::Rc};
+use std::{collections::HashMap, sync::Arc};
 
 /* # Canon to Canon */
 
 #[derive(PartialEq, Eq)]
 pub struct CanonToCanon {
-    source: Rc<CanonZModule>,
-    target: Rc<CanonZModule>,
+    source: Arc<CanonZModule>,
+    target: Arc<CanonZModule>,
     map: Vec<<CanonZModule as ZModule>::Element>,
 }
 
 impl CanonToCanon {
     pub fn new_unchecked(
-        source: Rc<CanonZModule>,
-        target: Rc<CanonZModule>,
+        source: Arc<CanonZModule>,
+        target: Arc<CanonZModule>,
         map: Vec<<CanonZModule as ZModule>::Element>,
     ) -> Self {
         Self {
@@ -33,8 +33,8 @@ impl CanonToCanon {
     }
 
     pub fn new(
-        source: Rc<CanonZModule>,
-        target: Rc<CanonZModule>,
+        source: Arc<CanonZModule>,
+        target: Arc<CanonZModule>,
         map: Vec<<CanonZModule as ZModule>::Element>,
     ) -> Result<Self, Error> {
         match map.iter().all(|el| target.is_element(el)) {
@@ -78,12 +78,12 @@ impl CanonToCanon {
 }
 
 impl Morphism<CanonZModule, CanonZModule> for CanonToCanon {
-    fn source(&self) -> Rc<CanonZModule> {
-        self.source.clone()
+    fn source(&self) -> Arc<CanonZModule> {
+        Arc::clone(&self.source)
     }
 
-    fn target(&self) -> Rc<CanonZModule> {
-        self.target.clone()
+    fn target(&self) -> Arc<CanonZModule> {
+        Arc::clone(&self.target)
     }
 }
 
@@ -92,8 +92,8 @@ impl Compose<CanonZModule, CanonZModule, CanonZModule, Self> for CanonToCanon {
 
     fn compose_unchecked(&self, other: &Self) -> Self {
         Self::new_unchecked(
-            self.source.clone(),
-            other.target.clone(),
+            Arc::clone(&self.source),
+            Arc::clone(&other.target),
             self.map
                 .iter()
                 .map(|element| other.evaluate_unchecked(element))
@@ -106,15 +106,15 @@ impl Compose<CanonZModule, CanonZModule, CanonZModule, Self> for CanonToCanon {
 
 #[derive(PartialEq, Eq)]
 pub struct CosetToCanon {
-    source: Rc<CosetZModule<CanonZModule>>,
-    target: Rc<CanonZModule>,
+    source: Arc<CosetZModule<CanonZModule>>,
+    target: Arc<CanonZModule>,
     map: HashMap<Coset<CanonZModule>, <CanonZModule as ZModule>::Element>,
 }
 
 impl CosetToCanon {
     pub fn new(
-        source: Rc<CosetZModule<CanonZModule>>,
-        target: Rc<CanonZModule>,
+        source: Arc<CosetZModule<CanonZModule>>,
+        target: Arc<CanonZModule>,
         map: HashMap<Coset<CanonZModule>, <CanonZModule as ZModule>::Element>,
     ) -> Self {
         Self {
@@ -133,27 +133,27 @@ impl CosetToCanon {
 }
 
 impl Morphism<CosetZModule<CanonZModule>, CanonZModule> for CosetToCanon {
-    fn source(&self) -> Rc<CosetZModule<CanonZModule>> {
-        self.source.clone()
+    fn source(&self) -> Arc<CosetZModule<CanonZModule>> {
+        Arc::clone(&self.source)
     }
 
-    fn target(&self) -> Rc<CanonZModule> {
-        self.target.clone()
+    fn target(&self) -> Arc<CanonZModule> {
+        Arc::clone(&self.target)
     }
 }
 
 /* # Canon to Coset */
 
 pub struct CanonToCoset {
-    source: Rc<CanonZModule>,
-    target: Rc<CosetZModule<CanonZModule>>,
+    source: Arc<CanonZModule>,
+    target: Arc<CosetZModule<CanonZModule>>,
     map: HashMap<<CanonZModule as ZModule>::Element, Coset<CanonZModule>>,
 }
 
 impl CanonToCoset {
     pub fn new(
-        source: Rc<CanonZModule>,
-        target: Rc<CosetZModule<CanonZModule>>,
+        source: Arc<CanonZModule>,
+        target: Arc<CosetZModule<CanonZModule>>,
         map: HashMap<<CanonZModule as ZModule>::Element, Coset<CanonZModule>>,
     ) -> Self {
         Self {
@@ -172,12 +172,12 @@ impl CanonToCoset {
 }
 
 impl Morphism<CanonZModule, CosetZModule<CanonZModule>> for CanonToCoset {
-    fn source(&self) -> Rc<CanonZModule> {
-        self.source.clone()
+    fn source(&self) -> Arc<CanonZModule> {
+        Arc::clone(&self.source)
     }
 
-    fn target(&self) -> Rc<CosetZModule<CanonZModule>> {
-        self.target.clone()
+    fn target(&self) -> Arc<CosetZModule<CanonZModule>> {
+        Arc::clone(&self.target)
     }
 }
 
@@ -190,8 +190,8 @@ impl Compose<CanonZModule, CosetZModule<CanonZModule>, CanonZModule, CosetToCano
 
     fn compose_unchecked(&self, other: &CosetToCanon) -> Self::Output {
         CanonToCanon::new_unchecked(
-            self.source().clone(),
-            other.target.clone(),
+            Arc::clone(&self.source),
+            Arc::clone(&other.target),
             self.source()
                 .generators()
                 .iter()
