@@ -1,7 +1,7 @@
 use crate::{
     category::{
         morphism::{Compose, Morphism},
-        Endocategory,
+        Category,
     },
     error::Error,
     zmodule::canon::CanonZModule,
@@ -130,7 +130,7 @@ impl Compose<CanonZModule, CanonZModule, CanonZModule, Relation> for Relation {
     }
 }
 
-impl Endocategory<CanonZModule, CanonZModule, Relation> {
+impl Category<CanonZModule, Relation> {
     fn hom_set(source: &CanonZModule, target: &CanonZModule) -> HashSet<Relation> {
         todo!() //to jest funkcja o którą prosiłeś. w szczególności nie musi być d  dokładnie taka, chodzi mi o ideę (nie wiem np jak tutaj uwzględniać zanurzenia modułów w siebiw w tej syngnaturze
     }

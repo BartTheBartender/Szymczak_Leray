@@ -5,7 +5,7 @@ pub mod canon;
 pub mod coset;
 pub mod map;
 
-pub trait ZModule {
+pub trait ZModule: Eq {
     type Element;
 
     fn zero(&self) -> Self::Element;

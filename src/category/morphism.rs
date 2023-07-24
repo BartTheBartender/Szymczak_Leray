@@ -6,12 +6,12 @@ use std::{
     sync::Arc,
 };
 
-pub trait Morphism<Source, Target> {
+pub trait Morphism<Source: Eq, Target: Eq> {
     fn source(&self) -> Arc<Source>;
     fn target(&self) -> Arc<Target>;
 }
 
-pub trait Compose<Source, Middle: Eq, Target, Lhs: Morphism<Middle, Target>>:
+pub trait Compose<Source: Eq, Middle: Eq, Target: Eq, Lhs: Morphism<Middle, Target>>:
     Morphism<Source, Middle>
 {
     type Output: Morphism<Source, Target>;

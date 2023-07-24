@@ -2,29 +2,18 @@
 pub mod morphism;
 pub mod relation;
 // pub mod torsion_coeff;
-// pub mod z_module;
 
-//imports from external sources
-// use rayon::prelude::*;
-use std::collections::{HashMap, HashSet};
+use crate::category::morphism::{EndoMorphism, Morphism};
+use std::collections;
 
-//imports from the crate
-
-use crate::category::morphism::*;
-use crate::TorsionCoeff;
-
-pub struct Endocategory<Source, Target, M: Morphism<Source, Target>> {
-    hom_sets: HashMap<(Source, Target), HashSet<M>>,
+pub struct Category<Object: Eq, M: Morphism<Object, Object>> {
+    pub hom_sets: collections::HashMap<(Object, Object), collections::HashSet<M>>,
 }
 
-/*
-impl<Source, Target, M: Morphism<Source, Target>> Endocategory<Source, Target, M> {
-    pub fn generate_orbits(&self) -> HashMap<TorsionCoeff, Vec<HashMap<M, Vec<M>>>> {
-        todo!()
-    }
-
-    fn generate_orbits_hom_set(hom_set: &Vec<M>) -> Vec<M> {
+impl<Object: Eq, M: Morphism<Object, Object>> Category<Object, M> {
+    pub fn all_endomorphisms<E: EndoMorphism<Object>>(
+        &self,
+    ) -> collections::HashMap<Object, collections::HashSet<E>> {
         todo!()
     }
 }
-*/
