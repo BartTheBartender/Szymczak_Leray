@@ -1,5 +1,10 @@
 use crate::{error::Error, zmodule::ZModule};
-use std::{collections::HashSet, hash::Hash, rc::Rc, sync::Arc};
+use std::{
+    collections::HashSet,
+    hash::{Hash, Hasher},
+    rc::Rc,
+    sync::Arc,
+};
 
 pub trait Morphism<Source, Target> {
     fn source(&self) -> Arc<Source>;
@@ -25,29 +30,59 @@ pub trait Compose<Source, Middle: Eq, Target, Lhs: Morphism<Middle, Target>>:
 }
 
 pub trait EndoMorphism<Object: Eq>:
-    Sized + Hash + Eq + PartialEq + Morphism<Object, Object> + Compose<Object, Object, Object, Self>
+    Sized
+    + Clone
+    + Hash
+    + PartialEq
+    + Eq
+    + Morphism<Object, Object>
+    + Compose<Object, Object, Object, Self, Output = Self>
 {
-    fn cycle(&self) -> Vec<Self> {
+    fn perfect_hash(&self) -> u64 {
+        // there is a possibility, that this hash is not perfect
+        // which can be a huge problem if uncaught
+        // implementators of this trait should make sure that their hash is perfect
+        let mut s = std::collections::hash_map::DefaultHasher::new();
+        self.hash(&mut s);
+        s.finish()
+    }
+
+    // jeśli naprawdę potrzebujesz Rc
+    fn cycle_rc(&self) -> Vec<Rc<Self>> {
         let mut seen_iterations = HashSet::new();
-        let self_rc = Rc::new(&self); //i dont know if this is allowed
-        seen_iterations.insert(Rc::downgrade(&self_rc));
 
-        let temporal_cycle =
-            std::iter::successors(Some(Rc::clone(&self_rc)), |curr_iteration_rc| {
-                let next_iteration = self_rc.compose_unchecked(curr_iteration_rc);
-
-                if seen_iterations.contains(&next_iteration) {
-                    None
-                } else {
-                    let next_iteration_rc = Rc::new(next_iteration);
-                    seen_iterations.insert(Rc::downgrade(&next_iteration_rc));
-                    Some(next_iteration_rc)
+        seen_iterations.insert(self.perfect_hash());
+        std::iter::successors(Some(Rc::new(self.clone())), |current_iteration| {
+            let next_iteration = current_iteration.compose_unchecked(self);
+            let next_iteration_hash = next_iteration.perfect_hash();
+            match seen_iterations.contains(&next_iteration_hash) {
+                true => None,
+                false => {
+                    seen_iterations.insert(next_iteration_hash);
+                    Some(Rc::new(next_iteration))
                 }
-            })
-            .collect();
+            }
+        })
+        .collect()
+    }
 
-        //
-        todo!()
+    fn cycle(&self) -> Vec<Self> {
+        // nie ma potrzeby trzymać całego morfizmu, wystarczy perfekcyjny hash
+        let mut seen_iterations = HashSet::new();
+
+        seen_iterations.insert(self.perfect_hash());
+        std::iter::successors(Some(self.clone()), |current_iteration| {
+            let next_iteration = current_iteration.compose_unchecked(self);
+            let next_iteration_hash = next_iteration.perfect_hash();
+            match seen_iterations.contains(&next_iteration_hash) {
+                true => None,
+                false => {
+                    seen_iterations.insert(next_iteration_hash);
+                    Some(next_iteration)
+                }
+            }
+        })
+        .collect()
     }
 }
 
