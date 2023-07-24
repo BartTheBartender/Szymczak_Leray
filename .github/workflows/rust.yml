@@ -15,6 +15,12 @@ jobs:
     runs-on: macos-latest
 
     steps:
+    - name: Install nightly toolchain
+      uses: actions-rs/toolchain@v1
+      with:
+        toolchain: nightly
+        default: true
+        override: true
     - uses: actions/checkout@v3
     - name: Build
       run: cargo build --verbose
