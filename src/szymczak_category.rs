@@ -1,11 +1,16 @@
 use crate::{
     category::{
-        morphism::{self, Endomorphism, Morphism},
+        morphism::{Endomorphism, Morphism},
         Category,
     },
     RECURSION_PARAMETER_SZYMCZAK_FUNCTOR,
 };
-use std::{collections::HashMap, hash::Hash};
+use rayon;
+use std::{
+    collections::HashMap,
+    hash::Hash,
+    marker::{Send, Sync},
+};
 
 type Endomorphisms<E> = Vec<E>;
 type EndomorphismsWithCycles<E> = HashMap<E, Vec<E>>;
@@ -20,9 +25,13 @@ pub struct SzymczakCategory<Object: Eq, E: Endomorphism<Object>> {
     szymczak_classes: SzymczakClasses<Object, E>,
 }
 
-impl<Object: Eq + PartialEq + Hash + Clone, E: Endomorphism<Object>> SzymczakCategory<Object, E> {
+impl<Object: Eq + PartialEq + Hash + Clone + Sync, E: Endomorphism<Object> + Sync + Send>
+    SzymczakCategory<Object, E>
+{
     //i dont really know if name of the function below is correct, but i find it cool (i woudl like to know your opinion as well). I dont know also how to parallelize it (i assume that we will have to use parallel Hash structures by rayon)
-    pub fn szymczak_functor<M: Morphism<Object, Object>>(category: &Category<Object, M>) -> Self {
+    pub fn szymczak_functor<M: Morphism<Object, Object> + Sync>(
+        category: &Category<Object, M>,
+    ) -> Self {
         //step 1. Clone all the endomorphisms (we will need them to be owned)
 
         let endomorphisms: Endomorphisms<E> = category
@@ -36,7 +45,7 @@ impl<Object: Eq + PartialEq + Hash + Clone, E: Endomorphism<Object>> SzymczakCat
             })
             .collect();
 
-        //step 2. generate raw szymczak classes (by raw i mean they are unsorted and endomorphisms keep their cycles)
+        //step 2. generate raw szymczak classes (by raw i mean they are unsorted by object and endomorphisms keep their cycles)
         let raw_szymczak_classes = Self::raw_szymczak_functor(endomorphisms, &category.hom_sets);
 
         //step 3. clean up the szymczak classes
@@ -46,12 +55,12 @@ impl<Object: Eq + PartialEq + Hash + Clone, E: Endomorphism<Object>> SzymczakCat
             .map(Self::sort_by_object)
             .collect();
 
-        todo!()
+        SzymczakCategory { szymczak_classes }
     }
 
     //----------------------------------------------------------------------
 
-    fn raw_szymczak_functor<M: Morphism<Object, Object>>(
+    fn raw_szymczak_functor<M: Morphism<Object, Object> + Sync>(
         mut endomorphisms: Endomorphisms<E>,
         hom_sets: &HashMap<(Object, Object), Vec<M>>,
     ) -> RawSzymczakClasses<E> {
@@ -59,10 +68,10 @@ impl<Object: Eq + PartialEq + Hash + Clone, E: Endomorphism<Object>> SzymczakCat
             let left_endomorphisms = endomorphisms.split_off(endomorphisms.len() / 2);
             let right_endomorphisms = endomorphisms;
 
-            let left_raw_szymczak_classes =
-                Self::raw_szymczak_functor::<M>(left_endomorphisms, hom_sets);
-            let right_raw_szymczak_classes =
-                Self::raw_szymczak_functor::<M>(right_endomorphisms, hom_sets);
+            let (left_raw_szymczak_classes, right_raw_szymczak_classes) = rayon::join(
+                || Self::raw_szymczak_functor::<M>(left_endomorphisms, hom_sets),
+                || Self::raw_szymczak_functor::<M>(right_endomorphisms, hom_sets),
+            );
 
             Self::merge_raw_szymczak_classes::<M>(
                 left_raw_szymczak_classes,
@@ -75,7 +84,7 @@ impl<Object: Eq + PartialEq + Hash + Clone, E: Endomorphism<Object>> SzymczakCat
     }
 
     fn raw_szymczak_functor_final_step<M: Morphism<Object, Object>>(
-        mut endomorphisms: Endomorphisms<E>,
+        endomorphisms: Endomorphisms<E>,
         hom_sets: &HashMap<(Object, Object), Vec<M>>,
     ) -> RawSzymczakClasses<E> {
         let mut raw_szymczak_classes = RawSzymczakClasses::<E>::new();
@@ -170,11 +179,11 @@ impl<Object: Eq + PartialEq + Hash + Clone, E: Endomorphism<Object>> SzymczakCat
         merged_raw_szymczak_classes
     }
 
-    fn drop_cycles(mut raw_szymczak_class: RawSzymczakClass<E>) -> Vec<E> {
+    fn drop_cycles(raw_szymczak_class: RawSzymczakClass<E>) -> Vec<E> {
         raw_szymczak_class.into_keys().collect::<Vec<E>>()
     }
 
-    fn sort_by_object(mut raw_szymczak_class_without_cycles: Vec<E>) -> SzymczakClass<Object, E> {
+    fn sort_by_object(raw_szymczak_class_without_cycles: Vec<E>) -> SzymczakClass<Object, E> {
         let mut szymczak_class = SzymczakClass::<Object, E>::new();
 
         for endomorphism in raw_szymczak_class_without_cycles.into_iter() {
