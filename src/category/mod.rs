@@ -3,7 +3,7 @@ pub mod morphism;
 pub mod relation;
 // pub mod torsion_coeff;
 
-use crate::category::morphism::{EndoMorphism, Morphism};
+use crate::category::morphism::{Endomorphism, Morphism};
 use std::collections::HashMap;
 
 pub struct Category<Object: Eq, M: Morphism<Object, Object>> {

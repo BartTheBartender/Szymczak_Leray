@@ -29,7 +29,7 @@ pub trait Compose<Source: Eq, Middle: Eq, Target: Eq, Lhs: Morphism<Middle, Targ
     // ale można dopisać nowego traita na to gdzie `Middle` i `Target` są tym samym
 }
 
-pub trait EndoMorphism<Object: Eq>:
+pub trait Endomorphism<Object: Eq>:
     Sized
     + Clone
     + Hash
@@ -84,6 +84,10 @@ pub trait EndoMorphism<Object: Eq>:
         })
         .collect()
     }
+    fn from_morphism<M>(morphism: &M) -> Self
+    // there is no default implementation of course
+    where
+        M: Morphism<Object, Object>;
 }
 
 pub trait AbelianMorphism<Source: ZModule, Target: ZModule>: Morphism<Source, Target> {
@@ -93,7 +97,7 @@ pub trait AbelianMorphism<Source: ZModule, Target: ZModule>: Morphism<Source, Ta
 }
 
 pub trait AbelianEndoMorphism<Object: ZModule + Eq>:
-    EndoMorphism<Object> + AbelianMorphism<Object, Object>
+    Endomorphism<Object> + AbelianMorphism<Object, Object>
 {
     fn high_kernel(&self) -> Self {
         // probably not the fastest, but will work consistently

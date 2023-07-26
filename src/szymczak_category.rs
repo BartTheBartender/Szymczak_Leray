@@ -1,243 +1,190 @@
 use crate::{
     category::{
-        morphism::{EndoMorphism, Morphism},
+        morphism::{self, Endomorphism, Morphism},
         Category,
     },
     RECURSION_PARAMETER_SZYMCZAK_FUNCTOR,
 };
 use std::{collections::HashMap, hash::Hash};
 
-type EndomorphismsFixedObject<E> = Vec<E>;
-type Endomorphisms<Object, E> = HashMap<Object, EndomorphismsFixedObject<E>>;
+type Endomorphisms<E> = Vec<E>;
+type EndomorphismsWithCycles<E> = HashMap<E, Vec<E>>;
 
-type EndomorphismsWithCyclesFixedObject<E> = HashMap<E, Vec<E>>;
-type EndomorphismsWithCycles<Object, E> = HashMap<Object, EndomorphismsWithCyclesFixedObject<E>>;
+type RawSzymczakClass<E> = HashMap<E, Vec<E>>;
+type RawSzymczakClasses<E> = Vec<RawSzymczakClass<E>>;
 
-type SzymczakClassWithCyclesFixedObject<E> = HashMap<E, Vec<E>>;
-type SzymczakClassesWithCyclesFixedObject<E> = Vec<SzymczakClassWithCyclesFixedObject<E>>;
-type SzymczakClassesWithCycles<Object, E> =
-    HashMap<Object, SzymczakClassesWithCyclesFixedObject<E>>;
+type SzymczakClass<Object, E> = HashMap<Object, Vec<E>>;
+type SzymczakClasses<Object, E> = Vec<SzymczakClass<Object, E>>;
 
-type SzymczakClassFixedObject<E> = Vec<E>;
-type SzymczakClassesFixedObject<E> = Vec<SzymczakClassFixedObject<E>>;
-type SzymczakClasses<Object, E> = HashMap<Object, SzymczakClassesFixedObject<E>>;
-
-pub struct SzymczakCategory<Object: Eq, E: EndoMorphism<Object>> {
+pub struct SzymczakCategory<Object: Eq, E: Endomorphism<Object>> {
     szymczak_classes: SzymczakClasses<Object, E>,
 }
 
-impl<Object: Eq + PartialEq + Hash, E: EndoMorphism<Object>> SzymczakCategory<Object, E> {
+impl<Object: Eq + PartialEq + Hash + Clone, E: Endomorphism<Object>> SzymczakCategory<Object, E> {
     //i dont really know if name of the function below is correct, but i find it cool (i woudl like to know your opinion as well). I dont know also how to parallelize it (i assume that we will have to use parallel Hash structures by rayon)
     pub fn szymczak_functor<M: Morphism<Object, Object>>(category: &Category<Object, M>) -> Self {
-        //first, clone the endomorphisms (we will need them to be owned)
-        let endomorphisms: Endomorphisms<Object, E> = Self::endomorphisms(&category.hom_sets);
-        //next, generate their orbits
-        let endomorphisms_with_cycles: EndomorphismsWithCycles<Object, E> = endomorphisms
-            .into_iter()
-            .map(|(object, endomorphisms_fixed_object)| {
-                (
-                    object,
-                    Self::cycles_fixed_object(endomorphisms_fixed_object),
-                )
+        //step 1. Clone all the endomorphisms (we will need them to be owned)
+
+        let endomorphisms: Endomorphisms<E> = category
+            .hom_sets
+            .iter()
+            .filter(|((source, target), _)| source == target)
+            .flat_map(|(_, morphisms)| {
+                morphisms
+                    .iter()
+                    .map(|morphism| Endomorphism::from_morphism(morphism))
             })
             .collect();
 
-        //next, partition the hom-sets of endomorphisms (with the cycles) into szymczak classes (keeping the cycles for the final merge)
-        let szymczak_classes_with_cycles: SzymczakClassesWithCycles<Object, E> =
-            endomorphisms_with_cycles
-                .into_iter()
-                .map(|(object, szymczak_classes_with_cycles_fixed_object)| {
-                    (
-                        object,
-                        Self::szymczak_functor_fixed_object(
-                            szymczak_classes_with_cycles_fixed_object,
-                            &category.hom_sets,
-                        ),
-                    )
-                })
-                .collect();
+        //step 2. generate raw szymczak classes (by raw i mean they are unsorted and endomorphisms keep their cycles)
+        let raw_szymczak_classes = Self::raw_szymczak_functor(endomorphisms, &category.hom_sets);
 
-        //finally merge all partitions into szymczak classes (and drop the cycles ofc)
-        SzymczakCategory {
-            szymczak_classes: Self::merge_szymczak_classes::<M>(szymczak_classes_with_cycles),
-        }
-    }
-
-    fn endomorphisms<M: Morphism<Object, Object>>(
-        hom_sets: &HashMap<(Object, Object), Vec<M>>,
-    ) -> Endomorphisms<Object, E> {
-        /* plz help
-        hom_sets
-            .iter()
-            .filter(|((source, target), _)| source == target)
-            .flat_map(|((source, _), morphisms)| {
-                morphisms.iter().map(move |_| (source.clone(), todo!())) //cast M into E and clone
-            })
-            .collect::<Endomorphisms<Object, E>>();*/
+        //step 3. clean up the szymczak classes
+        let szymczak_classes: SzymczakClasses<Object, E> = raw_szymczak_classes
+            .into_iter()
+            .map(Self::drop_cycles)
+            .map(Self::sort_by_object)
+            .collect();
 
         todo!()
     }
 
-    fn cycles_fixed_object(
-        //idk if we really need it
-        endomorphisms_fixed_object: EndomorphismsFixedObject<E>,
-    ) -> EndomorphismsWithCyclesFixedObject<E> {
-        todo!()
-    }
+    //----------------------------------------------------------------------
 
-    fn szymczak_functor_fixed_object<M: Morphism<Object, Object>>(
-        mut endomorphisms_with_cycles_fixed_object: EndomorphismsWithCyclesFixedObject<E>,
+    fn raw_szymczak_functor<M: Morphism<Object, Object>>(
+        mut endomorphisms: Endomorphisms<E>,
         hom_sets: &HashMap<(Object, Object), Vec<M>>,
-    ) -> SzymczakClassesWithCyclesFixedObject<E> {
-        if endomorphisms_with_cycles_fixed_object.len() > RECURSION_PARAMETER_SZYMCZAK_FUNCTOR {
-            let (
-                left_endomorphisms_with_cycles_fixed_object,
-                right_endomorphisms_with_cycles_fixed_object,
-            ) = Self::split_in_half(endomorphisms_with_cycles_fixed_object);
+    ) -> RawSzymczakClasses<E> {
+        if endomorphisms.len() > RECURSION_PARAMETER_SZYMCZAK_FUNCTOR {
+            let left_endomorphisms = endomorphisms.split_off(endomorphisms.len() / 2);
+            let right_endomorphisms = endomorphisms;
 
-            let left_szymczak_classes_with_cycles_fixed_object =
-                Self::szymczak_functor_fixed_object(
-                    left_endomorphisms_with_cycles_fixed_object,
-                    hom_sets,
-                );
-            let right_szymczak_classes_with_cycles_fixed_object =
-                Self::szymczak_functor_fixed_object(
-                    right_endomorphisms_with_cycles_fixed_object,
-                    hom_sets,
-                );
+            let left_raw_szymczak_classes =
+                Self::raw_szymczak_functor::<M>(left_endomorphisms, hom_sets);
+            let right_raw_szymczak_classes =
+                Self::raw_szymczak_functor::<M>(right_endomorphisms, hom_sets);
 
-            Self::merge_szymczak_classes_fixed_object(
-                left_szymczak_classes_with_cycles_fixed_object,
-                right_szymczak_classes_with_cycles_fixed_object,
+            Self::merge_raw_szymczak_classes::<M>(
+                left_raw_szymczak_classes,
+                right_raw_szymczak_classes,
                 hom_sets,
             )
         } else {
-            Self::szymczak_functor_fixed_object_final_step(
-                endomorphisms_with_cycles_fixed_object,
-                hom_sets,
-            )
+            Self::raw_szymczak_functor_final_step(endomorphisms, hom_sets)
         }
     }
 
-    fn szymczak_functor_fixed_object_final_step<M: Morphism<Object, Object>>(
-        mut endomorphisms_with_cycles_fixed_object: EndomorphismsWithCyclesFixedObject<E>,
+    fn raw_szymczak_functor_final_step<M: Morphism<Object, Object>>(
+        mut endomorphisms: Endomorphisms<E>,
         hom_sets: &HashMap<(Object, Object), Vec<M>>,
-    ) -> SzymczakClassesWithCyclesFixedObject<E> {
-        let mut szymczak_classes_with_cycles_fixed_object =
-            SzymczakClassesWithCyclesFixedObject::<E>::new();
+    ) -> RawSzymczakClasses<E> {
+        let mut raw_szymczak_classes = RawSzymczakClasses::<E>::new();
 
-        for endomorphism_with_cycles in endomorphisms_with_cycles_fixed_object {
-            let maybe_szymczak_class_with_cycles_fixed_object: Option<
-                &mut SzymczakClassWithCyclesFixedObject<E>,
-            > = szymczak_classes_with_cycles_fixed_object.iter_mut().find(
-                |szymczak_class_with_cycles_fixed_object| {
+        let endomorphisms_with_cycles: EndomorphismsWithCycles<E> = endomorphisms
+            .into_iter()
+            .map(|endomorphism| {
+                let cycle: Vec<E> = endomorphism.cycle();
+                (endomorphism, cycle)
+            })
+            .collect();
+
+        for (endomorphism, cycle) in endomorphisms_with_cycles.into_iter() {
+            let maybe_raw_szymczak_class: Option<&mut RawSzymczakClass<E>> =
+                raw_szymczak_classes.iter_mut().find(|raw_szymczak_class| {
                     Self::are_szymczak_isomorphic(
-                        (&endomorphism_with_cycles.0, &endomorphism_with_cycles.1),
-                        szymczak_class_with_cycles_fixed_object
+                        (&endomorphism, &cycle),
+                        raw_szymczak_class
                             .iter()
                             .next()
-                            .expect("szymczak classes are non-empty"),
+                            .expect("szymczak classes are never empty"),
                         hom_sets,
                     )
-                },
-            );
+                });
 
-            if let Some(szymczak_class_with_cycles_fixed_object) =
-                maybe_szymczak_class_with_cycles_fixed_object
-            {
-                //i hope it works as intended - it modifies the output
-                szymczak_class_with_cycles_fixed_object
-                    .insert(endomorphism_with_cycles.0, endomorphism_with_cycles.1);
+            if let Some(raw_szymczak_class) = maybe_raw_szymczak_class {
+                raw_szymczak_class.insert(endomorphism, cycle);
             } else {
-                let mut new_szymczak_class_with_cycles_fixed_object =
-                    SzymczakClassWithCyclesFixedObject::<E>::new();
-
-                new_szymczak_class_with_cycles_fixed_object
-                    .insert(endomorphism_with_cycles.0, endomorphism_with_cycles.1);
-                szymczak_classes_with_cycles_fixed_object
-                    .push(new_szymczak_class_with_cycles_fixed_object);
+                let mut new_raw_szymczak_class = RawSzymczakClass::<E>::new();
+                new_raw_szymczak_class.insert(endomorphism, cycle);
+                raw_szymczak_classes.push(new_raw_szymczak_class);
             }
         }
 
-        szymczak_classes_with_cycles_fixed_object
+        raw_szymczak_classes
     }
 
-    fn merge_szymczak_classes_fixed_object<M: Morphism<Object, Object>>(
-        mut left_szymczak_classes_with_cycles_fixed_object: SzymczakClassesWithCyclesFixedObject<E>,
-        mut right_szymczak_classes_with_cycles_fixed_object: SzymczakClassesWithCyclesFixedObject<
-            E,
-        >,
+    fn merge_raw_szymczak_classes<M: Morphism<Object, Object>>(
+        mut left_raw_szymczak_classes: RawSzymczakClasses<E>,
+        mut right_raw_szymczak_classes: RawSzymczakClasses<E>,
         hom_sets: &HashMap<(Object, Object), Vec<M>>,
-    ) -> SzymczakClassesWithCyclesFixedObject<E> {
-        let mut merged_szymczak_classes_with_cycles_fixed_object =
-            SzymczakClassesWithCyclesFixedObject::<E>::new();
+    ) -> RawSzymczakClasses<E> {
+        let mut merged_raw_szymczak_classes = RawSzymczakClasses::<E>::new();
 
-        //lengths must be updated every time a pair is merged (a bit unsafe construction, but it works properly)
         let mut left_index = 0;
-        'left_loop: while left_index < left_szymczak_classes_with_cycles_fixed_object.len() {
+        let mut left_merged = false;
+        while left_index < left_raw_szymczak_classes.len() {
             let mut right_index = 0;
-            while right_index < right_szymczak_classes_with_cycles_fixed_object.len() {
+            let mut right_merged = false;
+
+            while right_index < right_raw_szymczak_classes.len() {
                 if Self::are_szymczak_isomorphic(
-                    left_szymczak_classes_with_cycles_fixed_object[left_index]
+                    left_raw_szymczak_classes[left_index]
                         .iter()
                         .next()
-                        .expect("szymczak classes in merging are non-empty"),
-                    right_szymczak_classes_with_cycles_fixed_object[right_index]
+                        .expect("szymczak classes are never empty"),
+                    right_raw_szymczak_classes[right_index]
                         .iter()
                         .next()
-                        .expect("szymczak classes in merging are non-empty"),
+                        .expect("szymczak classes are never empty"),
                     hom_sets,
                 ) {
-                    //a bit of syntatic sugar (i know it is possibly a bit slower than extend)
-                    let merged_szymczak_class_with_cycles_fixed_object: SzymczakClassWithCyclesFixedObject<E> = Self::merge_hashmaps(
-                    left_szymczak_classes_with_cycles_fixed_object.swap_remove(left_index),
-                    right_szymczak_classes_with_cycles_fixed_object.swap_remove(right_index));
-                    merged_szymczak_classes_with_cycles_fixed_object
-                        .push(merged_szymczak_class_with_cycles_fixed_object);
+                    let mut merged_raw_szymczak_class =
+                        left_raw_szymczak_classes.swap_remove(left_index);
 
-                    continue 'left_loop;
+                    merged_raw_szymczak_class
+                        .extend(right_raw_szymczak_classes.swap_remove(right_index));
+
+                    merged_raw_szymczak_classes.push(merged_raw_szymczak_class);
+
+                    left_merged = true;
+                    right_merged = true;
                 }
-                right_index += 1;
+
+                if right_merged {
+                    //it means that at the right_index we find another raw_szymczak_class - we know that at left_index as well, hence we can keep the indices
+                    right_merged = false;
+                } else {
+                    right_index += 1; //if not, move to the next class
+                }
             }
-            left_index += 1;
+            //similairly for the left part
+            if left_merged {
+                left_merged = false;
+            } else {
+                left_index += 1;
+            }
         }
 
-        //merge possible classes not paired before
-        merged_szymczak_classes_with_cycles_fixed_object
-            .extend(left_szymczak_classes_with_cycles_fixed_object);
-        merged_szymczak_classes_with_cycles_fixed_object
-            .extend(right_szymczak_classes_with_cycles_fixed_object);
-
-        merged_szymczak_classes_with_cycles_fixed_object
+        merged_raw_szymczak_classes.extend(left_raw_szymczak_classes);
+        merged_raw_szymczak_classes.extend(right_raw_szymczak_classes);
+        merged_raw_szymczak_classes
     }
 
-    fn merge_szymczak_classes<M: Morphism<Object, Object>>(
-        mut szymczak_classes_with_cycles: SzymczakClassesWithCycles<Object, E>,
-    ) -> SzymczakClasses<Object, E> {
-        let mut merged_szymczak_classes_with_cycles = SzymczakClassesWithCycles::<Object, E>::new();
-        Self::drop_cycles(merged_szymczak_classes_with_cycles)
+    fn drop_cycles(mut raw_szymczak_class: RawSzymczakClass<E>) -> Vec<E> {
+        raw_szymczak_class.into_keys().collect::<Vec<E>>()
     }
 
-    fn merge_hashmaps<K: Eq + PartialEq + Hash, V: Sized>(
-        mut left_hashmap: HashMap<K, V>,
-        mut right_vector: HashMap<K, V>,
-    ) -> HashMap<K, V> {
-        todo!()
-    }
+    fn sort_by_object(mut raw_szymczak_class_without_cycles: Vec<E>) -> SzymczakClass<Object, E> {
+        let mut szymczak_class = SzymczakClass::<Object, E>::new();
 
-    fn drop_cycles(
-        mut szymczak_classes_with_cycles: SzymczakClassesWithCycles<Object, E>,
-    ) -> SzymczakClasses<Object, E> {
-        todo!()
-    }
+        for endomorphism in raw_szymczak_class_without_cycles.into_iter() {
+            szymczak_class
+                .entry(endomorphism.source().as_ref().clone())
+                .or_default()
+                .push(endomorphism)
+        }
 
-    fn split_in_half(
-        endomorphisms_with_cycles_fixed_object: EndomorphismsWithCyclesFixedObject<E>,
-    ) -> (
-        EndomorphismsWithCyclesFixedObject<E>,
-        EndomorphismsWithCyclesFixedObject<E>,
-    ) {
-        todo!()
+        szymczak_class
     }
 
     fn are_szymczak_isomorphic<M: Morphism<Object, Object>>(
