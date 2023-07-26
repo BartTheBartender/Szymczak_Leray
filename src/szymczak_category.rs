@@ -25,8 +25,10 @@ pub struct SzymczakCategory<Object: Eq, E: Endomorphism<Object>> {
     szymczak_classes: SzymczakClasses<Object, E>,
 }
 
-impl<Object: Eq + PartialEq + Hash + Clone + Sync, E: Endomorphism<Object> + Sync + Send>
-    SzymczakCategory<Object, E>
+impl<
+        Object: Eq + PartialEq + Hash + Clone + Sync + Send,
+        E: Endomorphism<Object> + Sync + Send,
+    > SzymczakCategory<Object, E>
 {
     //i dont really know if name of the function below is correct, but i find it cool (i woudl like to know your opinion as well). I dont know also how to parallelize it (i assume that we will have to use parallel Hash structures by rayon)
     pub fn szymczak_functor<M: Morphism<Object, Object> + Sync>(
@@ -36,7 +38,7 @@ impl<Object: Eq + PartialEq + Hash + Clone + Sync, E: Endomorphism<Object> + Syn
 
         let endomorphisms: Endomorphisms<E> = category
             .hom_sets
-            .iter()
+            .iter() //i don't know how to parallelize that (it might be really helpful)
             .filter(|((source, target), _)| source == target)
             .flat_map(|(_, morphisms)| {
                 morphisms
@@ -201,6 +203,31 @@ impl<Object: Eq + PartialEq + Hash + Clone + Sync, E: Endomorphism<Object> + Syn
         right_endomorphism_with_cycles: (&E, &Vec<E>),
         hom_sets: &HashMap<(Object, Object), Vec<M>>,
     ) -> bool {
-        todo!() // a lot!
+        let (l, l_cycles) = left_endomorphism_with_cycles;
+        let (r, r_cycles) = right_endomorphism_with_cycles;
+
+        let morphisms_l_to_r: &Vec<M> = hom_sets
+            .get(&(l.target().as_ref().clone(), r.source().as_ref().clone())) //i think i should refactorize the hom_set as nested hashmap (note that values don't need to be hashable)
+            .expect("there is a desired hom-set");
+        let morphisms_r_to_l: &Vec<M> = hom_sets
+            .get(&(r.target().as_ref().clone(), l.source().as_ref().clone()))
+            .expect("there is a desired hom-set");
+
+        /*
+        for l_to_r in morphisms_l_to_r.iter() {
+            for r_to_l in morphisms_r_to_l.iter() {
+                if Self::is_identity::<M>(l_to_r.compose_unchecked(r_to_l), l_cycles)
+                    && Self::is_identity::<M>(r_to_l.compose_unchecked(l_to_r), r_cycles)
+                {
+                    return true;
+                }
+            }
+        }
+        */
+        false
+    }
+
+    fn is_identity<M: Morphism<Object, Object>>(morphism: &M, cycles: &Vec<E>) -> bool {
+        todo!() // i've realized i don't know how to use the Compose trait
     }
 }
