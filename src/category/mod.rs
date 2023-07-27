@@ -1,6 +1,6 @@
 //pub mod map;
 pub mod morphism;
-pub mod relation;
+// pub mod relation; UNCOMMENT THIS
 // pub mod torsion_coeff;
 // pub mod z_module;
 

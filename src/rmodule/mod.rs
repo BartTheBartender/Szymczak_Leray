@@ -1,11 +1,13 @@
-use crate::error::Error;
-use crate::zmodule::canon::Zahl;
+use crate::{error::Error, rmodule::ring::Ring};
 
-pub mod canon;
-pub mod coset;
-pub mod map;
+// pub mod canon;
+// pub mod coset;
+// pub mod map;
+// pub mod product;
+pub mod ring;
+pub mod torsion;
 
-pub trait ZModule {
+pub trait Module<R: Ring> {
     type Element;
 
     fn zero(&self) -> Self::Element;
@@ -13,7 +15,7 @@ pub trait ZModule {
 
     fn add_unchecked(&self, v: &Self::Element, u: &Self::Element) -> Self::Element;
     fn increment_unchecked(&self, v: &mut Self::Element, u: &Self::Element);
-    fn mul_by_scalar_unchecked(&self, x: Zahl, v: &Self::Element) -> Self::Element;
+    fn mul_by_scalar_unchecked(&self, x: R, v: &Self::Element) -> Self::Element;
 
     fn add(&self, v: &Self::Element, u: &Self::Element) -> Result<Self::Element, Error> {
         match self.is_element(v) && self.is_element(u) {
@@ -32,12 +34,10 @@ pub trait ZModule {
         }
     }
 
-    fn mul_by_scalar(&self, x: Zahl, v: &Self::Element) -> Result<Self::Element, Error> {
+    fn mul_by_scalar(&self, x: R, v: &Self::Element) -> Result<Self::Element, Error> {
         match self.is_element(v) {
             true => Ok(self.mul_by_scalar_unchecked(x, v)),
             false => Err(Error::InvalidElement),
         }
     }
-
-    // możesz wpisać sygnatury pozostałych funkcji, które implementuję dla samego kanonikala tutaj, jak ci wygodniej później będzie
 }

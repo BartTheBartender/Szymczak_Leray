@@ -1,5 +1,5 @@
 pub mod number {
-    use crate::zmodule::canon::Zahl;
+    use crate::rmodule::ring::Zahl;
     use gcd::Gcd;
 
     // to mogłoby zadziałać dla pozosałych liczbowych też, jakby się uprzeć, ale mi się nie chce
@@ -60,7 +60,7 @@ pub mod number {
 }
 
 pub mod iterator {
-    use crate::zmodule::canon::Zahl;
+    use crate::rmodule::ring::Zahl;
     use itertools::*;
 
     pub fn product<T>(iterator: Vec<T>, n: Zahl) -> Vec<Vec<T>>

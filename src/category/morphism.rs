@@ -1,4 +1,7 @@
-use crate::{error::Error, zmodule::ZModule};
+use crate::{
+    error::Error,
+    rmodule::{ring::Ring, Module},
+};
 use std::{
     collections::HashSet,
     hash::{Hash, Hasher},
@@ -86,14 +89,16 @@ pub trait EndoMorphism<Object: Eq>:
     }
 }
 
-pub trait AbelianMorphism<Source: ZModule, Target: ZModule>: Morphism<Source, Target> {
+pub trait AbelianMorphism<R: Ring, Source: Module<R>, Target: Module<R>>:
+    Morphism<Source, Target>
+{
     fn is_zero(&self) -> bool;
     fn kernel(&self) -> Self;
     fn cokernel(&self) -> Self;
 }
 
-pub trait AbelianEndoMorphism<Object: ZModule + Eq>:
-    EndoMorphism<Object> + AbelianMorphism<Object, Object>
+pub trait AbelianEndoMorphism<R: Ring, Object: Module<R> + Eq>:
+    EndoMorphism<Object> + AbelianMorphism<R, Object, Object>
 {
     fn high_kernel(&self) -> Self {
         // probably not the fastest, but will work consistently

@@ -1,13 +1,14 @@
 use crate::{
     category::morphism::{Compose, Morphism},
+    rmodule::{
+        coset::{Coset, CosetModule},
+        map::{CanonToCanon, CanonToCoset},
+        product::BiProductModule,
+        Module,
+    },
     util::{
         iterator::{product, Dedup},
         number::{are_coprime, divisors, versor},
-    },
-    zmodule::{
-        coset::{Coset, CosetZModule},
-        map::{CanonToCanon, CanonToCoset},
-        ZModule,
     },
     Int, TorsionCoeff,
 };
@@ -16,8 +17,6 @@ use itertools::*;
 use std::{collections::HashMap, sync::Arc};
 
 /* # torsion coefficients */
-
-pub type Zahl = Int;
 
 pub fn all_torsion_coeffs(base: Zahl, max_dimension: Zahl) -> HashMap<Zahl, Vec<TorsionCoeff>> {
     (1..max_dimension + 1)
@@ -53,10 +52,10 @@ pub fn canonise_torsion_coeff(torsion_coeff: TorsionCoeff) -> TorsionCoeff {
         .collect()
 }
 
-/* # canonical z module */
+/* # canonical module */
 
 #[derive(Clone, PartialEq, Eq, Hash)]
-pub struct CanonZModule {
+pub struct CanonModule {
     torsion_coeff: TorsionCoeff,
 }
 
@@ -73,16 +72,15 @@ impl CanonZModule {
         self.torsion_coeff.len()
     }
 
+    pub fn cardinality(&self) -> usize {
+        self.torsion_coeff.iter().product::<Int>() as usize
+    }
+
     pub fn torsion_coeff(&self) -> TorsionCoeff {
         self.torsion_coeff.clone()
     }
 
-    // to było twoje `new`
-    pub fn product(left: CanonZModule, right: CanonZModule) -> Self {
-        Self {
-            torsion_coeff: [left.torsion_coeff, right.torsion_coeff].concat(),
-        }
-    }
+    /* # module stuff */
 
     pub fn generators(&self) -> Vec<<Self as ZModule>::Element> {
         let dim = self.dimension();
@@ -101,14 +99,11 @@ impl CanonZModule {
         match self.dimension() {
             0 => panic!("coś poszło nie tak"),
             1 => submodules_of_cyclic_module(self),
-            n => {
-                // split in half
-                // goursat
-                todo!()
-            }
+            _n => BiProductZModule::from(self).submodules_goursat(),
         }
     }
 
+    /* the following fns should be somewhere else
     fn coset(
         &self,
         element: &<Self as ZModule>::Element,
@@ -123,7 +118,7 @@ impl CanonZModule {
         )
     }
 
-    fn cosets(&self, subgroup: CanonToCanon) -> CanonToCoset {
+    fn cosets(&self, subgroup: &CanonToCanon) -> CanonToCoset {
         let imgroup: Coset<Self> = Coset::new(subgroup.image());
         let mut cos = Vec::new();
         let mut hom = HashMap::new();
@@ -141,15 +136,12 @@ impl CanonZModule {
         )
     }
 
-    fn quotient(&self, subgroup: CanonToCanon) -> CanonToCanon {
+    // this can be replaced by a cokernel
+    fn quotient(&self, subgroup: &CanonToCanon) -> CanonToCanon {
         let cosets = self.cosets(subgroup);
         cosets.compose_unchecked(&cosets.target().canonise())
-        // compose_canon_coset_canon(cosets.target().canonise(), cosets)
     }
-
-    pub fn cardinality(&self) -> usize {
-        self.torsion_coeff.iter().product::<Int>() as usize
-    }
+    */
 }
 
 impl ZModule for CanonZModule {
@@ -166,8 +158,6 @@ impl ZModule for CanonZModule {
     fn add_unchecked(&self, v: &Self::Element, u: &Self::Element) -> Self::Element {
         self.torsion_coeff
             .iter()
-            // zipping instead of indexing does not perform a bounds check at every indexing attempt
-            // so is both faster and safer ;)
             .zip(v.iter().zip(u.iter()))
             .map(|(coeff, (ve, ue))| (ve + ue) % coeff)
             .collect()
@@ -189,11 +179,12 @@ impl ZModule for CanonZModule {
     }
 }
 
+/* # helper functions */
+
 pub fn submodules_of_cyclic_module(module: CanonZModule) -> Vec<CanonToCanon> {
     let target = Arc::new(module);
     divisors(
         target
-            .as_ref()
             .dimension()
             .try_into()
             .expect("we're gonna need a bigger int"),
@@ -205,6 +196,8 @@ pub fn submodules_of_cyclic_module(module: CanonZModule) -> Vec<CanonToCanon> {
     })
     .collect()
 }
+
+/* # tests */
 
 #[cfg(test)]
 mod test {

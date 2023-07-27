@@ -4,7 +4,7 @@ use crate::{
         Endocategory,
     },
     error::Error,
-    zmodule::canon::CanonZModule,
+    rmodule::canon::CanonModule,
     Int, TorsionCoeff,
 };
 
@@ -16,8 +16,8 @@ use std::{
 };
 
 pub struct Relation {
-    pub source: Arc<CanonZModule>,
-    pub target: Arc<CanonZModule>,
+    pub source: Arc<CanonModule>,
+    pub target: Arc<CanonModule>,
     pub matrix_normal: BitVec,
     pub matrix_transposed: BitVec,
 }
@@ -78,18 +78,18 @@ impl Display for Relation {
     }
 }
 
-impl Morphism<CanonZModule, CanonZModule> for Relation {
-    fn source(&self) -> Arc<CanonZModule> {
+impl Morphism<CanonModule, CanonModule> for Relation {
+    fn source(&self) -> Arc<CanonModule> {
         Arc::clone(&self.source)
     }
 
-    fn target(&self) -> Arc<CanonZModule> {
+    fn target(&self) -> Arc<CanonModule> {
         Arc::clone(&self.target)
     }
 }
 
 //other * self
-impl Compose<CanonZModule, CanonZModule, CanonZModule, Relation> for Relation {
+impl Compose<CanonModule, CanonModule, CanonModule, Relation> for Relation {
     type Output = Relation;
 
     fn compose_unchecked(&self, other: &Relation) -> Self::Output {
@@ -122,16 +122,16 @@ impl Compose<CanonZModule, CanonZModule, CanonZModule, Relation> for Relation {
         );
 
         Relation {
-            source: self.source(),
-            target: other.target(),
+            source: self.source,
+            target: other.target,
             matrix_normal: output_normal,
             matrix_transposed: output_transposed,
         }
     }
 }
 
-impl Endocategory<CanonZModule, CanonZModule, Relation> {
-    fn hom_set(source: &CanonZModule, target: &CanonZModule) -> HashSet<Relation> {
+impl Endocategory<CanonModule, CanonModule, Relation> {
+    fn hom_set(source: &CanonModule, target: &CanonModule) -> HashSet<Relation> {
         todo!() //to jest funkcja o którą prosiłeś. w szczególności nie musi być d  dokładnie taka, chodzi mi o ideę (nie wiem np jak tutaj uwzględniać zanurzenia modułów w siebiw w tej syngnaturze
     }
 }

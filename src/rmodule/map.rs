@@ -1,5 +1,5 @@
 use crate::{
-    category::morphism::{Compose, Morphism},
+    category::morphism::{AbelianMorphism, Compose, Morphism},
     error::Error,
     util::iterator::Dedup,
     zmodule::{
@@ -75,6 +75,15 @@ impl CanonToCanon {
         im.clear_duplicates();
         im
     }
+
+    pub fn epis(source: Arc<CanonZModule>, target: Arc<CanonZModule>) -> Vec<CanonToCanon> {
+        if target.dimension() > source.dimension() {
+            return Vec::new();
+        }
+        // find all generating sets of the target
+        // for every such set, create all maps from the canonical generators of the source onto this set
+        todo!()
+    }
 }
 
 impl Morphism<CanonZModule, CanonZModule> for CanonToCanon {
@@ -99,6 +108,20 @@ impl Compose<CanonZModule, CanonZModule, CanonZModule, Self> for CanonToCanon {
                 .map(|element| other.evaluate_unchecked(element))
                 .collect(),
         )
+    }
+}
+
+impl AbelianMorphism<CanonZModule, CanonZModule> for CanonToCanon {
+    fn is_zero(&self) -> bool {
+        todo!()
+    }
+
+    fn kernel(&self) -> Self {
+        todo!()
+    }
+
+    fn cokernel(&self) -> Self {
+        todo!()
     }
 }
 
