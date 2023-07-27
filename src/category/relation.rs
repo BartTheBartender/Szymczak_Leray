@@ -1,6 +1,6 @@
 use crate::{
     category::{
-        morphism::{Compose, Morphism},
+        morphism::{Compose, Endomorphism, Morphism},
         Category,
     },
     error::Error,
@@ -8,13 +8,14 @@ use crate::{
     Int, TorsionCoeff,
 };
 
-use bitvec::vec::BitVec;
+use bitvec::prelude::*;
 use std::{
     collections::HashSet,
     fmt::{self, Display},
     sync::Arc,
 };
 
+#[derive(Clone, Debug, Hash, Eq)]
 pub struct Relation {
     pub source: Arc<CanonZModule>,
     pub target: Arc<CanonZModule>,
@@ -24,7 +25,6 @@ pub struct Relation {
 
 impl Relation {
     pub fn krakowian_product_unchecked(
-        //so far no couterexample against and two for xD
         left: &BitVec,
         right: &BitVec,
         column_size: usize,
@@ -53,7 +53,10 @@ impl Relation {
 
 impl PartialEq for Relation {
     fn eq(&self, other: &Self) -> bool {
-        self.matrix_normal == other.matrix_normal
+        self.source == other.source
+            && self.target == other.target
+            && self.matrix_normal == other.matrix_normal
+            && self.matrix_transposed == other.matrix_transposed //to be removed in the future
     }
 }
 
@@ -130,8 +133,103 @@ impl Compose<CanonZModule, CanonZModule, CanonZModule, Relation> for Relation {
     }
 }
 
+impl Endomorphism<CanonZModule> for Relation {}
+
 impl Category<CanonZModule, Relation> {
     fn hom_set(source: &CanonZModule, target: &CanonZModule) -> HashSet<Relation> {
         todo!() //to jest funkcja o którą prosiłeś. w szczególności nie musi być d  dokładnie taka, chodzi mi o ideę (nie wiem np jak tutaj uwzględniać zanurzenia modułów w siebiw w tej syngnaturze
+    }
+}
+
+#[cfg(test)]
+mod test {
+
+    use super::*;
+    use crate::error::Error;
+
+    #[test]
+    fn krakowian_product() {
+        let v = bitvec![1, 0, 0, 0];
+        let u = bitvec![1, 0, 0, 1];
+
+        let w = Relation::krakowian_product_unchecked(&v, &u, 2);
+
+        assert_eq!(w, v);
+    }
+
+    #[test]
+    fn relation_product_1() {
+        let v = bitvec![1, 0, 0, 0];
+        let canon_zmodule = Arc::new(CanonZModule::new_unchecked(vec![2]));
+
+        let r = Relation {
+            source: Arc::clone(&canon_zmodule),
+            target: Arc::clone(&canon_zmodule),
+            matrix_normal: v.clone(),
+            matrix_transposed: v.clone(),
+        };
+
+        let s = r.compose_unchecked(&r);
+
+        assert_eq!(r, s);
+    }
+
+    #[test]
+    fn relation_product_2() {
+        let v = bitvec![1, 1, 1, 1];
+        let canon_zmodule = Arc::new(CanonZModule::new_unchecked(vec![2]));
+
+        let r = Relation {
+            source: Arc::clone(&canon_zmodule),
+            target: Arc::clone(&canon_zmodule),
+            matrix_normal: v.clone(),
+            matrix_transposed: v.clone(),
+        };
+
+        let s = r.compose_unchecked(&r);
+
+        assert_eq!(r, s);
+    }
+
+    #[test]
+    fn relation_product_3() {
+        let v = bitvec![1, 0, 0, 1];
+        let canon_zmodule = Arc::new(CanonZModule::new_unchecked(vec![2]));
+
+        let r = Relation {
+            source: Arc::clone(&canon_zmodule),
+            target: Arc::clone(&canon_zmodule),
+            matrix_normal: v.clone(),
+            matrix_transposed: v.clone(),
+        };
+
+        let s = r.compose_unchecked(&r);
+
+        assert_eq!(r, s);
+    }
+
+    #[test]
+    fn relation_product_error_1() {
+        let v = bitvec![1, 0, 0, 1];
+        let u = bitvec![1, 0, 0, 0, 0, 0, 1, 1, 1];
+        let canon_zmodule_v = Arc::new(CanonZModule::new_unchecked(vec![2]));
+        let canon_zmodule_u = Arc::new(CanonZModule::new_unchecked(vec![3]));
+
+        let r = Relation {
+            source: Arc::clone(&canon_zmodule_v),
+            target: Arc::clone(&canon_zmodule_v),
+            matrix_normal: v.clone(),
+            matrix_transposed: v.clone(),
+        };
+        let s = Relation {
+            source: Arc::clone(&canon_zmodule_u),
+            target: Arc::clone(&canon_zmodule_u),
+            matrix_normal: u.clone(),
+            matrix_transposed: u.clone(),
+        };
+
+        let error = s.compose(&r);
+
+        assert_eq!(error, Err(Error::SourceTargetMismatch));
     }
 }

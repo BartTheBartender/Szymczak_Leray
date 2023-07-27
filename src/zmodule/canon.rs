@@ -13,7 +13,11 @@ use crate::{
 };
 
 use itertools::*;
-use std::{collections::HashMap, sync::Arc};
+use std::{
+    collections::HashMap,
+    fmt::{self, Display},
+    sync::Arc,
+};
 
 /* # torsion coefficients */
 
@@ -55,7 +59,7 @@ pub fn canonise_torsion_coeff(torsion_coeff: TorsionCoeff) -> TorsionCoeff {
 
 /* # canonical z module */
 
-#[derive(Clone, PartialEq, Eq, Hash)]
+#[derive(Debug, Clone, PartialEq, Eq, Hash)]
 pub struct CanonZModule {
     torsion_coeff: TorsionCoeff,
 }
@@ -204,6 +208,22 @@ pub fn submodules_of_cyclic_module(module: CanonZModule) -> Vec<CanonToCanon> {
         CanonToCanon::new_unchecked(source, target.clone(), vec![vec![divisor]])
     })
     .collect()
+}
+
+impl Display for CanonZModule {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        write!(
+            f,
+            "{}",
+            self.torsion_coeff
+                .iter()
+                .map(|x| {
+                    let y = x.to_string();
+                    y
+                })
+                .collect::<String>()
+        )
+    }
 }
 
 #[cfg(test)]

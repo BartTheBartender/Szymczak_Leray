@@ -8,6 +8,7 @@ use crate::{
 use rayon;
 use std::{
     collections::HashMap,
+    fmt::{self, Display},
     hash::Hash,
     marker::{PhantomData, Send, Sync},
 };
@@ -22,12 +23,12 @@ type SzymczakClass<Object, E> = HashMap<Object, Vec<E>>;
 type SzymczakClasses<Object, E> = Vec<SzymczakClass<Object, E>>;
 
 pub struct SzymczakCategory<Object: Eq, M: Morphism<Object, Object>, E: Endomorphism<Object>> {
-    szymczak_classes: SzymczakClasses<Object, E>,
+    pub szymczak_classes: SzymczakClasses<Object, E>,
     morphisms: PhantomData<M>,
 }
 
 impl<
-        Object: Eq + PartialEq + Hash + Clone + Sync + Send + From<M>,
+        Object: Eq + PartialEq + Hash + Clone + Sync + Send,
         M: Morphism<Object, Object>
             + Eq
             + Compose<Object, Object, Object, M, Output = M>
@@ -259,5 +260,97 @@ impl<
         }
 
         false
+    }
+}
+
+impl<Object: Eq + Display, M: Morphism<Object, Object>, E: Endomorphism<Object> + Display> Display
+    for SzymczakCategory<Object, M, E>
+{
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        let mut string = String::new();
+
+        for szymczak_class in self.szymczak_classes.iter() {
+            string.push_str("new szymczak class:\n");
+            for (object, endomorphisms) in szymczak_class.iter() {
+                string.push_str(&["object:", &object.to_string()].join(" "));
+                string.push_str("\n");
+                for endomorphism in endomorphisms.iter() {
+                    string.push_str(&endomorphism.to_string());
+                    string.push_str("\n");
+                }
+                string.push_str("\n");
+            }
+        }
+        write!(f, "{}", string)
+    }
+}
+
+#[cfg(test)]
+mod test {
+    use super::*;
+
+    use crate::{
+        category::{relation::Relation, Category, HomSet},
+        zmodule::canon::CanonZModule,
+    };
+    use bitvec::prelude::*;
+    use std::{collections::HashMap, sync::Arc};
+
+    #[test]
+    fn z2_category() {
+        let z2_module = Arc::new(CanonZModule::new(vec![2]));
+
+        let bottom_ = bitvec![1, 0, 0, 0];
+        let top_ = bitvec![1, 1, 1, 1];
+        let zero_ = bitvec![1, 1, 0, 0];
+        let zero_dagger_ = bitvec![1, 0, 1, 0];
+        let one_ = bitvec![1, 0, 0, 1];
+
+        let bottom = Relation {
+            source: Arc::clone(&z2_module),
+            target: Arc::clone(&z2_module),
+            matrix_normal: bottom_.clone(),
+            matrix_transposed: bottom_.clone(),
+        };
+        let top = Relation {
+            source: Arc::clone(&z2_module),
+            target: Arc::clone(&z2_module),
+            matrix_normal: top_.clone(),
+            matrix_transposed: top_.clone(),
+        };
+        let zero = Relation {
+            source: Arc::clone(&z2_module),
+            target: Arc::clone(&z2_module),
+            matrix_normal: zero_.clone(),
+            matrix_transposed: zero_dagger_.clone(),
+        };
+        let zero_dagger = Relation {
+            source: Arc::clone(&z2_module),
+            target: Arc::clone(&z2_module),
+            matrix_normal: zero_dagger_.clone(),
+            matrix_transposed: zero_.clone(),
+        };
+        let one = Relation {
+            source: Arc::clone(&z2_module),
+            target: Arc::clone(&z2_module),
+            matrix_normal: one_.clone(),
+            matrix_transposed: one_.clone(),
+        };
+
+        let mut hom_sets_fixed_source = HashMap::new();
+        hom_sets_fixed_source.insert(
+            z2_module.as_ref().clone(),
+            vec![bottom, top, zero, zero_dagger, one],
+        );
+
+        let mut hom_sets = HomSet::new();
+        hom_sets.insert(z2_module.as_ref().clone(), hom_sets_fixed_source);
+
+        let category = Category { hom_sets };
+        let szymczak_category =
+            SzymczakCategory::<CanonZModule, Relation, Relation>::szymczak_functor(&category);
+
+        print!("CATEGORY:\n{}--------------------\n", category);
+        print!("SZYMCZAK CATEGORY:\n{}", szymczak_category);
     }
 }
