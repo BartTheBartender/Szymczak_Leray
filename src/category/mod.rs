@@ -6,6 +6,8 @@ pub mod relation;
 use crate::category::morphism::{Endomorphism, Morphism};
 use std::collections::HashMap;
 
+pub type HomSet<Object, M> = HashMap<Object, HashMap<Object, Vec<M>>>;
+
 pub struct Category<Object: Eq, M: Morphism<Object, Object>> {
-    pub hom_sets: HashMap<(Object, Object), Vec<M>>,
+    pub hom_sets: HomSet<Object, M>,
 }

@@ -1,7 +1,7 @@
 use crate::{
     category::{
         morphism::{Endomorphism, Morphism},
-        Category,
+        Category, HomSet,
     },
     RECURSION_PARAMETER_SZYMCZAK_FUNCTOR,
 };
@@ -38,12 +38,12 @@ impl<
 
         let endomorphisms: Endomorphisms<E> = category
             .hom_sets
-            .iter() //i don't know how to parallelize that (it might be really helpful)
-            .filter(|((source, target), _)| source == target)
-            .flat_map(|(_, morphisms)| {
-                morphisms
+            .iter()
+            .flat_map(|(source, hom_sets_fixed_source)| {
+                hom_sets_fixed_source
                     .iter()
-                    .map(|morphism| Endomorphism::from_morphism(morphism))
+                    .filter(move |(target, _)| *target == source)
+                    .flat_map(|(_, morphisms)| morphisms.iter().map(Endomorphism::from_morphism))
             })
             .collect();
 
@@ -64,7 +64,7 @@ impl<
 
     fn raw_szymczak_functor<M: Morphism<Object, Object> + Sync>(
         mut endomorphisms: Endomorphisms<E>,
-        hom_sets: &HashMap<(Object, Object), Vec<M>>,
+        hom_sets: &HomSet<Object, M>,
     ) -> RawSzymczakClasses<E> {
         if endomorphisms.len() > RECURSION_PARAMETER_SZYMCZAK_FUNCTOR {
             let left_endomorphisms = endomorphisms.split_off(endomorphisms.len() / 2);
@@ -87,7 +87,7 @@ impl<
 
     fn raw_szymczak_functor_final_step<M: Morphism<Object, Object>>(
         endomorphisms: Endomorphisms<E>,
-        hom_sets: &HashMap<(Object, Object), Vec<M>>,
+        hom_sets: &HomSet<Object, M>,
     ) -> RawSzymczakClasses<E> {
         let mut raw_szymczak_classes = RawSzymczakClasses::<E>::new();
 
@@ -127,7 +127,7 @@ impl<
     fn merge_raw_szymczak_classes<M: Morphism<Object, Object>>(
         mut left_raw_szymczak_classes: RawSzymczakClasses<E>,
         mut right_raw_szymczak_classes: RawSzymczakClasses<E>,
-        hom_sets: &HashMap<(Object, Object), Vec<M>>,
+        hom_sets: &HomSet<Object, M>,
     ) -> RawSzymczakClasses<E> {
         let mut merged_raw_szymczak_classes = RawSzymczakClasses::<E>::new();
 
@@ -190,7 +190,7 @@ impl<
 
         for endomorphism in raw_szymczak_class_without_cycles.into_iter() {
             szymczak_class
-                .entry(endomorphism.source().as_ref().clone())
+                .entry(endomorphism.source().as_ref().clone()) //this clone is needed to be stored as a kye for the hashmap
                 .or_default()
                 .push(endomorphism)
         }
@@ -201,18 +201,22 @@ impl<
     fn are_szymczak_isomorphic<M: Morphism<Object, Object>>(
         left_endomorphism_with_cycles: (&E, &Vec<E>),
         right_endomorphism_with_cycles: (&E, &Vec<E>),
-        hom_sets: &HashMap<(Object, Object), Vec<M>>,
+        hom_sets: &HomSet<Object, M>,
     ) -> bool {
         let (l, l_cycles) = left_endomorphism_with_cycles;
         let (r, r_cycles) = right_endomorphism_with_cycles;
 
         let morphisms_l_to_r: &Vec<M> = hom_sets
-            .get(&(l.target().as_ref().clone(), r.source().as_ref().clone())) //i think i should refactorize the hom_set as nested hashmap (note that values don't need to be hashable)
-            .expect("there is a desired hom-set");
-        let morphisms_r_to_l: &Vec<M> = hom_sets
-            .get(&(r.target().as_ref().clone(), l.source().as_ref().clone()))
-            .expect("there is a desired hom-set");
+            .get(l.target().as_ref())
+            .expect("there is a hom_set with the given object")
+            .get(r.source().as_ref())
+            .expect("there is a hom_set with the given object");
 
+        let morphisms_l_to_r: &Vec<M> = hom_sets
+            .get(r.target().as_ref())
+            .expect("there is a hom_set with the given object")
+            .get(l.source().as_ref())
+            .expect("there is a hom_set with the given object");
         /*
         for l_to_r in morphisms_l_to_r.iter() {
             for r_to_l in morphisms_r_to_l.iter() {
@@ -223,8 +227,9 @@ impl<
                 }
             }
         }
-        */
         false
+        */
+        todo!()
     }
 
     fn is_identity<M: Morphism<Object, Object>>(morphism: &M, cycles: &Vec<E>) -> bool {
