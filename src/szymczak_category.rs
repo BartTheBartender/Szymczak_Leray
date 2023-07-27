@@ -1,12 +1,13 @@
 use crate::{
     category::{
-        morphism::{Endomorphism, Morphism},
+        morphism::{Compose, Endomorphism, Morphism},
         Category, HomSet,
     },
     RECURSION_PARAMETER_SZYMCZAK_FUNCTOR,
 };
 use rayon;
 use std::{
+    any::Any,
     collections::HashMap,
     hash::Hash,
     marker::{Send, Sync},
@@ -31,7 +32,10 @@ impl<
     > SzymczakCategory<Object, E>
 {
     //i dont really know if name of the function below is correct, but i find it cool (i woudl like to know your opinion as well). I dont know also how to parallelize it (i assume that we will have to use parallel Hash structures by rayon)
-    pub fn szymczak_functor<M: Morphism<Object, Object> + Sync>(
+
+    pub fn szymczak_functor<
+        M: Morphism<Object, Object> + Compose<Object, Object, Object, M, Output = M> + Sync,
+    >(
         category: &Category<Object, M>,
     ) -> Self {
         //step 1. Clone all the endomorphisms (we will need them to be owned)
@@ -62,7 +66,9 @@ impl<
 
     //----------------------------------------------------------------------
 
-    fn raw_szymczak_functor<M: Morphism<Object, Object> + Sync>(
+    fn raw_szymczak_functor<
+        M: Morphism<Object, Object> + Compose<Object, Object, Object, M, Output = M> + Sync,
+    >(
         mut endomorphisms: Endomorphisms<E>,
         hom_sets: &HomSet<Object, M>,
     ) -> RawSzymczakClasses<E> {
@@ -85,7 +91,9 @@ impl<
         }
     }
 
-    fn raw_szymczak_functor_final_step<M: Morphism<Object, Object>>(
+    fn raw_szymczak_functor_final_step<
+        M: Morphism<Object, Object> + Compose<Object, Object, Object, M, Output = M>,
+    >(
         endomorphisms: Endomorphisms<E>,
         hom_sets: &HomSet<Object, M>,
     ) -> RawSzymczakClasses<E> {
@@ -124,7 +132,9 @@ impl<
         raw_szymczak_classes
     }
 
-    fn merge_raw_szymczak_classes<M: Morphism<Object, Object>>(
+    fn merge_raw_szymczak_classes<
+        M: Morphism<Object, Object> + Compose<Object, Object, Object, M, Output = M>,
+    >(
         mut left_raw_szymczak_classes: RawSzymczakClasses<E>,
         mut right_raw_szymczak_classes: RawSzymczakClasses<E>,
         hom_sets: &HomSet<Object, M>,
@@ -190,7 +200,7 @@ impl<
 
         for endomorphism in raw_szymczak_class_without_cycles.into_iter() {
             szymczak_class
-                .entry(endomorphism.source().as_ref().clone()) //this clone is needed to be stored as a kye for the hashmap
+                .entry(endomorphism.source().as_ref().clone()) //this clone is needed to be stored as a key for the hashmap
                 .or_default()
                 .push(endomorphism)
         }
@@ -198,7 +208,9 @@ impl<
         szymczak_class
     }
 
-    fn are_szymczak_isomorphic<M: Morphism<Object, Object>>(
+    fn are_szymczak_isomorphic<
+        M: Morphism<Object, Object> + Compose<Object, Object, Object, M, Output = M> + Any<TypeId = E>,
+    >(
         left_endomorphism_with_cycles: (&E, &Vec<E>),
         right_endomorphism_with_cycles: (&E, &Vec<E>),
         hom_sets: &HomSet<Object, M>,
@@ -212,27 +224,41 @@ impl<
             .get(r.source().as_ref())
             .expect("there is a hom_set with the given object");
 
-        let morphisms_l_to_r: &Vec<M> = hom_sets
+        let morphisms_r_to_l: &Vec<M> = hom_sets
             .get(r.target().as_ref())
             .expect("there is a hom_set with the given object")
             .get(l.source().as_ref())
             .expect("there is a hom_set with the given object");
-        /*
+
         for l_to_r in morphisms_l_to_r.iter() {
             for r_to_l in morphisms_r_to_l.iter() {
-                if Self::is_identity::<M>(l_to_r.compose_unchecked(r_to_l), l_cycles)
-                    && Self::is_identity::<M>(r_to_l.compose_unchecked(l_to_r), r_cycles)
-                {
+                if Self::is_identity(
+                    //THIS IS VERY BAD
+                    &Endomorphism::from_morphism(&l_to_r.compose_unchecked(r_to_l)),
+                    l_cycles,
+                ) && Self::is_identity(
+                    //THIS IS VERY BAD
+                    &Endomorphism::from_morphism(&r_to_l.compose_unchecked(l_to_r)),
+                    r_cycles,
+                ) {
                     return true;
                 }
             }
         }
         false
-        */
-        todo!()
     }
 
-    fn is_identity<M: Morphism<Object, Object>>(morphism: &M, cycles: &Vec<E>) -> bool {
-        todo!() // i've realized i don't know how to use the Compose trait
+    fn is_identity(morphism: &E, cycle: &Vec<E>) -> bool {
+        for en in cycle.iter() {
+            let en_morphism = morphism.compose_unchecked(en);
+
+            for em in cycle.iter() {
+                if en_morphism == *em {
+                    return true;
+                }
+            }
+        }
+
+        false
     }
 }
