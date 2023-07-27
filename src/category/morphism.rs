@@ -84,10 +84,6 @@ pub trait Endomorphism<Object: Eq>:
         })
         .collect()
     }
-    fn from_morphism<M>(morphism: &M) -> Self
-    // there is no default implementation of course
-    where
-        M: Morphism<Object, Object>;
 }
 
 pub trait AbelianMorphism<Source: ZModule, Target: ZModule>: Morphism<Source, Target> {
