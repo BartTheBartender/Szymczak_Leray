@@ -7,10 +7,9 @@ use crate::{
 };
 use rayon;
 use std::{
-    any::Any,
     collections::HashMap,
     hash::Hash,
-    marker::{Send, Sync},
+    marker::{PhantomData, Send, Sync},
 };
 
 type Endomorphisms<E> = Vec<E>;
@@ -22,22 +21,29 @@ type RawSzymczakClasses<E> = Vec<RawSzymczakClass<E>>;
 type SzymczakClass<Object, E> = HashMap<Object, Vec<E>>;
 type SzymczakClasses<Object, E> = Vec<SzymczakClass<Object, E>>;
 
-pub struct SzymczakCategory<Object: Eq, E: Endomorphism<Object>> {
+pub struct SzymczakCategory<Object: Eq, M: Morphism<Object, Object>, E: Endomorphism<Object>> {
     szymczak_classes: SzymczakClasses<Object, E>,
+    morphisms: PhantomData<M>,
 }
 
 impl<
-        Object: Eq + PartialEq + Hash + Clone + Sync + Send,
-        E: Endomorphism<Object> + Sync + Send,
-    > SzymczakCategory<Object, E>
+        Object: Eq + PartialEq + Hash + Clone + Sync + Send + From<M>,
+        M: Morphism<Object, Object>
+            + Eq
+            + Compose<Object, Object, Object, M, Output = M>
+            + Compose<Object, Object, Object, E, Output = M>
+            + Sync
+            + Clone,
+        E: Endomorphism<Object>
+            + Sync
+            + Send
+            + From<M>
+            + Compose<Object, Object, Object, M, Output = M>,
+    > SzymczakCategory<Object, M, E>
 {
     //i dont really know if name of the function below is correct, but i find it cool (i woudl like to know your opinion as well). I dont know also how to parallelize it (i assume that we will have to use parallel Hash structures by rayon)
 
-    pub fn szymczak_functor<
-        M: Morphism<Object, Object> + Compose<Object, Object, Object, M, Output = M> + Sync,
-    >(
-        category: &Category<Object, M>,
-    ) -> Self {
+    pub fn szymczak_functor(category: &Category<Object, M>) -> Self {
         //step 1. Clone all the endomorphisms (we will need them to be owned)
 
         let endomorphisms: Endomorphisms<E> = category
@@ -47,7 +53,9 @@ impl<
                 hom_sets_fixed_source
                     .iter()
                     .filter(move |(target, _)| *target == source)
-                    .flat_map(|(_, morphisms)| morphisms.iter().map(Endomorphism::from_morphism))
+                    .flat_map(|(_, morphisms)| {
+                        morphisms.iter().map(|morphism| E::from(morphism.clone()))
+                    })
             })
             .collect();
 
@@ -61,14 +69,15 @@ impl<
             .map(Self::sort_by_object)
             .collect();
 
-        SzymczakCategory { szymczak_classes }
+        SzymczakCategory {
+            szymczak_classes,
+            morphisms: PhantomData::<M>,
+        }
     }
 
     //----------------------------------------------------------------------
 
-    fn raw_szymczak_functor<
-        M: Morphism<Object, Object> + Compose<Object, Object, Object, M, Output = M> + Sync,
-    >(
+    fn raw_szymczak_functor(
         mut endomorphisms: Endomorphisms<E>,
         hom_sets: &HomSet<Object, M>,
     ) -> RawSzymczakClasses<E> {
@@ -77,11 +86,11 @@ impl<
             let right_endomorphisms = endomorphisms;
 
             let (left_raw_szymczak_classes, right_raw_szymczak_classes) = rayon::join(
-                || Self::raw_szymczak_functor::<M>(left_endomorphisms, hom_sets),
-                || Self::raw_szymczak_functor::<M>(right_endomorphisms, hom_sets),
+                || Self::raw_szymczak_functor(left_endomorphisms, hom_sets),
+                || Self::raw_szymczak_functor(right_endomorphisms, hom_sets),
             );
 
-            Self::merge_raw_szymczak_classes::<M>(
+            Self::merge_raw_szymczak_classes(
                 left_raw_szymczak_classes,
                 right_raw_szymczak_classes,
                 hom_sets,
@@ -91,9 +100,7 @@ impl<
         }
     }
 
-    fn raw_szymczak_functor_final_step<
-        M: Morphism<Object, Object> + Compose<Object, Object, Object, M, Output = M>,
-    >(
+    fn raw_szymczak_functor_final_step(
         endomorphisms: Endomorphisms<E>,
         hom_sets: &HomSet<Object, M>,
     ) -> RawSzymczakClasses<E> {
@@ -132,9 +139,7 @@ impl<
         raw_szymczak_classes
     }
 
-    fn merge_raw_szymczak_classes<
-        M: Morphism<Object, Object> + Compose<Object, Object, Object, M, Output = M>,
-    >(
+    fn merge_raw_szymczak_classes(
         mut left_raw_szymczak_classes: RawSzymczakClasses<E>,
         mut right_raw_szymczak_classes: RawSzymczakClasses<E>,
         hom_sets: &HomSet<Object, M>,
@@ -208,9 +213,7 @@ impl<
         szymczak_class
     }
 
-    fn are_szymczak_isomorphic<
-        M: Morphism<Object, Object> + Compose<Object, Object, Object, M, Output = M> + Any<TypeId = E>,
-    >(
+    fn are_szymczak_isomorphic(
         left_endomorphism_with_cycles: (&E, &Vec<E>),
         right_endomorphism_with_cycles: (&E, &Vec<E>),
         hom_sets: &HomSet<Object, M>,
@@ -232,15 +235,11 @@ impl<
 
         for l_to_r in morphisms_l_to_r.iter() {
             for r_to_l in morphisms_r_to_l.iter() {
-                if Self::is_identity(
-                    //THIS IS VERY BAD
-                    &Endomorphism::from_morphism(&l_to_r.compose_unchecked(r_to_l)),
-                    l_cycles,
-                ) && Self::is_identity(
-                    //THIS IS VERY BAD
-                    &Endomorphism::from_morphism(&r_to_l.compose_unchecked(l_to_r)),
-                    r_cycles,
-                ) {
+                if l_to_r.compose_unchecked(r) == l.compose_unchecked(l_to_r)
+                    && r_to_l.compose_unchecked(l) == r.compose_unchecked(r_to_l)
+                    && Self::is_identity(&E::from(l_to_r.compose_unchecked(r_to_l)), l_cycles)
+                    && Self::is_identity(&E::from(r_to_l.compose_unchecked(l_to_r)), r_cycles)
+                {
                     return true;
                 }
             }
