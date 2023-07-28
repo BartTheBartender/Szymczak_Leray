@@ -4,7 +4,7 @@ use crate::{
         Category,
     },
     error::Error,
-    zmodule::canon::CanonZModule,
+    zmodule::{canon::CanonZModule, ZModule},
     Int, TorsionCoeff,
 };
 
@@ -24,6 +24,44 @@ pub struct Relation {
 }
 
 impl Relation {
+    pub fn new_unchecked(
+        elements: Vec<<CanonZModule as ZModule>::Element>,
+        helper_indices_normal: &Vec<Int>,
+        helper_indices_transposed: &Vec<Int>,
+        helper_capacity: &usize,
+        source: Arc<CanonZModule>,
+        target: Arc<CanonZModule>,
+    ) -> Self {
+        let mut matrix_normal = BitVec::with_capacity(*helper_capacity);
+        let mut matrix_transposed = BitVec::with_capacity(*helper_capacity);
+        for element in elements.iter() {
+            matrix_normal.set(
+                element
+                    .iter()
+                    .zip(helper_indices_normal.iter())
+                    .map(|(&x, &y)| x * y)
+                    .sum::<Int>() as usize,
+                true,
+            );
+
+            matrix_transposed.set(
+                element
+                    .iter()
+                    .zip(helper_indices_transposed.iter())
+                    .map(|(&x, &y)| x * y)
+                    .sum::<Int>() as usize,
+                true,
+            );
+        }
+
+        Relation {
+            source,
+            target,
+            matrix_normal,
+            matrix_transposed,
+        }
+    }
+
     pub fn krakowian_product_unchecked(
         left: &BitVec,
         right: &BitVec,
@@ -134,12 +172,6 @@ impl Compose<CanonZModule, CanonZModule, CanonZModule, Relation> for Relation {
 }
 
 impl Endomorphism<CanonZModule> for Relation {}
-
-impl Category<CanonZModule, Relation> {
-    fn hom_set(source: &CanonZModule, target: &CanonZModule) -> HashSet<Relation> {
-        todo!() //to jest funkcja o którą prosiłeś. w szczególności nie musi być d  dokładnie taka, chodzi mi o ideę (nie wiem np jak tutaj uwzględniać zanurzenia modułów w siebiw w tej syngnaturze
-    }
-}
 
 #[cfg(test)]
 mod test {
