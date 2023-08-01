@@ -1,6 +1,9 @@
 use crate::{
     error::Error,
-    rmodule::{ring::Ring, Module},
+    rmodule::{
+        ring::{Radix, Ring},
+        Module,
+    },
 };
 use std::{
     collections::HashSet,
@@ -89,7 +92,7 @@ pub trait EndoMorphism<Object: Eq>:
     }
 }
 
-pub trait AbelianMorphism<R: Ring, Source: Module<R>, Target: Module<R>>:
+pub trait AbelianMorphism<RC: Radix, R: Ring<RC>, Source: Module<RC, R>, Target: Module<RC, R>>:
     Morphism<Source, Target>
 {
     fn is_zero(&self) -> bool;
@@ -97,8 +100,8 @@ pub trait AbelianMorphism<R: Ring, Source: Module<R>, Target: Module<R>>:
     fn cokernel(&self) -> Self;
 }
 
-pub trait AbelianEndoMorphism<R: Ring, Object: Module<R> + Eq>:
-    EndoMorphism<Object> + AbelianMorphism<R, Object, Object>
+pub trait AbelianEndoMorphism<RC: Radix, R: Ring<RC>, Object: Module<RC, R> + Eq>:
+    EndoMorphism<Object> + AbelianMorphism<RC, R, Object, Object>
 {
     fn high_kernel(&self) -> Self {
         // probably not the fastest, but will work consistently

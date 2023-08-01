@@ -1,20 +1,23 @@
-use crate::{error::Error, rmodule::ring::Ring};
+use crate::{
+    error::Error,
+    rmodule::ring::{Radix, Ring},
+};
 
-// pub mod canon;
+pub mod canon;
 // pub mod coset;
-// pub mod map;
-// pub mod product;
+pub mod map;
+pub mod product;
 pub mod ring;
 pub mod torsion;
 
-pub trait Module<R: Ring> {
+pub trait Module<RCard: Radix, R: Ring<RCard>> {
     type Element;
 
     fn zero(&self) -> Self::Element;
     fn is_element(&self, v: &Self::Element) -> bool;
 
     fn add_unchecked(&self, v: &Self::Element, u: &Self::Element) -> Self::Element;
-    fn increment_unchecked(&self, v: &mut Self::Element, u: &Self::Element);
+    // fn increment_unchecked(&self, v: &mut Self::Element, u: &Self::Element);
     fn mul_by_scalar_unchecked(&self, x: R, v: &Self::Element) -> Self::Element;
 
     fn add(&self, v: &Self::Element, u: &Self::Element) -> Result<Self::Element, Error> {
@@ -24,15 +27,15 @@ pub trait Module<R: Ring> {
         }
     }
 
-    fn increment(&self, v: &mut Self::Element, u: &Self::Element) -> Result<(), Error> {
-        match self.is_element(v) && self.is_element(u) {
-            true => {
-                self.increment_unchecked(v, u);
-                Ok(())
-            }
-            false => Err(Error::InvalidElement),
-        }
-    }
+    // fn increment(&self, v: &mut Self::Element, u: &Self::Element) -> Result<(), Error> {
+    //     match self.is_element(v) && self.is_element(u) {
+    //         true => {
+    //             self.increment_unchecked(v, u);
+    //             Ok(())
+    //         }
+    //         false => Err(Error::InvalidElement),
+    //     }
+    // }
 
     fn mul_by_scalar(&self, x: R, v: &Self::Element) -> Result<Self::Element, Error> {
         match self.is_element(v) {

@@ -1,10 +1,13 @@
 #![feature(specialization)]
+#![feature(return_position_impl_trait_in_trait)]
 #![feature(generic_const_exprs)]
 #![feature(let_chains)]
 #![feature(btree_extract_if)]
 #![feature(extract_if)]
+#![feature(trait_alias)]
 #![feature(associated_type_bounds)]
 #![allow(dead_code)] // REMOVE THIS LATER
+#![allow(incomplete_features)]
 
 #[allow(unused_imports)]
 mod category;
@@ -15,7 +18,7 @@ mod util;
 //mod szymczak_category;
 
 // use crate::category::relation::*; UNCOMMENT THIS
-use bitvec::prelude::*;
+// use bitvec::prelude::*;
 // use std::rc::Rc;
 
 pub type Int = u8;

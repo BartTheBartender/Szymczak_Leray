@@ -1,29 +1,32 @@
+#![allow(unused_imports)] // DELETE LATER
 use crate::{
     category::morphism::{AbelianMorphism, Compose, Morphism},
     error::Error,
-    util::iterator::Dedup,
-    zmodule::{
-        canon::CanonZModule,
-        coset::{Coset, CosetZModule},
-        ZModule,
+    matrix::Matrix,
+    rmodule::{
+        canon::CanonModule,
+        ring::{Radix, Ring, SuperRing},
+        // coset::{Coset, CosetModule<R>},
+        Module,
     },
+    util::iterator::Dedup,
 };
-use std::{collections::HashMap, sync::Arc};
+use std::{collections::HashMap, ops::Rem, sync::Arc};
 
 /* # Canon to Canon */
 
 #[derive(PartialEq, Eq)]
-pub struct CanonToCanon {
-    source: Arc<CanonZModule>,
-    target: Arc<CanonZModule>,
-    map: Vec<<CanonZModule as ZModule>::Element>,
+pub struct CanonToCanon<RC: Radix, R: SuperRing<RC>> {
+    source: Arc<CanonModule<RC, R>>,
+    target: Arc<CanonModule<RC, R>>,
+    map: Matrix<R>,
 }
 
-impl CanonToCanon {
+impl<RC: Radix, R: SuperRing<RC>> CanonToCanon<RC, R> {
     pub fn new_unchecked(
-        source: Arc<CanonZModule>,
-        target: Arc<CanonZModule>,
-        map: Vec<<CanonZModule as ZModule>::Element>,
+        source: Arc<CanonModule<RC, R>>,
+        target: Arc<CanonModule<RC, R>>,
+        map: Matrix<R>,
     ) -> Self {
         Self {
             source,
@@ -32,40 +35,41 @@ impl CanonToCanon {
         }
     }
 
+    /*
     pub fn new(
-        source: Arc<CanonZModule>,
-        target: Arc<CanonZModule>,
-        map: Vec<<CanonZModule as ZModule>::Element>,
+        source: Arc<CanonModule<R>>,
+        target: Arc<CanonModule<R>>,
+        map: Matrix<<CanonModule<R> as Module<R>>::Element>,
     ) -> Result<Self, Error> {
         match map.iter().all(|el| target.is_element(el)) {
             true => Ok(Self::new_unchecked(source, target, map)),
             false => Err(Error::InvalidElement),
         }
     }
+    */
 
     pub fn evaluate_unchecked(
         &self,
-        v: &<CanonZModule as ZModule>::Element,
-    ) -> <CanonZModule as ZModule>::Element {
-        self.map
-            .iter()
-            .zip(v.iter())
-            .map(|(output, gen)| self.source.as_ref().mul_by_scalar_unchecked(*gen, output))
-            .reduce(|acc, next| self.source.as_ref().add_unchecked(&acc, &next))
-            .expect("element will not be empty")
+        v: &<CanonModule<RC, R> as Module<RC, R>>::Element,
+    ) -> <CanonModule<RC, R> as Module<RC, R>>::Element {
+        self.target
+            .element_from_matrix(v.as_matrix().compose_unchecked(&self.map))
     }
 
+    /*
     pub fn evaluate(
         &self,
-        v: &<CanonZModule as ZModule>::Element,
-    ) -> Result<<CanonZModule as ZModule>::Element, Error> {
+        v: &<CanonModule<RC, R> as Module<RC, R>>::Element,
+    ) -> Result<<CanonModule<RC, R> as Module<RC, R>>::Element, Error> {
         match self.source.as_ref().is_element(v) {
             true => Ok(self.evaluate_unchecked(v)),
             false => Err(Error::InvalidElement),
         }
     }
+    */
 
-    pub fn image(&self) -> Vec<<CanonZModule as ZModule>::Element> {
+    /*
+    pub fn image(&self) -> Vec<<CanonModule<R> as Module<R>>::Element> {
         let mut im: Vec<_> = self
             .source()
             .all_elements()
@@ -75,48 +79,58 @@ impl CanonToCanon {
         im.clear_duplicates();
         im
     }
+    */
 
-    pub fn epis(source: Arc<CanonZModule>, target: Arc<CanonZModule>) -> Vec<CanonToCanon> {
+    /*
+    pub fn epis(source: Arc<CanonModule<R>>, target: Arc<CanonModule<R>>) -> Vec<CanonToCanon<R>> {
         if target.dimension() > source.dimension() {
             return Vec::new();
         }
         // find all generating sets of the target
         // for every such set, create all maps from the canonical generators of the source onto this set
+
+        // maybe we can do this by dual goursat
         todo!()
     }
+    */
 }
 
-impl Morphism<CanonZModule, CanonZModule> for CanonToCanon {
-    fn source(&self) -> Arc<CanonZModule> {
+impl<RC: Radix, R: SuperRing<RC>> Morphism<CanonModule<RC, R>, CanonModule<RC, R>>
+    for CanonToCanon<RC, R>
+{
+    fn source(&self) -> Arc<CanonModule<RC, R>> {
         Arc::clone(&self.source)
     }
 
-    fn target(&self) -> Arc<CanonZModule> {
+    fn target(&self) -> Arc<CanonModule<RC, R>> {
         Arc::clone(&self.target)
     }
 }
 
-impl Compose<CanonZModule, CanonZModule, CanonZModule, Self> for CanonToCanon {
+impl<RC: Radix, R: SuperRing<RC>>
+    Compose<CanonModule<RC, R>, CanonModule<RC, R>, CanonModule<RC, R>, Self>
+    for CanonToCanon<RC, R>
+{
     type Output = Self;
 
     fn compose_unchecked(&self, other: &Self) -> Self {
         Self::new_unchecked(
             Arc::clone(&self.source),
             Arc::clone(&other.target),
-            self.map
-                .iter()
-                .map(|element| other.evaluate_unchecked(element))
-                .collect(),
+            self.map.compose_unchecked(&other.map),
         )
     }
 }
 
-impl AbelianMorphism<CanonZModule, CanonZModule> for CanonToCanon {
+impl<RC: Radix, R: SuperRing<RC>> AbelianMorphism<RC, R, CanonModule<RC, R>, CanonModule<RC, R>>
+    for CanonToCanon<RC, R>
+{
     fn is_zero(&self) -> bool {
-        todo!()
+        self.map.iter().all(|e| e.is_zero())
     }
 
     fn kernel(&self) -> Self {
+        // we can probably do this with smithing
         todo!()
     }
 
@@ -127,18 +141,19 @@ impl AbelianMorphism<CanonZModule, CanonZModule> for CanonToCanon {
 
 /* # Coset to Canon */
 
+/*
 #[derive(PartialEq, Eq)]
 pub struct CosetToCanon {
-    source: Arc<CosetZModule<CanonZModule>>,
-    target: Arc<CanonZModule>,
-    map: HashMap<Coset<CanonZModule>, <CanonZModule as ZModule>::Element>,
+    source: Arc<CosetModule<R><CanonModule<R>>>,
+    target: Arc<CanonModule<R>>,
+    map: HashMap<Coset<CanonModule<R>>, <CanonModule<R> as Module<R>>::Element>,
 }
 
 impl CosetToCanon {
     pub fn new(
-        source: Arc<CosetZModule<CanonZModule>>,
-        target: Arc<CanonZModule>,
-        map: HashMap<Coset<CanonZModule>, <CanonZModule as ZModule>::Element>,
+        source: Arc<CosetModule<R><CanonModule<R>>>,
+        target: Arc<CanonModule<R>>,
+        map: HashMap<Coset<CanonModule<R>>, <CanonModule<R> as Module<R>>::Element>,
     ) -> Self {
         Self {
             source,
@@ -149,35 +164,37 @@ impl CosetToCanon {
 
     fn evaluate(
         &self,
-        element: &Coset<CanonZModule>,
-    ) -> Result<<CanonZModule as ZModule>::Element, Error> {
+        element: &Coset<CanonModule<R>>,
+    ) -> Result<<CanonModule<R> as Module<R>>::Element, Error> {
         self.map.get(element).ok_or(Error::PartialMap).cloned()
     }
 }
 
-impl Morphism<CosetZModule<CanonZModule>, CanonZModule> for CosetToCanon {
-    fn source(&self) -> Arc<CosetZModule<CanonZModule>> {
+impl Morphism<CosetModule<R><CanonModule<R>>, CanonModule<R>> for CosetToCanon {
+    fn source(&self) -> Arc<CosetModule<R><CanonModule<R>>> {
         Arc::clone(&self.source)
     }
 
-    fn target(&self) -> Arc<CanonZModule> {
+    fn target(&self) -> Arc<CanonModule<R>> {
         Arc::clone(&self.target)
     }
 }
+*/
 
 /* # Canon to Coset */
 
+/*
 pub struct CanonToCoset {
-    source: Arc<CanonZModule>,
-    target: Arc<CosetZModule<CanonZModule>>,
-    map: HashMap<<CanonZModule as ZModule>::Element, Coset<CanonZModule>>,
+    source: Arc<CanonModule<R>>,
+    target: Arc<CosetModule<R><CanonModule<R>>>,
+    map: HashMap<<CanonModule<R> as Module<R>>::Element, Coset<CanonModule<R>>>,
 }
 
 impl CanonToCoset {
     pub fn new(
-        source: Arc<CanonZModule>,
-        target: Arc<CosetZModule<CanonZModule>>,
-        map: HashMap<<CanonZModule as ZModule>::Element, Coset<CanonZModule>>,
+        source: Arc<CanonModule<R>>,
+        target: Arc<CosetModule<R><CanonModule<R>>>,
+        map: HashMap<<CanonModule<R> as Module<R>>::Element, Coset<CanonModule<R>>>,
     ) -> Self {
         Self {
             source,
@@ -188,25 +205,27 @@ impl CanonToCoset {
 
     fn evaluate(
         &self,
-        element: &<CanonZModule as ZModule>::Element,
-    ) -> Result<Coset<CanonZModule>, Error> {
+        element: &<CanonModule<R> as Module<R>>::Element,
+    ) -> Result<Coset<CanonModule<R>>, Error> {
         self.map.get(element).ok_or(Error::PartialMap).cloned()
     }
 }
 
-impl Morphism<CanonZModule, CosetZModule<CanonZModule>> for CanonToCoset {
-    fn source(&self) -> Arc<CanonZModule> {
+impl Morphism<CanonModule<R>, CosetModule<R><CanonModule<R>>> for CanonToCoset {
+    fn source(&self) -> Arc<CanonModule<R>> {
         Arc::clone(&self.source)
     }
 
-    fn target(&self) -> Arc<CosetZModule<CanonZModule>> {
+    fn target(&self) -> Arc<CosetModule<R><CanonModule<R>>> {
         Arc::clone(&self.target)
     }
 }
+*/
 
 /* # Canon to Coset to Canon */
 
-impl Compose<CanonZModule, CosetZModule<CanonZModule>, CanonZModule, CosetToCanon>
+/*
+impl Compose<CanonModule<R>, CosetModule<R><CanonModule<R>>, CanonModule<R>, CosetToCanon>
     for CanonToCoset
 {
     type Output = CanonToCanon;
@@ -229,3 +248,4 @@ impl Compose<CanonZModule, CosetZModule<CanonZModule>, CanonZModule, CosetToCano
         )
     }
 }
+*/
