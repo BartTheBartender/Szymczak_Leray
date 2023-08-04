@@ -6,7 +6,6 @@ use crate::{
     rmodule::{
         canon::CanonModule,
         ring::{Radix, Ring, SuperRing},
-        // coset::{Coset, CosetModule<R>},
         Module,
     },
     util::iterator::Dedup,
@@ -19,7 +18,7 @@ use std::{
 
 /* # Canon to Canon */
 
-#[derive(PartialEq, Eq)]
+#[derive(Debug, PartialEq, Eq)]
 pub struct CanonToCanon<RC: Radix, R: SuperRing<RC>> {
     source: Arc<CanonModule<RC, R>>,
     target: Arc<CanonModule<RC, R>>,
@@ -131,7 +130,7 @@ impl<RC: Radix, R: SuperRing<RC>> PreAbelianMorphism<RC, R, CanonModule<RC, R>, 
     }
 }
 
-impl<RC: Radix, R: SuperRing<RC>> Add for &CanonToCanon<RC, R> {
+impl<RC: Radix, R: SuperRing<RC>> Add for CanonToCanon<RC, R> {
     type Output = CanonToCanon<RC, R>;
 
     /**
@@ -148,7 +147,7 @@ impl<RC: Radix, R: SuperRing<RC>> Add for &CanonToCanon<RC, R> {
     }
 }
 
-impl<RC: Radix, R: SuperRing<RC>> Neg for &CanonToCanon<RC, R> {
+impl<RC: Radix, R: SuperRing<RC>> Neg for CanonToCanon<RC, R> {
     type Output = CanonToCanon<RC, R>;
 
     fn neg(self) -> Self::Output {
@@ -157,5 +156,94 @@ impl<RC: Radix, R: SuperRing<RC>> Neg for &CanonToCanon<RC, R> {
             target: Arc::clone(&self.target),
             map: -&self.map,
         }
+    }
+}
+
+#[cfg(test)]
+mod test {
+    use super::*;
+    use crate::rmodule::{
+        ring::{Fin, Set},
+        torsion::CoeffTree,
+    };
+    use typenum::U6;
+
+    #[test]
+    fn kernels() {
+        type R = Fin<U6>;
+
+        let z2 = Arc::new(CanonModule::new(CoeffTree::<R, ()>::from_iter([R::new(2)])));
+        let z6 = Arc::new(CanonModule::new(CoeffTree::<R, ()>::from_iter([R::new(0)])));
+        assert_eq!(
+            CanonToCanon::new_unchecked(
+                Arc::clone(&z6),
+                Arc::clone(&z6),
+                Matrix::from_buffer([R::new(2)], 1, 1),
+            )
+            .kernel(),
+            CanonToCanon::new_unchecked(
+                Arc::clone(&z2),
+                Arc::clone(&z6),
+                Matrix::from_buffer([R::new(3)], 1, 1),
+            )
+        );
+
+        let z6sq = Arc::new(CanonModule::new(CoeffTree::<R, ()>::from_iter([
+            R::new(0),
+            R::new(0),
+        ])));
+        assert_eq!(
+            CanonToCanon::new_unchecked(
+                Arc::clone(&z6sq),
+                Arc::clone(&z6sq),
+                Matrix::from_buffer([R::new(2), R::new(2), R::new(3), R::new(0)], 2, 2),
+            )
+            .kernel(),
+            CanonToCanon::new_unchecked(
+                Arc::clone(&z6),
+                Arc::clone(&z6sq),
+                Matrix::from_buffer([R::new(2), R::new(1)], 1, 2),
+            )
+        );
+    }
+
+    #[test]
+    fn cokernels() {
+        type R = Fin<U6>;
+
+        let z2 = Arc::new(CanonModule::new(CoeffTree::<R, ()>::from_iter([R::new(2)])));
+        let z6 = Arc::new(CanonModule::new(CoeffTree::<R, ()>::from_iter([R::new(0)])));
+        assert_eq!(
+            CanonToCanon::new_unchecked(
+                Arc::clone(&z6),
+                Arc::clone(&z6),
+                Matrix::from_buffer([R::new(2)], 1, 1),
+            )
+            .cokernel(),
+            CanonToCanon::new_unchecked(
+                Arc::clone(&z6),
+                Arc::clone(&z2),
+                Matrix::from_buffer([R::new(1)], 1, 1),
+            )
+        );
+
+        let z6sq = Arc::new(CanonModule::new(CoeffTree::<R, ()>::from_iter([
+            R::new(0),
+            R::new(0),
+        ])));
+        assert_eq!(
+            CanonToCanon::new_unchecked(
+                Arc::clone(&z6sq),
+                Arc::clone(&z6sq),
+                Matrix::from_buffer([R::new(2), R::new(2), R::new(3), R::new(0)], 2, 2),
+            )
+            .cokernel(),
+            CanonToCanon::new_unchecked(
+                Arc::clone(&z6sq),
+                Arc::clone(&z6),
+                // 90% sure this this the cokernel
+                Matrix::from_buffer([R::new(1), R::new(2)], 2, 1),
+            )
+        );
     }
 }

@@ -108,24 +108,22 @@ pub trait PreAbelianMorphism<RC: Radix, R: Ring<RC>, Source: Module<RC, R>, Targ
 pub trait AbelianMorphism<RC: Radix, R: Ring<RC>, Source: Module<RC, R>, Target: Module<RC, R>>:
     Sized + PreAbelianMorphism<RC, R, Source, Target>
 {
-    fn equaliser(&self, other: &Self) -> Self;
-    fn coequaliser(&self, other: &Self) -> Self;
+    fn equaliser(self, other: Self) -> Self;
+    fn coequaliser(self, other: Self) -> Self;
 }
 
-impl<'a, RC: Radix, R: Ring<RC>, Source: Module<RC, R>, Target: Module<RC, R>, T>
+impl<RC: Radix, R: Ring<RC>, Source: Module<RC, R>, Target: Module<RC, R>, T>
     AbelianMorphism<RC, R, Source, Target> for T
 where
-    T: PreAbelianMorphism<RC, R, Source, Target> + 'a,
-    &'a T: Add<Output = T> + Neg<Output = T>,
+    T: PreAbelianMorphism<RC, R, Source, Target>,
+    T: Add<Output = T> + Neg<Output = T>,
 {
-    fn equaliser(&self, other: &Self) -> Self {
-        // (self + &-other).kernel()
-        todo!()
+    fn equaliser(self, other: Self) -> Self {
+        (self + -other).kernel()
     }
 
-    fn coequaliser(&self, other: &Self) -> Self {
-        // (self + &-other).cokernel()
-        todo!()
+    fn coequaliser(self, other: Self) -> Self {
+        (self + -other).cokernel()
     }
 }
 

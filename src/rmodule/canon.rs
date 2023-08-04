@@ -59,7 +59,7 @@ pub fn canonise_torsion_coeff(torsion_coeff: TorsionCoeff) -> TorsionCoeff {
 
 /* # canonical module */
 
-#[derive(Clone, PartialEq, Eq)]
+#[derive(Debug, Clone, PartialEq, Eq)]
 pub struct CanonModule<RC: Radix, R: Ring<RC>> {
     // technically, this R in the Tree should be an ideal of the ring
     torsion_coeff: CoeffTree<R, ()>,
