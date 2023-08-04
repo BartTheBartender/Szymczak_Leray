@@ -3,8 +3,8 @@ use crate::{
     category::morphism::{Compose, Morphism},
     matrix::Matrix,
     rmodule::{
+        direct::DirectModule,
         map::CanonToCanon,
-        product::BiProductModule,
         ring::{Radix, Ring, SuperRing},
         torsion::{Coeff, CoeffTree},
         Module,
@@ -126,7 +126,7 @@ impl<RC: Radix, R: SuperRing<RC>> CanonModule<RC, R> {
         match self.dimension() {
             0 => panic!("coś poszło nie tak"),
             1 => submodules_of_cyclic_module(self),
-            _n => BiProductModule::from(self).submodules_goursat(),
+            _n => DirectModule::from(self).submodules_goursat(),
         }
     }
 
@@ -134,7 +134,7 @@ impl<RC: Radix, R: SuperRing<RC>> CanonModule<RC, R> {
         match self.dimension() {
             0 => panic!("coś poszło nie tak"),
             1 => quotients_of_cyclic_module(self),
-            _n => BiProductModule::from(self).quotients_goursat(),
+            _n => DirectModule::from(self).quotients_goursat(),
         }
     }
 }

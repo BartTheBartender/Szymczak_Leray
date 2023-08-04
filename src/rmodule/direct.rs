@@ -1,6 +1,6 @@
 #![allow(unused_imports)] // DELETE LATER
 use crate::{
-    category::morphism::{AbelianMorphism, Compose, Morphism},
+    category::morphism::{AbelianMorphism, Compose, Morphism, PreAbelianMorphism},
     matrix::Matrix,
     rmodule::{
         canon::CanonModule,
@@ -12,14 +12,16 @@ use crate::{
 };
 use std::sync::Arc;
 
-pub struct BiProductModule<RC: Radix, R: SuperRing<RC>> {
+pub struct DirectModule<RC: Radix, R: SuperRing<RC>> {
+    // left: Arc<CanonModule<RC, R>>,
+    // right: Arc<CanonModule<RC, R>>,
     left_inclusion: CanonToCanon<RC, R>,
     right_inclusion: CanonToCanon<RC, R>,
     left_projection: CanonToCanon<RC, R>,
     right_projection: CanonToCanon<RC, R>,
 }
 
-impl<RC: Radix, R: SuperRing<RC>> BiProductModule<RC, R> {
+impl<RC: Radix, R: SuperRing<RC>> DirectModule<RC, R> {
     pub fn left(&self) -> Arc<CanonModule<RC, R>> {
         // should be the same as left_projection.target()
         Arc::clone(&self.left_inclusion.source())
@@ -31,20 +33,19 @@ impl<RC: Radix, R: SuperRing<RC>> BiProductModule<RC, R> {
     }
 
     pub fn submodules_goursat(&self) -> Vec<CanonToCanon<RC, R>> {
-        // odkomentowanie tego powoduje mnóstwo błędów kompilatora
-        /*
         Arc::unwrap_or_clone(self.left())
             .submodules()
             .into_iter()
             .zip(Arc::unwrap_or_clone(self.right()).submodules())
             .flat_map(|(left_sub, right_sub)| {
                 let mut phi_epis = Arc::unwrap_or_clone(self.left()).quotients();
-                let smol = BiProductModule::biproduct(&left_sub.source(), &right_sub.source());
+                // this unfortunately is rather necessary
+                let smol = DirectModule::biproduct(&left_sub.source(), &right_sub.source());
                 Arc::unwrap_or_clone(right_sub.source())
                     .submodules()
                     .into_iter()
-                    .flat_map(|right_sub_sub| {
-                        let right_quot = right_sub_sub.cokernel();
+                    .map(|sub| sub.cokernel())
+                    .flat_map(|right_quot| {
                         phi_epis
                             .extract_if(|phi| phi.target() == right_quot.target())
                             .map(|phi| {
@@ -56,45 +57,43 @@ impl<RC: Radix, R: SuperRing<RC>> BiProductModule<RC, R> {
                                     right_sub.compose_unchecked(&self.right_inclusion),
                                 ))
                             })
+                            .collect::<Vec<_>>() // necessary to force the closure to release borrowed variables
                     })
+                    .collect::<Vec<_>>() // necessary to force the closure to release borrowed variables
             })
             .collect()
-            */
-        todo!()
     }
 
     pub fn quotients_goursat(&self) -> Vec<CanonToCanon<RC, R>> {
-        // podobnie tutaj, bo to ten sam kod xD
-        /*
         Arc::unwrap_or_clone(self.left())
             .quotients()
             .into_iter()
             .zip(Arc::unwrap_or_clone(self.right()).quotients())
             .flat_map(|(left_quot, right_quot)| {
                 let mut phi_monos = Arc::unwrap_or_clone(self.right()).submodules();
-                let smol = BiProductModule::biproduct(&left_quot.target(), &right_quot.target());
+                let smol = DirectModule::biproduct(&left_quot.target(), &right_quot.target());
                 Arc::unwrap_or_clone(left_quot.target())
                     .quotients()
                     .into_iter()
-                    .flat_map(|left_quot_quot| {
-                        let left_sub = left_quot_quot.kernel();
+                    .map(|quot| quot.kernel())
+                    .flat_map(|left_sub| {
                         phi_monos
                             .extract_if(|phi| phi.source() == left_sub.source())
                             .map(|phi| {
                                 let coequa = phi
                                     .compose_unchecked(&smol.right_inclusion)
-                                    .coequaliser(&left_sub.compose_unchecked(&smol.left_inclusion));
+                                    .coequaliser(left_sub.compose_unchecked(&smol.left_inclusion));
                                 smol.universal_in(
-                                    &self.left_projection.compose_unchecked(&left_quot),
-                                    &self.right_projection.compose_unchecked(&right_quot),
+                                    self.left_projection.compose_unchecked(&left_quot),
+                                    self.right_projection.compose_unchecked(&right_quot),
                                 )
                                 .compose_unchecked(&coequa)
                             })
+                            .collect::<Vec<_>>() // necessary to force the closure to release borrowed variables
                     })
+                    .collect::<Vec<_>>() // necessary to force the closure to release borrowed variables
             })
             .collect()
-            */
-        todo!()
     }
 
     pub fn biproduct(left: &CanonModule<RC, R>, right: &CanonModule<RC, R>) -> Self {
@@ -132,7 +131,7 @@ impl<RC: Radix, R: SuperRing<RC>> BiProductModule<RC, R> {
     }
 }
 
-impl<RC: Radix, R: SuperRing<RC>> From<CanonModule<RC, R>> for BiProductModule<RC, R> {
+impl<RC: Radix, R: SuperRing<RC>> From<CanonModule<RC, R>> for DirectModule<RC, R> {
     fn from(canon: CanonModule<RC, R>) -> Self {
         let canon_arc = Arc::new(canon);
         let (left_coeff, right_coeff) = canon_arc.coeff_tree().clone().split();

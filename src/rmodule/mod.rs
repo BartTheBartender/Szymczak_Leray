@@ -4,8 +4,8 @@ use crate::{
 };
 
 pub mod canon;
+pub mod direct;
 pub mod map;
-pub mod product;
 pub mod ring;
 pub mod torsion;
 
