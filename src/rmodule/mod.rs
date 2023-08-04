@@ -4,7 +4,6 @@ use crate::{
 };
 
 pub mod canon;
-// pub mod coset;
 pub mod map;
 pub mod product;
 pub mod ring;

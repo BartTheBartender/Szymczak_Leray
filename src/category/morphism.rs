@@ -8,6 +8,7 @@ use crate::{
 use std::{
     collections::HashSet,
     hash::{Hash, Hasher},
+    ops::{Add, Neg},
     rc::Rc,
     sync::Arc,
 };
@@ -44,16 +45,19 @@ pub trait EndoMorphism<Object: Eq>:
     + Morphism<Object, Object>
     + Compose<Object, Object, Object, Self, Output = Self>
 {
+    /**
+    there is a possibility, that this hash is not perfect
+    which can be a huge problem if uncaught
+    implementators of this trait should make sure that their hash is perfect
+    */
     fn perfect_hash(&self) -> u64 {
-        // there is a possibility, that this hash is not perfect
-        // which can be a huge problem if uncaught
-        // implementators of this trait should make sure that their hash is perfect
         let mut s = std::collections::hash_map::DefaultHasher::new();
         self.hash(&mut s);
         s.finish()
     }
 
     // jeśli naprawdę potrzebujesz Rc
+    /*
     fn cycle_rc(&self) -> Vec<Rc<Self>> {
         let mut seen_iterations = HashSet::new();
 
@@ -71,6 +75,7 @@ pub trait EndoMorphism<Object: Eq>:
         })
         .collect()
     }
+    */
 
     fn cycle(&self) -> Vec<Self> {
         // nie ma potrzeby trzymać całego morfizmu, wystarczy perfekcyjny hash
@@ -92,12 +97,36 @@ pub trait EndoMorphism<Object: Eq>:
     }
 }
 
-pub trait AbelianMorphism<RC: Radix, R: Ring<RC>, Source: Module<RC, R>, Target: Module<RC, R>>:
+pub trait PreAbelianMorphism<RC: Radix, R: Ring<RC>, Source: Module<RC, R>, Target: Module<RC, R>>:
     Morphism<Source, Target>
 {
     fn is_zero(&self) -> bool;
     fn kernel(&self) -> Self;
     fn cokernel(&self) -> Self;
+}
+
+pub trait AbelianMorphism<RC: Radix, R: Ring<RC>, Source: Module<RC, R>, Target: Module<RC, R>>:
+    Sized + PreAbelianMorphism<RC, R, Source, Target>
+{
+    fn equaliser(&self, other: &Self) -> Self;
+    fn coequaliser(&self, other: &Self) -> Self;
+}
+
+impl<'a, RC: Radix, R: Ring<RC>, Source: Module<RC, R>, Target: Module<RC, R>, T>
+    AbelianMorphism<RC, R, Source, Target> for T
+where
+    T: PreAbelianMorphism<RC, R, Source, Target> + 'a,
+    &'a T: Add<Output = T> + Neg<Output = T>,
+{
+    fn equaliser(&self, other: &Self) -> Self {
+        // (self + &-other).kernel()
+        todo!()
+    }
+
+    fn coequaliser(&self, other: &Self) -> Self {
+        // (self + &-other).cokernel()
+        todo!()
+    }
 }
 
 pub trait AbelianEndoMorphism<RC: Radix, R: Ring<RC>, Object: Module<RC, R> + Eq>:

@@ -6,6 +6,7 @@
 #![feature(extract_if)]
 #![feature(trait_alias)]
 #![feature(associated_type_bounds)]
+#![feature(arc_unwrap_or_clone)]
 #![allow(dead_code)] // REMOVE THIS LATER
 #![allow(incomplete_features)]
 

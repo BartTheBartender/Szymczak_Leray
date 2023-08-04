@@ -4,6 +4,7 @@ use crate::{
     matrix::Matrix,
     rmodule::{
         map::CanonToCanon,
+        product::BiProductModule,
         ring::{Radix, Ring, SuperRing},
         torsion::{Coeff, CoeffTree},
         Module,
@@ -58,8 +59,7 @@ pub fn canonise_torsion_coeff(torsion_coeff: TorsionCoeff) -> TorsionCoeff {
 
 /* # canonical module */
 
-// #[derive(Clone, PartialEq, Eq, Hash)]
-#[derive(PartialEq, Eq)]
+#[derive(Clone, PartialEq, Eq)]
 pub struct CanonModule<RC: Radix, R: Ring<RC>> {
     // technically, this R in the Tree should be an ideal of the ring
     torsion_coeff: CoeffTree<R, ()>,
@@ -126,49 +126,17 @@ impl<RC: Radix, R: SuperRing<RC>> CanonModule<RC, R> {
         match self.dimension() {
             0 => panic!("coś poszło nie tak"),
             1 => submodules_of_cyclic_module(self),
-            _n => todo!(), //BiProductZModule::from(self).submodules_goursat(),
+            _n => BiProductModule::from(self).submodules_goursat(),
         }
     }
 
-    /* the following fns should be somewhere else
-    fn coset(
-        &self,
-        element: &<Self as ZModule>::Element,
-        image_of_subgroup: &Coset<Self>,
-    ) -> Coset<Self> {
-        Coset::new(
-            image_of_subgroup
-                .set
-                .iter()
-                .map(|el| self.add_unchecked(el, element))
-                .collect(),
-        )
-    }
-
-    fn cosets(&self, subgroup: &CanonToCanon) -> CanonToCoset {
-        let imgroup: Coset<Self> = Coset::new(subgroup.image());
-        let mut cos = Vec::new();
-        let mut hom = HashMap::new();
-        for element in self.all_elements() {
-            let im = self.coset(&element, &imgroup);
-            cos.push(im.clone());
-            hom.insert(element, im);
+    pub fn quotients(self) -> Vec<CanonToCanon<RC, R>> {
+        match self.dimension() {
+            0 => panic!("coś poszło nie tak"),
+            1 => quotients_of_cyclic_module(self),
+            _n => BiProductModule::from(self).quotients_goursat(),
         }
-        cos.clear_duplicates();
-        let source = Arc::new(self.clone());
-        CanonToCoset::new(
-            source.clone(),
-            Arc::new(CosetZModule::new(cos, source)),
-            hom,
-        )
     }
-
-    // this can be replaced by a cokernel
-    fn quotient(&self, subgroup: &CanonToCanon) -> CanonToCanon {
-        let cosets = self.cosets(subgroup);
-        cosets.compose_unchecked(&cosets.target().canonise())
-    }
-    */
 }
 
 impl<RC: Radix, R: Ring<RC> + Ord + Rem<Output = R>> Module<RC, R> for CanonModule<RC, R> {
@@ -219,6 +187,29 @@ pub fn submodules_of_cyclic_module<RC: Radix, R: SuperRing<RC>>(
                 source,
                 target.clone(),
                 Matrix::<R>::from_buffer([subideal], 1, 1),
+            )
+        })
+        .collect();
+    out
+}
+
+pub fn quotients_of_cyclic_module<RC: Radix, R: SuperRing<RC>>(
+    module: CanonModule<RC, R>,
+) -> Vec<CanonToCanon<RC, R>> {
+    let source = Arc::new(module);
+    let out = source
+        .torsion_coeffs()
+        .next()
+        .expect("we assumed the module is cyclic, so has exactly one coefficient")
+        .subideals()
+        .map(|subideal| {
+            let target = Arc::new(CanonModule::new(CoeffTree::<R, ()>::from_iter(vec![
+                subideal,
+            ])));
+            CanonToCanon::new_unchecked(
+                source.clone(),
+                target,
+                Matrix::<R>::from_buffer([<R as Ring<RC>>::one()], 1, 1),
             )
         })
         .collect();

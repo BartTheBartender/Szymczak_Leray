@@ -1,5 +1,5 @@
 use itertools::Itertools;
-use std::ops::{Add, Mul};
+use std::ops::{Add, Mul, Neg};
 
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct Matrix<T> {
@@ -84,7 +84,7 @@ where
 
 impl<T> Matrix<T>
 where
-    T: Clone + Copy + Add<T, Output = T> + Mul<T, Output = T>,
+    T: Copy + Add<T, Output = T> + Mul<T, Output = T>,
 {
     // this assumes that self.rows == other.cols
     pub fn compose_unchecked(&self, other: &Self) -> Self {
@@ -112,6 +112,46 @@ where
                     })
                 })
                 .collect(),
+        }
+    }
+}
+
+impl<T> Add for &Matrix<T>
+where
+    T: Copy + Add<Output = T>,
+{
+    type Output = Matrix<T>;
+
+    /**
+    this assumes that the shapes of the matrices are the same
+    we could panic otherwise, but that would reqiure checking
+    and therefore slow us down
+    */
+    fn add(self, other: Self) -> Self::Output {
+        Matrix {
+            cols: self.cols,
+            rows: other.rows,
+            buffer: self
+                .buffer
+                .iter()
+                .zip(other.buffer.iter())
+                .map(|(x, y)| *x + *y)
+                .collect(),
+        }
+    }
+}
+
+impl<T> Neg for &Matrix<T>
+where
+    T: Copy + Neg<Output = T>,
+{
+    type Output = Matrix<T>;
+
+    fn neg(self) -> Self::Output {
+        Matrix {
+            cols: self.cols,
+            rows: self.rows,
+            buffer: self.buffer.iter().map(|x| -*x).collect(),
         }
     }
 }
