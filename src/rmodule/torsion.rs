@@ -1,42 +1,62 @@
-// use crate::rmodule::ring::Ring;
-use crate::matrix::Matrix;
+use crate::{matrix::Matrix, rmodule::ring::Ring};
 use derive_where::derive_where;
-use gcd::Gcd;
-use std::{cmp::Ordering, collections::BTreeMap, ops::Mul};
+use nanoid::nanoid;
+use std::{
+    cmp::Ordering,
+    collections::{BTreeMap, BTreeSet},
+    ops::Rem,
+    rc::Rc,
+};
 
-/* # coprime trait */
+/* # factorisable trait */
 
-pub trait Coprime: Copy + Sized + Eq + Gcd {
-    fn one() -> Self;
+pub trait Factorisable: Ring + Rem<Output = Self> + Ord + std::fmt::Debug {
+    fn primes() -> Vec<Self>;
 
-    fn is_coprime(self, other: Self) -> bool {
-        self.gcd(other) == Self::one()
+    fn prime_power_decomposition(self) -> Vec<Self> {
+        let mut decomposition = Vec::new();
+        let zero = Self::zero();
+        let one = Self::one();
+        for p in Self::primes() {
+            // find highest power of p that divides self
+            let mut n = one;
+            let mut seen_powers = BTreeSet::new();
+            while !seen_powers.contains(&(n * p)) && self % (n * p) == zero {
+                seen_powers.insert(n * p);
+                n = n * p;
+            }
+            // append this higest power to the decomposition
+            if n != one {
+                decomposition.push(n);
+            }
+        }
+        decomposition
     }
 }
 
 /* # coeff wrapper */
 
-#[derive(Clone, Copy, PartialEq, Eq, Debug)]
+#[derive(Clone, PartialEq, Eq, Debug)]
 pub struct Coeff<T>
 where
-    T: Clone + Copy + PartialEq + Eq,
+    T: Clone + Eq,
 {
     coeff: T,
-    index: u8,
+    index: Rc<str>,
 }
 
 impl<T> Coeff<T>
 where
-    T: Copy + Eq,
+    T: Clone + Eq,
 {
-    pub fn new(coeff: T, index: u8) -> Self {
+    pub fn new(coeff: T, index: Rc<str>) -> Self {
         Self { coeff, index }
     }
 }
 
 impl<T> PartialOrd for Coeff<T>
 where
-    T: Copy + Eq + PartialOrd,
+    T: Clone + Eq + PartialOrd,
 {
     // lexicographic order, reversed on both fields
     fn partial_cmp(&self, other: &Self) -> Option<Ordering> {
@@ -53,7 +73,7 @@ where
 
 impl<T> Ord for Coeff<T>
 where
-    T: Copy + Eq + Ord,
+    T: Clone + Eq + Ord,
 {
     // lexicographic order, reversed on both fields
     fn cmp(&self, other: &Self) -> Ordering {
@@ -68,13 +88,13 @@ where
 
 /**
 this is structurally guaranteed to be not only sorted (descending),
-but also that no pair of elements are coprime
+but also that every element is either a prime or a power of a prime
 */
 #[derive(Debug, Clone)]
 #[derive_where(PartialEq, Eq; V)]
 pub struct CoeffTree<T, V>
 where
-    T: Copy + Eq,
+    T: Clone + Eq,
 {
     buffer: BTreeMap<Coeff<T>, V>,
 }
@@ -83,7 +103,7 @@ where
 
 impl<T, V> CoeffTree<T, V>
 where
-    T: Copy + Eq + Ord,
+    T: Clone + Eq + Ord,
 {
     pub fn len(&self) -> usize {
         self.buffer.len()
@@ -129,7 +149,7 @@ where
     }
 
     pub fn coeffs(&self) -> impl Iterator<Item = T> + '_ {
-        self.buffer.keys().map(|key| key.coeff)
+        self.buffer.keys().map(|key| key.coeff.clone())
     }
 
     pub fn keys(&self) -> impl Iterator<Item = &Coeff<T>> {
@@ -157,7 +177,7 @@ where
 
 impl<T, V> CoeffTree<T, V>
 where
-    T: Copy + Eq + Ord,
+    T: Clone + Eq + Ord,
 {
     pub fn map<W, F>(self, action: F) -> CoeffTree<T, W>
     where
@@ -167,7 +187,7 @@ where
             buffer: self
                 .buffer
                 .into_iter()
-                .map(|(key, value)| (key, action(value, key.coeff)))
+                .map(|(key, value)| (key.clone(), action(value, key.coeff.clone())))
                 .collect(),
         }
     }
@@ -180,7 +200,7 @@ where
             buffer: self
                 .buffer
                 .iter()
-                .map(|(key, value)| (*key, action(value, key.coeff)))
+                .map(|(key, value)| (key.clone(), action(value, key.coeff.clone())))
                 .collect(),
         }
     }
@@ -190,17 +210,17 @@ where
         F: Fn(&mut V, T),
     {
         for (key, value) in self.buffer.iter_mut() {
-            action(value, key.coeff);
+            action(value, key.coeff.clone());
         }
     }
 
     /**
-      # WARNING
+    # WARNING
 
-      only performs action on keys present in both trees,
-      so if the trees have different structures,
-      this will invalidate the structural integrity of the trees
-      and — therefore — lead to undefined behaviour
+    only performs action on keys present in both trees,
+    so if the trees have different structures,
+    this will invalidate the structural integrity of the trees
+    and — therefore — lead to undefined behaviour
     */
     pub fn combine<U, W, F>(self, other: CoeffTree<T, U>, action: F) -> CoeffTree<T, W>
     where
@@ -213,7 +233,10 @@ where
                 .into_iter()
                 .filter_map(|(self_key, self_value)| {
                     other_buffer.remove(&self_key).map(|other_value| {
-                        (self_key, action(self_value, other_value, self_key.coeff))
+                        (
+                            self_key.clone(),
+                            action(self_value, other_value, self_key.coeff.clone()),
+                        )
                     })
                 })
                 .collect::<BTreeMap<_, _>>(),
@@ -221,12 +244,12 @@ where
     }
 
     /**
-      # WARNING
+    # WARNING
 
-      only performs action on keys present in both trees,
-      so if the trees have different structures,
-      this will invalidate the structural integrity of the trees
-      and — therefore — lead to undefined behaviour
+    only performs action on keys present in both trees,
+    so if the trees have different structures,
+    this will invalidate the structural integrity of the trees
+    and — therefore — lead to undefined behaviour
     */
     pub fn combine_ref<U, W, F>(&self, other: &CoeffTree<T, U>, action: F) -> CoeffTree<T, W>
     where
@@ -238,7 +261,10 @@ where
                 .iter()
                 .filter_map(|(self_key, self_value)| {
                     other.buffer.get(self_key).map(|other_value| {
-                        (*self_key, action(self_value, other_value, self_key.coeff))
+                        (
+                            self_key.clone(),
+                            action(self_value, other_value, self_key.coeff.clone()),
+                        )
                     })
                 })
                 .collect::<BTreeMap<_, _>>(),
@@ -248,7 +274,7 @@ where
 
 impl<T, V> CoeffTree<T, V>
 where
-    T: Copy + Eq + Ord,
+    T: Clone + Eq + Ord,
     V: Copy,
 {
     pub fn as_matrix(&self) -> Matrix<V> {
@@ -260,7 +286,7 @@ where
             buffer: coeffs
                 .iter()
                 .zip(matrix.into_iter())
-                .map(|((coeff, _unit), value)| (*coeff, value))
+                .map(|((coeff, _unit), value)| (coeff.clone(), value))
                 .collect(),
         }
     }
@@ -277,56 +303,24 @@ where
     }
 }
 
-/*
-impl<T, V> CoeffTree<T, V>
-where
-    T: Copy + Eq + Ord,
-    V: Default,
-{
-    fn build_default(coefftree: CoeffTree<T, ()>) -> Self {
-        coefftree.map(|_| V::default())
-    }
-}
-*/
-
 /* ## coeff tree set */
 
 impl<T> CoeffTree<T, ()>
 where
-    T: Copy + Eq + Ord + Mul<T, Output = T> + Coprime,
+    T: Factorisable + Ord,
 {
     // this is expensive and should not be done often
     fn insert(&mut self, key: T) {
-        let mut indexed_key = Coeff {
-            coeff: key,
-            index: 0,
-        };
-
-        match self.buffer.contains_key(&indexed_key) {
-            true => {
-                // if the tree already contains this key,
-                // the key is not coprime with any other key
-                indexed_key.index += 1;
-                while self.buffer.contains_key(&indexed_key) {
-                    indexed_key.index += 1;
-                }
-                self.buffer.insert(indexed_key, ());
-            }
-            false => {
-                // the key is new
-                // search for a key that is relatively prime
-                match self
-                    .buffer
-                    .extract_if(|k, _v| k.coeff.is_coprime(key))
-                    .next()
-                {
-                    Some(k) => self.insert(k.0.coeff * key),
-                    None => {
-                        self.buffer.insert(indexed_key, ());
-                    }
-                };
-            }
-        }
+        self.buffer
+            .extend(key.prime_power_decomposition().into_iter().map(|p| {
+                (
+                    Coeff {
+                        coeff: p,
+                        index: Rc::from(nanoid!()),
+                    },
+                    (),
+                )
+            }));
     }
 
     pub fn split(self) -> (Self, Self) {
@@ -350,15 +344,15 @@ where
     }
 
     pub fn join(&mut self, other: Self) {
-        for key in other.buffer.into_keys() {
-            self.insert(key.coeff);
+        for (key, value) in other.buffer.into_iter() {
+            self.buffer.insert(key, value);
         }
     }
 }
 
 impl<T> FromIterator<T> for CoeffTree<T, ()>
 where
-    T: Copy + Eq + Ord + Mul<T, Output = T> + Coprime,
+    T: Ord + Factorisable,
 {
     fn from_iter<I: IntoIterator<Item = T>>(iter: I) -> Self {
         let mut bt = Self {
@@ -376,44 +370,79 @@ where
 #[cfg(test)]
 mod test {
     use super::*;
+    use crate::{rmodule::ring::Set, util::number::divisors};
+    use typenum::U256;
 
-    impl Coprime for u8 {
+    impl Set for i8 {
+        type Card = U256;
+
+        fn new(x: u8) -> Self {
+            x as i8
+        }
+        fn get(&self) -> u8 {
+            *self as u8
+        }
+    }
+    impl Ring for i8 {
+        fn zero() -> Self {
+            0
+        }
         fn one() -> Self {
             1
+        }
+        fn is_zero(&self) -> bool {
+            *self == 0
+        }
+        fn is_one(&self) -> bool {
+            *self == 1
+        }
+        fn ideals() -> impl Iterator<Item = Self> {
+            [1, 2, 4, 8, 16, 32, 64].into_iter()
+        }
+        fn subideals(&self) -> impl Iterator<Item = Self> {
+            divisors(*self as u8).into_iter().map(|x| x as i8)
+        }
+    }
+
+    impl Factorisable for i8 {
+        fn primes() -> Vec<Self> {
+            // enough for the tests
+            vec![2, 3, 5]
         }
     }
 
     #[test]
     fn building() {
-        let mut ct = CoeffTree::<u8, ()>::default();
-        ct.insert(2);
-        ct.insert(3);
-        ct.insert(3);
-        ct.insert(2);
+        let mut ct = CoeffTree::<i8, ()>::default();
+        ct.insert(6);
+        ct.insert(6);
         ct.insert(2);
         ct.insert(2);
 
         let mut keys = ct.buffer.keys();
-        assert_eq!(keys.next(), Some(Coeff { coeff: 6, index: 1 }).as_ref());
-        assert_eq!(keys.next(), Some(Coeff { coeff: 6, index: 0 }).as_ref());
-        assert_eq!(keys.next(), Some(Coeff { coeff: 2, index: 1 }).as_ref());
-        assert_eq!(keys.next(), Some(Coeff { coeff: 2, index: 0 }).as_ref());
+        assert_eq!(keys.next().unwrap().coeff, 3);
+        assert_eq!(keys.next().unwrap().coeff, 3);
+        assert_eq!(keys.next().unwrap().coeff, 2);
+        assert_eq!(keys.next().unwrap().coeff, 2);
+        assert_eq!(keys.next().unwrap().coeff, 2);
+        assert_eq!(keys.next().unwrap().coeff, 2);
         assert_eq!(keys.next(), None.as_ref());
     }
 
     #[test]
     fn building_from_iterator() {
-        let ct = CoeffTree::<u8, ()>::from_iter(vec![2, 3, 2]);
+        let ct = CoeffTree::<i8, ()>::from_iter(vec![6, 4]);
 
         let mut keys = ct.buffer.keys();
-        assert_eq!(keys.next(), Some(Coeff { coeff: 6, index: 0 }).as_ref());
-        assert_eq!(keys.next(), Some(Coeff { coeff: 2, index: 0 }).as_ref());
+        assert_eq!(keys.next().unwrap().coeff, 4);
+        assert_eq!(keys.next().unwrap().coeff, 3);
+        assert_eq!(keys.next().unwrap().coeff, 2);
         assert_eq!(keys.next(), None.as_ref());
     }
 
     #[test]
     fn splitting() {
-        let mut ct = CoeffTree::<u8, ()>::default();
+        let mut ct = CoeffTree::<i8, ()>::default();
         ct.insert(32);
         ct.insert(16);
         ct.insert(8);
@@ -423,80 +452,73 @@ mod test {
         let (l, r) = ct.split();
 
         let mut keys = l.buffer.keys();
-        assert_eq!(
-            keys.next(),
-            Some(Coeff {
-                coeff: 32,
-                index: 0
-            })
-            .as_ref()
-        );
-        assert_eq!(keys.next(), Some(Coeff { coeff: 8, index: 0 }).as_ref());
-        assert_eq!(keys.next(), Some(Coeff { coeff: 2, index: 0 }).as_ref());
+        assert_eq!(keys.next().unwrap().coeff, 32);
+        assert_eq!(keys.next().unwrap().coeff, 8);
+        assert_eq!(keys.next().unwrap().coeff, 2);
         assert_eq!(keys.next(), None.as_ref());
 
         let mut keys = r.buffer.keys();
-        assert_eq!(
-            keys.next(),
-            Some(Coeff {
-                coeff: 16,
-                index: 0
-            })
-            .as_ref()
-        );
-        assert_eq!(keys.next(), Some(Coeff { coeff: 4, index: 0 }).as_ref());
+        assert_eq!(keys.next().unwrap().coeff, 16);
+        assert_eq!(keys.next().unwrap().coeff, 4);
         assert_eq!(keys.next(), None.as_ref());
     }
 
     #[test]
     fn joining() {
-        let mut l = CoeffTree::<u8, ()>::default();
+        let mut l = CoeffTree::<i8, ()>::default();
         l.insert(4);
         l.insert(2);
 
-        let mut r = CoeffTree::<u8, ()>::default();
+        let mut r = CoeffTree::<i8, ()>::default();
+        r.insert(6);
         r.insert(3);
-        r.insert(2);
 
         l.join(r);
 
         let mut keys = l.buffer.keys();
-        assert_eq!(keys.next(), Some(Coeff { coeff: 6, index: 0 }).as_ref());
-        assert_eq!(keys.next(), Some(Coeff { coeff: 4, index: 0 }).as_ref());
-        assert_eq!(keys.next(), Some(Coeff { coeff: 2, index: 0 }).as_ref());
+        assert_eq!(keys.next().unwrap().coeff, 4);
+        assert_eq!(keys.next().unwrap().coeff, 3);
+        assert_eq!(keys.next().unwrap().coeff, 3);
+        assert_eq!(keys.next().unwrap().coeff, 2);
+        assert_eq!(keys.next().unwrap().coeff, 2);
         assert_eq!(keys.next(), None.as_ref());
     }
 
     #[test]
     fn addition() {
-        let ct = CoeffTree::<u8, ()>::from_iter(vec![5, 3]);
-        let mut left: CoeffTree<u8, u8> = ct.map_ref(|_, _| 0);
-        left.replace(&Coeff::new(5, 0), 3);
-        left.replace(&Coeff::new(3, 0), 2);
+        let ct = CoeffTree::<i8, ()>::from_iter(vec![5, 3]);
+        let mut left: CoeffTree<i8, i8> = ct.map_ref(|_, _| 0);
+        for (key, value) in ct.keys().zip([3, 2]) {
+            left.replace(key, value);
+        }
 
-        let mut right: CoeffTree<u8, u8> = ct.map_ref(|_, _| 0);
-        right.replace(&Coeff::new(5, 0), 4);
-        right.replace(&Coeff::new(3, 0), 1);
+        let mut right: CoeffTree<i8, i8> = ct.map_ref(|_, _| 0);
+        for (key, value) in ct.keys().zip([4, 1]) {
+            right.replace(key, value);
+        }
 
         let sum = left.combine(right, |l, r, c| (l + r) % c);
-        let mut result: CoeffTree<u8, u8> = ct.map_ref(|_, _| 0);
-        result.replace(&Coeff::new(5, 0), 2);
-        result.replace(&Coeff::new(3, 0), 0);
+        let mut result: CoeffTree<i8, i8> = ct.map_ref(|_, _| 0);
+        for (key, value) in ct.keys().zip([2, 0]) {
+            result.replace(key, value);
+        }
 
         assert_eq!(sum.buffer, result.buffer);
     }
 
     #[test]
     fn multiplication() {
-        let ct = CoeffTree::<u8, ()>::from_iter(vec![5, 3]);
-        let mut left: CoeffTree<u8, u8> = ct.map_ref(|_, _| 0);
-        left.replace(&Coeff::new(5, 0), 3);
-        left.replace(&Coeff::new(3, 0), 1);
+        let ct = CoeffTree::<i8, ()>::from_iter(vec![5, 3]);
+        let mut left: CoeffTree<i8, i8> = ct.map_ref(|_, _| 0);
+        for (key, value) in ct.keys().zip([3, 1]) {
+            left.replace(key, value);
+        }
 
         let product = left.map(|l, c| (l * 2) % c);
-        let mut result: CoeffTree<u8, u8> = ct.map_ref(|_, _| 0);
-        result.replace(&Coeff::new(5, 0), 1);
-        result.replace(&Coeff::new(3, 0), 2);
+        let mut result: CoeffTree<i8, i8> = ct.map_ref(|_, _| 0);
+        for (key, value) in ct.keys().zip([1, 2]) {
+            result.replace(key, value);
+        }
 
         assert_eq!(product.buffer, result.buffer);
     }

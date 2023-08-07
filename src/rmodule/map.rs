@@ -19,16 +19,16 @@ use std::{
 /* # Canon to Canon */
 
 #[derive(Debug, PartialEq, Eq)]
-pub struct CanonToCanon<RC: Radix, R: SuperRing<RC>> {
-    source: Arc<CanonModule<RC, R>>,
-    target: Arc<CanonModule<RC, R>>,
+pub struct CanonToCanon<R: SuperRing> {
+    source: Arc<CanonModule<R>>,
+    target: Arc<CanonModule<R>>,
     map: Matrix<R>,
 }
 
-impl<RC: Radix, R: SuperRing<RC>> CanonToCanon<RC, R> {
+impl<R: SuperRing> CanonToCanon<R> {
     pub fn new_unchecked(
-        source: Arc<CanonModule<RC, R>>,
-        target: Arc<CanonModule<RC, R>>,
+        source: Arc<CanonModule<R>>,
+        target: Arc<CanonModule<R>>,
         map: Matrix<R>,
     ) -> Self {
         Self {
@@ -53,8 +53,8 @@ impl<RC: Radix, R: SuperRing<RC>> CanonToCanon<RC, R> {
 
     pub fn evaluate_unchecked(
         &self,
-        v: &<CanonModule<RC, R> as Module<RC, R>>::Element,
-    ) -> <CanonModule<RC, R> as Module<RC, R>>::Element {
+        v: &<CanonModule<R> as Module<R>>::Element,
+    ) -> <CanonModule<R> as Module<R>>::Element {
         self.target
             .element_from_matrix(v.as_matrix().compose_unchecked(&self.map))
     }
@@ -62,8 +62,8 @@ impl<RC: Radix, R: SuperRing<RC>> CanonToCanon<RC, R> {
     /*
     pub fn evaluate(
         &self,
-        v: &<CanonModule<RC, R> as Module<RC, R>>::Element,
-    ) -> Result<<CanonModule<RC, R> as Module<RC, R>>::Element, Error> {
+        v: &<CanonModule<R> as Module<R>>::Element,
+    ) -> Result<<CanonModule<R> as Module<R>>::Element, Error> {
         match self.source.as_ref().is_element(v) {
             true => Ok(self.evaluate_unchecked(v)),
             false => Err(Error::InvalidElement),
@@ -85,21 +85,18 @@ impl<RC: Radix, R: SuperRing<RC>> CanonToCanon<RC, R> {
     */
 }
 
-impl<RC: Radix, R: SuperRing<RC>> Morphism<CanonModule<RC, R>, CanonModule<RC, R>>
-    for CanonToCanon<RC, R>
-{
-    fn source(&self) -> Arc<CanonModule<RC, R>> {
+impl<R: SuperRing> Morphism<CanonModule<R>, CanonModule<R>> for CanonToCanon<R> {
+    fn source(&self) -> Arc<CanonModule<R>> {
         Arc::clone(&self.source)
     }
 
-    fn target(&self) -> Arc<CanonModule<RC, R>> {
+    fn target(&self) -> Arc<CanonModule<R>> {
         Arc::clone(&self.target)
     }
 }
 
-impl<RC: Radix, R: SuperRing<RC>>
-    Compose<CanonModule<RC, R>, CanonModule<RC, R>, CanonModule<RC, R>, Self>
-    for CanonToCanon<RC, R>
+impl<R: SuperRing> Compose<CanonModule<R>, CanonModule<R>, CanonModule<R>, Self>
+    for CanonToCanon<R>
 {
     type Output = Self;
 
@@ -112,9 +109,7 @@ impl<RC: Radix, R: SuperRing<RC>>
     }
 }
 
-impl<RC: Radix, R: SuperRing<RC>> PreAbelianMorphism<RC, R, CanonModule<RC, R>, CanonModule<RC, R>>
-    for CanonToCanon<RC, R>
-{
+impl<R: SuperRing> PreAbelianMorphism<R, CanonModule<R>, CanonModule<R>> for CanonToCanon<R> {
     fn is_zero(&self) -> bool {
         self.map.iter().all(|e| e.is_zero())
     }
@@ -130,8 +125,8 @@ impl<RC: Radix, R: SuperRing<RC>> PreAbelianMorphism<RC, R, CanonModule<RC, R>, 
     }
 }
 
-impl<RC: Radix, R: SuperRing<RC>> Add for CanonToCanon<RC, R> {
-    type Output = CanonToCanon<RC, R>;
+impl<R: SuperRing> Add for CanonToCanon<R> {
+    type Output = CanonToCanon<R>;
 
     /**
     this assumes that both self and output have the same source and target.
@@ -147,8 +142,8 @@ impl<RC: Radix, R: SuperRing<RC>> Add for CanonToCanon<RC, R> {
     }
 }
 
-impl<RC: Radix, R: SuperRing<RC>> Neg for CanonToCanon<RC, R> {
-    type Output = CanonToCanon<RC, R>;
+impl<R: SuperRing> Neg for CanonToCanon<R> {
+    type Output = CanonToCanon<R>;
 
     fn neg(self) -> Self::Output {
         Self::Output {

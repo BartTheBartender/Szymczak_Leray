@@ -12,27 +12,27 @@ use crate::{
 };
 use std::sync::Arc;
 
-pub struct DirectModule<RC: Radix, R: SuperRing<RC>> {
-    // left: Arc<CanonModule<RC, R>>,
-    // right: Arc<CanonModule<RC, R>>,
-    left_inclusion: CanonToCanon<RC, R>,
-    right_inclusion: CanonToCanon<RC, R>,
-    left_projection: CanonToCanon<RC, R>,
-    right_projection: CanonToCanon<RC, R>,
+pub struct DirectModule<R: SuperRing> {
+    // left: Arc<CanonModule<R>>,
+    // right: Arc<CanonModule<R>>,
+    left_inclusion: CanonToCanon<R>,
+    right_inclusion: CanonToCanon<R>,
+    left_projection: CanonToCanon<R>,
+    right_projection: CanonToCanon<R>,
 }
 
-impl<RC: Radix, R: SuperRing<RC>> DirectModule<RC, R> {
-    pub fn left(&self) -> Arc<CanonModule<RC, R>> {
+impl<R: SuperRing> DirectModule<R> {
+    pub fn left(&self) -> Arc<CanonModule<R>> {
         // should be the same as left_projection.target()
         Arc::clone(&self.left_inclusion.source())
     }
 
-    pub fn right(&self) -> Arc<CanonModule<RC, R>> {
+    pub fn right(&self) -> Arc<CanonModule<R>> {
         // should be the same as right_projection.target()
         Arc::clone(&self.right_inclusion.source())
     }
 
-    pub fn submodules_goursat(&self) -> Vec<CanonToCanon<RC, R>> {
+    pub fn submodules_goursat(&self) -> Vec<CanonToCanon<R>> {
         Arc::unwrap_or_clone(self.left())
             .submodules()
             .into_iter()
@@ -64,7 +64,7 @@ impl<RC: Radix, R: SuperRing<RC>> DirectModule<RC, R> {
             .collect()
     }
 
-    pub fn quotients_goursat(&self) -> Vec<CanonToCanon<RC, R>> {
+    pub fn quotients_goursat(&self) -> Vec<CanonToCanon<R>> {
         Arc::unwrap_or_clone(self.left())
             .quotients()
             .into_iter()
@@ -96,7 +96,7 @@ impl<RC: Radix, R: SuperRing<RC>> DirectModule<RC, R> {
             .collect()
     }
 
-    pub fn biproduct(left: &CanonModule<RC, R>, right: &CanonModule<RC, R>) -> Self {
+    pub fn biproduct(left: &CanonModule<R>, right: &CanonModule<R>) -> Self {
         let mut coeff_tree = left.coeff_tree().clone();
         coeff_tree.join(right.coeff_tree().clone());
         todo!() // this is more difficult than i previously envisioned
@@ -111,9 +111,9 @@ impl<RC: Radix, R: SuperRing<RC>> DirectModule<RC, R> {
     */
     pub fn universal_in(
         &self,
-        _left_par: CanonToCanon<RC, R>,
-        _right_par: CanonToCanon<RC, R>,
-    ) -> CanonToCanon<RC, R> {
+        _left_par: CanonToCanon<R>,
+        _right_par: CanonToCanon<R>,
+    ) -> CanonToCanon<R> {
         todo!()
     }
 
@@ -124,15 +124,15 @@ impl<RC: Radix, R: SuperRing<RC>> DirectModule<RC, R> {
     */
     pub fn universal_out(
         &self,
-        _left_par: CanonToCanon<RC, R>,
-        _right_par: CanonToCanon<RC, R>,
-    ) -> CanonToCanon<RC, R> {
+        _left_par: CanonToCanon<R>,
+        _right_par: CanonToCanon<R>,
+    ) -> CanonToCanon<R> {
         todo!()
     }
 }
 
-impl<RC: Radix, R: SuperRing<RC>> From<CanonModule<RC, R>> for DirectModule<RC, R> {
-    fn from(canon: CanonModule<RC, R>) -> Self {
+impl<R: SuperRing> From<CanonModule<R>> for DirectModule<R> {
+    fn from(canon: CanonModule<R>) -> Self {
         let canon_arc = Arc::new(canon);
         let (left_coeff, right_coeff) = canon_arc.coeff_tree().clone().split();
         let left_dim = left_coeff.len();
@@ -168,7 +168,7 @@ impl<RC: Radix, R: SuperRing<RC>> From<CanonModule<RC, R>> for DirectModule<RC, 
                     canon_arc.coeff_tree().keys().map(|key| {
                         match left.coeff_tree().contains_key(key) {
                             true => left.versor(key).into_values().collect(),
-                            false => <CanonModule<RC, R> as Module<RC, R>>::zero(&left)
+                            false => <CanonModule<R> as Module<R>>::zero(&left)
                                 .into_values()
                                 .collect(),
                         }
@@ -183,7 +183,7 @@ impl<RC: Radix, R: SuperRing<RC>> From<CanonModule<RC, R>> for DirectModule<RC, 
                     canon_arc.coeff_tree().keys().map(|key| {
                         match right.coeff_tree().contains_key(key) {
                             true => right.versor(key).into_values().collect(),
-                            false => <CanonModule<RC, R> as Module<RC, R>>::zero(&right)
+                            false => <CanonModule<R> as Module<R>>::zero(&right)
                                 .into_values()
                                 .collect(),
                         }

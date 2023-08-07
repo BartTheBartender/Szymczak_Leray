@@ -1,7 +1,4 @@
-use crate::{
-    error::Error,
-    rmodule::ring::{Radix, Ring},
-};
+use crate::{error::Error, rmodule::ring::Ring};
 
 pub mod canon;
 pub mod direct;
@@ -9,7 +6,7 @@ pub mod map;
 pub mod ring;
 pub mod torsion;
 
-pub trait Module<RCard: Radix, R: Ring<RCard>> {
+pub trait Module<R: Ring> {
     type Element;
 
     fn zero(&self) -> Self::Element;

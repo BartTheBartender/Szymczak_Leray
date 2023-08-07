@@ -97,7 +97,7 @@ pub trait EndoMorphism<Object: Eq>:
     }
 }
 
-pub trait PreAbelianMorphism<RC: Radix, R: Ring<RC>, Source: Module<RC, R>, Target: Module<RC, R>>:
+pub trait PreAbelianMorphism<R: Ring, Source: Module<R>, Target: Module<R>>:
     Morphism<Source, Target>
 {
     fn is_zero(&self) -> bool;
@@ -105,17 +105,16 @@ pub trait PreAbelianMorphism<RC: Radix, R: Ring<RC>, Source: Module<RC, R>, Targ
     fn cokernel(&self) -> Self;
 }
 
-pub trait AbelianMorphism<RC: Radix, R: Ring<RC>, Source: Module<RC, R>, Target: Module<RC, R>>:
-    Sized + PreAbelianMorphism<RC, R, Source, Target>
+pub trait AbelianMorphism<R: Ring, Source: Module<R>, Target: Module<R>>:
+    Sized + PreAbelianMorphism<R, Source, Target>
 {
     fn equaliser(self, other: Self) -> Self;
     fn coequaliser(self, other: Self) -> Self;
 }
 
-impl<RC: Radix, R: Ring<RC>, Source: Module<RC, R>, Target: Module<RC, R>, T>
-    AbelianMorphism<RC, R, Source, Target> for T
+impl<R: Ring, Source: Module<R>, Target: Module<R>, T> AbelianMorphism<R, Source, Target> for T
 where
-    T: PreAbelianMorphism<RC, R, Source, Target>,
+    T: PreAbelianMorphism<R, Source, Target>,
     T: Add<Output = T> + Neg<Output = T>,
 {
     fn equaliser(self, other: Self) -> Self {
@@ -127,8 +126,8 @@ where
     }
 }
 
-pub trait AbelianEndoMorphism<RC: Radix, R: Ring<RC>, Object: Module<RC, R> + Eq>:
-    EndoMorphism<Object> + AbelianMorphism<RC, R, Object, Object>
+pub trait AbelianEndoMorphism<R: Ring, Object: Module<R> + Eq>:
+    EndoMorphism<Object> + AbelianMorphism<R, Object, Object>
 {
     fn high_kernel(&self) -> Self {
         // probably not the fastest, but will work consistently

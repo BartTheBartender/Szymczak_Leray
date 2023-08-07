@@ -1,16 +1,15 @@
-use crate::{rmodule::torsion::Coprime, util::number::divisors, Int};
-use gcd::Gcd;
+use crate::{rmodule::torsion::Factorisable, util::number::divisors, Int};
+// use gcd::Gcd;
 use std::{
     array::from_fn,
     cmp::Ordering,
     ops::{Add, Mul, Neg, Rem},
 };
-use typenum::{IsEqual, Mod, NonZero, Unsigned, U0};
+use typenum::{NonZero, Unsigned};
 
 pub type Zahl = Int;
 pub trait Radix = Unsigned + NonZero + Copy + Eq + Send + Sync;
-pub trait SuperRing<RC: Unsigned + NonZero + Eq + Send + Sync> =
-    Ring<RC> + Ord + Rem<Output = Self> + Coprime;
+pub trait SuperRing = Ring + Ord + Rem<Output = Self> + Factorisable;
 
 /* # structure */
 
@@ -41,18 +40,22 @@ but is immediately associative and scales well.
 
 /* ## set */
 
-pub trait Set<Card: Radix>: PartialEq + Eq + Clone + Copy + Send + Sync {
+pub trait Set: PartialEq + Eq + Clone + Copy + Send + Sync {
+    type Card: Radix;
+
     fn get(&self) -> Zahl;
     fn new(z: Zahl) -> Self;
 
-    fn elements() -> [Self; Card::USIZE] {
-        from_fn::<Self, { Card::USIZE }, _>(|j| {
+    fn elements() -> [Self; Self::Card::USIZE] {
+        from_fn::<Self, { Self::Card::USIZE }, _>(|j| {
             Self::new(j.try_into().expect("we're gonna need a bigger int"))
         })
     }
 }
 
-impl<Card: Radix> Set<Card> for Fin<Card> {
+impl<Card: Radix> Set for Fin<Card> {
+    type Card = Card;
+
     fn get(&self) -> Zahl {
         self.zahl
     }
@@ -60,7 +63,10 @@ impl<Card: Radix> Set<Card> for Fin<Card> {
     fn new(z: Zahl) -> Self {
         // this will never panic, since Radix is known to be NonZero at compile time
         Self {
-            zahl: z % Card::U8,
+            zahl: match z % Card::U8 {
+                0 => Card::U8,
+                n => n,
+            },
             _radix: std::marker::PhantomData,
         }
     }
@@ -72,8 +78,8 @@ impl<Card: Radix> Set<Card> for Fin<Card> {
 // but this would require some advanced types that would have to be dragged around
 // technically they would be evaluated at comiple time
 // but they would take up memory
-pub trait Ring<Card: Radix>:
-    Neg<Output = Self> + Add<Self, Output = Self> + Mul<Self, Output = Self> + Set<Card>
+pub trait Ring:
+    Neg<Output = Self> + Add<Self, Output = Self> + Mul<Self, Output = Self> + Set
 {
     fn zero() -> Self;
     fn one() -> Self;
@@ -108,7 +114,7 @@ impl<Card: Radix> Neg for Fin<Card> {
     }
 }
 
-impl<Card: Radix> Ring<Card> for Fin<Card> {
+impl<Card: Radix> Ring for Fin<Card> {
     fn zero() -> Self {
         Self::new(0)
     }
@@ -134,28 +140,17 @@ impl<Card: Radix> Ring<Card> for Fin<Card> {
     }
 }
 
-impl<Small: Radix, Large: Radix> Rem<Fin<Small>> for Fin<Large>
-where
-    Small: Radix,
-    Large: Radix + Rem<Small>,
-    Mod<Large, Small>: IsEqual<U0>,
-{
-    type Output = Fin<Small>;
+impl<Card: Radix> Rem for Fin<Card> {
+    type Output = Fin<Card>;
 
-    /**
-    this is unusual, since we are modding by the const
-    NOT by the actual given value.
-    i could write a separate trait just for that,
-    but again, i am too lazy, and this interface works well
-    */
-    fn rem(self, _other: Fin<Small>) -> Self::Output {
-        Self::Output::new(self.zahl)
+    fn rem(self, other: Fin<Card>) -> Self::Output {
+        Self::Output::new(self.zahl % other.zahl)
     }
 }
 
 impl<Card: Radix> PartialOrd for Fin<Card> {
     fn partial_cmp(&self, other: &Self) -> Option<Ordering> {
-        self.zahl.partial_cmp(&other.zahl)
+        Some(self.cmp(other))
     }
 }
 
@@ -165,6 +160,7 @@ impl<Card: Radix> Ord for Fin<Card> {
     }
 }
 
+/*
 impl<Card: Radix> Gcd for Fin<Card> {
     fn gcd(self, other: Self) -> Self {
         Self::new(self.zahl.gcd(other.zahl))
@@ -178,17 +174,25 @@ impl<Card: Radix> Gcd for Fin<Card> {
         Self::new(self.zahl.gcd_euclid(other.zahl))
     }
 }
+*/
 
-impl<Card: Radix> Coprime for Fin<Card> {
-    fn one() -> Self {
-        <Self as Ring<Card>>::one()
+/// this should be enough for our needs
+const SMALL_PRIMES: &[Zahl] = &[2, 3, 5, 7, 11, 13, 17, 19, 23, 29, 31];
+
+impl<Card: Radix + std::fmt::Debug> Factorisable for Fin<Card> {
+    fn primes() -> Vec<Self> {
+        SMALL_PRIMES
+            .iter()
+            .filter(|&&p| p <= Card::U8)
+            .map(|p| Self::new(*p))
+            .collect()
     }
 }
 
 #[cfg(test)]
 mod test {
     use super::*;
-    use typenum::{U2, U3, U4, U6, U8};
+    use typenum::{U3, U6, U8};
 
     #[test]
     fn finset_negation() {
@@ -209,10 +213,11 @@ mod test {
         assert_eq!(Fin::<U3>::new(1) * Fin::<U3>::new(2), Fin::<U3>::new(2));
         assert_eq!(Fin::<U3>::new(1) * Fin::<U3>::new(5), Fin::<U3>::new(2));
     }
+
     #[test]
     fn finset_remainder() {
-        assert_eq!(Fin::<U6>::new(5) % Fin::<U3>::new(0), Fin::<U3>::new(2));
-        assert_eq!(Fin::<U8>::new(7) % Fin::<U4>::new(0), Fin::<U4>::new(3));
-        assert_eq!(Fin::<U8>::new(7) % Fin::<U2>::new(0), Fin::<U2>::new(1));
+        assert_eq!(Fin::<U6>::new(5) % Fin::<U6>::new(3), Fin::<U6>::new(2));
+        assert_eq!(Fin::<U8>::new(7) % Fin::<U8>::new(4), Fin::<U8>::new(3));
+        assert_eq!(Fin::<U8>::new(7) % Fin::<U8>::new(2), Fin::<U8>::new(1));
     }
 }
