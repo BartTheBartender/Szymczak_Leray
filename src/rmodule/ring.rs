@@ -3,6 +3,7 @@ use gcd::Gcd;
 use std::{
     array::from_fn,
     cmp::Ordering,
+    fmt,
     ops::{Add, Mul, Neg, Rem},
 };
 use typenum::{NonZero, Unsigned};
@@ -13,10 +14,16 @@ pub trait SuperRing = Ring + Ord + Rem<Output = Self> + Factorisable + Gcd;
 
 /* # structure */
 
-#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+#[derive(Clone, Copy, PartialEq, Eq)]
 pub struct Fin<Card: Radix> {
     zahl: Zahl,
     _radix: std::marker::PhantomData<Card>,
+}
+
+impl<Card: Radix> fmt::Debug for Fin<Card> {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        write!(f, "Z{}({})", Card::U16, self.zahl)
+    }
 }
 
 /*

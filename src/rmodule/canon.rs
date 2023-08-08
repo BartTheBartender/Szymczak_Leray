@@ -8,7 +8,7 @@ use crate::{
         Module,
     },
 };
-use std::{ops::Rem, sync::Arc};
+use std::{fmt, ops::Rem, sync::Arc};
 
 /* # torsion coefficients */
 
@@ -26,10 +26,24 @@ fn all_torsion_coeffs_fixed_dim(base: Zahl, dimension: Zahl) -> Vec<TorsionCoeff
 
 /* # canonical module */
 
-#[derive(Debug, Clone, PartialEq, Eq)]
+#[derive(Clone, PartialEq, Eq)]
 pub struct CanonModule<R: Ring> {
     // technically, this R in the Tree should be an ideal of the ring
     torsion_coeff: CoeffTree<R, ()>,
+}
+
+impl<R: Ring + Ord> fmt::Debug for CanonModule<R> {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        write!(
+            f,
+            "{}",
+            self.torsion_coeff
+                .coeffs()
+                .map(|c| format!("Z{}", c.get().to_string()))
+                .collect::<Vec<_>>()
+                .join("x"),
+        )
+    }
 }
 
 impl<R: SuperRing> CanonModule<R> {

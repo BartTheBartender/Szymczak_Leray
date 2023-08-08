@@ -5,17 +5,24 @@ use crate::{
 };
 use itertools::Itertools;
 use std::{
+    fmt,
     ops::{Add, Neg},
     sync::Arc,
 };
 
 /* # Canon to Canon */
 
-#[derive(Debug, PartialEq, Eq)]
+#[derive(PartialEq, Eq)]
 pub struct CanonToCanon<R: SuperRing> {
     source: Arc<CanonModule<R>>,
     target: Arc<CanonModule<R>>,
     map: Matrix<R>,
+}
+
+impl<R: SuperRing> fmt::Debug for CanonToCanon<R> {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        write!(f, "{:?} : {:?} -> {:?}", self.map, self.source, self.target)
+    }
 }
 
 impl<R: SuperRing> CanonToCanon<R> {

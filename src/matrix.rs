@@ -4,14 +4,21 @@ use itertools::Itertools;
 use std::{
     cmp::min,
     collections::BTreeSet,
+    fmt,
     ops::{Add, Mul, Neg, Rem},
 };
 
-#[derive(Debug, Clone, PartialEq, Eq)]
+#[derive(Clone, PartialEq, Eq)]
 pub struct Matrix<T> {
     cols: u8,
     rows: u8,
     buffer: Vec<T>,
+}
+
+impl<T: fmt::Debug> fmt::Debug for Matrix<T> {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        write!(f, "Mtx({:?}x{:?}){:?}", self.cols, self.rows, self.buffer)
+    }
 }
 
 impl<T> Matrix<T> {
