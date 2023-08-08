@@ -5,6 +5,7 @@ use crate::{
         Module,
     },
 };
+use gcd::Gcd;
 use std::{
     collections::HashSet,
     hash::{Hash, Hasher},
@@ -112,7 +113,8 @@ pub trait AbelianMorphism<R: Ring, Source: Module<R>, Target: Module<R>>:
     fn coequaliser(self, other: Self) -> Self;
 }
 
-impl<R: Ring, Source: Module<R>, Target: Module<R>, T> AbelianMorphism<R, Source, Target> for T
+impl<R: Ring + Gcd, Source: Module<R>, Target: Module<R>, T> AbelianMorphism<R, Source, Target>
+    for T
 where
     T: PreAbelianMorphism<R, Source, Target>,
     T: Add<Output = T> + Neg<Output = T>,

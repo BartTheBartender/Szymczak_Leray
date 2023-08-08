@@ -1,5 +1,5 @@
 use crate::{rmodule::torsion::Factorisable, util::number::divisors, Int};
-// use gcd::Gcd;
+use gcd::Gcd;
 use std::{
     array::from_fn,
     cmp::Ordering,
@@ -9,7 +9,7 @@ use typenum::{NonZero, Unsigned};
 
 pub type Zahl = Int;
 pub trait Radix = Unsigned + NonZero + Copy + Eq + Send + Sync;
-pub trait SuperRing = Ring + Ord + Rem<Output = Self> + Factorisable;
+pub trait SuperRing = Ring + Ord + Rem<Output = Self> + Factorisable + Gcd;
 
 /* # structure */
 
@@ -168,7 +168,6 @@ impl<Card: Radix> Ord for Fin<Card> {
     }
 }
 
-/*
 impl<Card: Radix> Gcd for Fin<Card> {
     fn gcd(self, other: Self) -> Self {
         Self::new(self.zahl.gcd(other.zahl))
@@ -182,7 +181,6 @@ impl<Card: Radix> Gcd for Fin<Card> {
         Self::new(self.zahl.gcd_euclid(other.zahl))
     }
 }
-*/
 
 /// this should be enough for our needs
 const SMALL_PRIMES: &[Zahl] = &[2, 3, 5, 7, 11, 13, 17, 19, 23, 29, 31];

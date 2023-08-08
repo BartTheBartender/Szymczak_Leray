@@ -1,5 +1,11 @@
+use crate::rmodule::ring::Ring;
+use gcd::Gcd;
 use itertools::Itertools;
-use std::ops::{Add, Mul, Neg};
+use std::{
+    cmp::min,
+    collections::BTreeSet,
+    ops::{Add, Mul, Neg, Rem},
+};
 
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct Matrix<T> {
@@ -43,6 +49,10 @@ impl<T> Matrix<T> {
         }
     }
 
+    fn get(&self, col: u8, row: u8) -> Option<&T> {
+        self.buffer.get(usize::from(col + self.cols * row))
+    }
+
     /* # iters */
 
     pub fn iter(&self) -> impl Iterator<Item = &T> {
@@ -55,6 +65,36 @@ impl<T> Matrix<T> {
 
     pub fn into_iter(self) -> impl Iterator<Item = T> {
         self.buffer.into_iter()
+    }
+
+    fn row(&self, row: u8) -> impl Iterator<Item = &T> {
+        self.buffer
+            .iter()
+            .skip(usize::from(row * self.cols))
+            .take(usize::from(self.cols))
+    }
+
+    fn row_mut(&mut self, row: u8) -> impl Iterator<Item = &mut T> {
+        self.buffer
+            .iter_mut()
+            .skip(usize::from(row * self.cols))
+            .take(usize::from(self.cols))
+    }
+
+    fn col(&self, col: u8) -> impl Iterator<Item = &T> {
+        self.buffer
+            .iter()
+            .skip(usize::from(col))
+            .step_by(usize::from(self.cols))
+            .take(usize::from(self.rows))
+    }
+
+    fn col_mut(&mut self, col: u8) -> impl Iterator<Item = &mut T> {
+        self.buffer
+            .iter_mut()
+            .skip(usize::from(col))
+            .step_by(usize::from(self.cols))
+            .take(usize::from(self.rows))
     }
 }
 
@@ -82,26 +122,11 @@ where
     }
 
     pub fn rows(&self) -> impl Iterator<Item = Vec<T>> + '_ {
-        (0..self.rows).map(|row| {
-            self.buffer
-                .iter()
-                .skip(usize::from(row * self.cols))
-                .take(usize::from(self.cols))
-                .copied()
-                .collect()
-        })
+        (0..self.rows).map(|row| self.row(row).copied().collect())
     }
 
     pub fn cols(&self) -> impl Iterator<Item = Vec<T>> + '_ {
-        (0..self.cols).map(|col| {
-            self.buffer
-                .iter()
-                .skip(usize::from(col))
-                .step_by(usize::from(self.cols))
-                .take(usize::from(self.rows))
-                .copied()
-                .collect()
-        })
+        (0..self.cols).map(|col| self.col(col).copied().collect())
     }
 }
 
@@ -118,17 +143,8 @@ where
                 .flat_map(|row| {
                     (0..self.cols).map(move |col| {
                         other
-                            .buffer
-                            .iter()
-                            .skip(usize::from(row * other.cols))
-                            .take(usize::from(other.cols))
-                            .zip(
-                                self.buffer
-                                    .iter()
-                                    .skip(usize::from(col))
-                                    .step_by(usize::from(self.cols))
-                                    .take(usize::from(self.rows)),
-                            )
+                            .row(row)
+                            .zip(self.col(col))
                             .map(|(r, c)| *r * *c)
                             .reduce(|acc, nxt| acc + nxt)
                             .expect("matrices are not empty")
@@ -179,21 +195,133 @@ where
     }
 }
 
-impl<T> Matrix<T> {
+impl<R: Ring + Rem<Output = R> + Ord + Gcd> Matrix<R> {
+    fn identity(cols: u8, rows: u8) -> Self {
+        Self::from_buffer(
+            (0..cols).flat_map(|c| {
+                (0..rows).map(move |r| match r == c {
+                    true => R::one(),
+                    false => R::zero(),
+                })
+            }),
+            cols,
+            rows,
+        )
+    }
+
+    fn mul_row_by(&mut self, row: u8, r: R) {
+        for v in self.row_mut(row) {
+            *v = *v * r;
+        }
+    }
+
+    fn mul_col_by(&mut self, col: u8, r: R) {
+        for v in self.col_mut(col) {
+            *v = *v * r;
+        }
+    }
+
+    fn add_muled_row_to_row(&mut self, muled_row: u8, to_row: u8, r: R) {
+        let mrow: Vec<_> = self.row(muled_row).copied().collect();
+        for (t, m) in self.row_mut(to_row).zip(mrow) {
+            *t = *t + m * r
+        }
+    }
+
+    fn add_muled_col_to_col(&mut self, muled_col: u8, to_col: u8, r: R) {
+        let mcol: Vec<_> = self.col(muled_col).copied().collect();
+        for (t, m) in self.col_mut(to_col).zip(mcol) {
+            *t = *t + m * r
+        }
+    }
+
+    fn smallest_nonzero_entry(
+        &self,
+        done_cols: &BTreeSet<u8>,
+        done_rows: &BTreeSet<u8>,
+    ) -> Option<(u8, u8)> {
+        (0..self.cols)
+            .filter(|col| !done_cols.contains(col))
+            .zip((0..self.rows).filter(|row| !done_rows.contains(row)))
+            .sorted_by_key(|(col, row)| self.get(*col, *row))
+            .next()
+    }
+
     /**
     A -> (U,S,V)
-    should return a matrix with at most one nonzero entry in every column,
-    such that UA = SV.
-    psuedo, because it should never switch any columns or rows
+    should return a matrix with at most one nonzero entry
+    in every row and column, such that UA = SV.
+    psuedo, because it should never switch any columns or rows,
+    nor will the non zero entries be divisors of one another.
     */
     pub fn pseudo_smith(&self) -> (Self, Self, Self) {
-        todo!()
+        let mut smith = self.clone();
+        let mut u = Self::identity(self.rows, self.rows);
+        let mut v = Self::identity(self.cols, self.cols);
+        let mut done_cols = BTreeSet::new();
+        let mut done_rows = BTreeSet::new();
+        for _ in 0..min(smith.rows, smith.cols) {
+            if let Some((mincol, minrow)) = smith.smallest_nonzero_entry(&done_cols, &done_rows) {
+                let minx = *self.get(mincol, minrow).expect("indices in range");
+                for col in (0..smith.cols).filter(|&i| i != mincol) {
+                    if let Some(&x) = smith.get(col, minrow) {
+                        if x.is_zero() {
+                            continue;
+                        }
+                        let gcd = x.gcd(minx);
+                        if !(x % minx).is_zero() {
+                            smith.mul_col_by(col, minx.divide_by(&gcd).expect("gcd divdes evenly"));
+                            v.mul_col_by(col, minx);
+                        }
+                        smith.add_muled_col_to_col(
+                            mincol,
+                            col,
+                            x.divide_by(&gcd).expect("gcd divdes evenly"),
+                        );
+                        v.add_muled_col_to_col(
+                            mincol,
+                            col,
+                            x.divide_by(&gcd).expect("gcd divdes evenly"),
+                        );
+                    }
+                }
+                for row in (0..smith.rows).filter(|&i| i != minrow) {
+                    if let Some(&x) = smith.get(mincol, row) {
+                        if x.is_zero() {
+                            continue;
+                        }
+                        let gcd = x.gcd(minx);
+                        if !(x % minx).is_zero() {
+                            smith.mul_row_by(row, minx.divide_by(&gcd).expect("gcd divdes evenly"));
+                            u.mul_row_by(row, minx);
+                        }
+                        smith.add_muled_row_to_row(
+                            minrow,
+                            row,
+                            x.divide_by(&gcd).expect("gcd divdes evenly"),
+                        );
+                        u.add_muled_row_to_row(
+                            minrow,
+                            row,
+                            x.divide_by(&gcd).expect("gcd divdes evenly"),
+                        );
+                    }
+                }
+                done_cols.insert(mincol);
+                done_rows.insert(minrow);
+            } else {
+                break;
+            }
+        }
+        (u, smith, v)
     }
 }
 
 #[cfg(test)]
 mod test {
     use super::*;
+    use crate::rmodule::ring::{Fin, Set};
+    use typenum::{U32, U6};
 
     #[test]
     fn transposition() {
@@ -240,5 +368,101 @@ mod test {
         assert_eq!(cols.next(), Some(vec![4, 14, 24]));
         assert_eq!(cols.next(), Some(vec![5, 19, 33]));
         assert_eq!(cols.next(), None);
+    }
+
+    #[test]
+    fn smithing_nonexample() {
+        type R = Fin<U6>;
+        let m = Matrix::<R>::from_buffer(
+            [
+                R::new(0),
+                R::new(2),
+                R::new(0),
+                R::new(3),
+                R::new(0),
+                R::new(0),
+            ],
+            3,
+            2,
+        );
+        let (u, s, v) = m.pseudo_smith();
+        assert_eq!(m, s);
+        assert_eq!(
+            u,
+            Matrix::<R>::from_buffer([R::new(1), R::new(0), R::new(0), R::new(1)], 2, 2)
+        );
+        assert_eq!(
+            v,
+            Matrix::<R>::from_buffer(
+                [
+                    R::new(1),
+                    R::new(0),
+                    R::new(0),
+                    R::new(0),
+                    R::new(1),
+                    R::new(0),
+                    R::new(0),
+                    R::new(0),
+                    R::new(1)
+                ],
+                3,
+                3
+            ),
+        );
+    }
+
+    #[test]
+    fn smithing() {
+        type R = Fin<U32>;
+        let m = Matrix::<R>::from_buffer(
+            [
+                R::new(2),
+                R::new(5),
+                R::new(6),
+                R::new(4),
+                R::new(3),
+                R::new(7),
+            ],
+            3,
+            2,
+        );
+        let (u, s, v) = m.pseudo_smith();
+        assert_eq!(
+            s,
+            Matrix::<R>::from_buffer(
+                [
+                    R::new(2),
+                    R::new(0),
+                    R::new(0),
+                    R::new(0),
+                    R::new(20),
+                    R::new(0)
+                ],
+                3,
+                2
+            )
+        );
+        assert_eq!(
+            u,
+            Matrix::<R>::from_buffer([R::new(1), R::new(0), R::new(30), R::new(1)], 2, 2)
+        );
+        assert_eq!(
+            v,
+            Matrix::<R>::from_buffer(
+                [
+                    R::new(1),
+                    R::new(27),
+                    R::new(11),
+                    R::new(0),
+                    R::new(2),
+                    R::new(10),
+                    R::new(0),
+                    R::new(0),
+                    R::new(20)
+                ],
+                3,
+                3
+            ),
+        );
     }
 }

@@ -396,6 +396,12 @@ mod test {
         fn is_one(&self) -> bool {
             *self == 1
         }
+        fn divide_by(&self, other: &Self) -> Option<Self> {
+            match self % other {
+                0 => Some(self / other),
+                _ => None,
+            }
+        }
         fn ideals() -> impl Iterator<Item = Self> {
             [1, 2, 4, 8, 16, 32, 64].into_iter()
         }
