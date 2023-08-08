@@ -26,11 +26,20 @@ impl<R: SuperRing> fmt::Debug for CanonToCanon<R> {
 }
 
 impl<R: SuperRing> CanonToCanon<R> {
-    pub fn new_unchecked(
-        source: Arc<CanonModule<R>>,
-        target: Arc<CanonModule<R>>,
-        map: Matrix<R>,
-    ) -> Self {
+    pub fn new(source: Arc<CanonModule<R>>, target: Arc<CanonModule<R>>, map: Matrix<R>) -> Self {
+        let mut map = map;
+        /*
+        for (col, coeff) in source.coeff_tree().coeffs().enumerate() {
+            for x in map.col_mut(u8::try_from(col).expect("we're gonna need a bigger int")) {
+                *x = *x % coeff;
+            }
+        }
+        */
+        for (row, coeff) in target.coeff_tree().coeffs().enumerate() {
+            for x in map.row_mut(u8::try_from(row).expect("we're gonna need a bigger int")) {
+                *x = *x % coeff;
+            }
+        }
         Self {
             source,
             target,
@@ -45,19 +54,6 @@ impl<R: SuperRing> CanonToCanon<R> {
     pub fn cols(&self) -> impl Iterator<Item = Vec<R>> + '_ {
         self.map.rows()
     }
-
-    /*
-    pub fn new(
-        source: Arc<CanonModule<R>>,
-        target: Arc<CanonModule<R>>,
-        map: Matrix<<CanonModule<R> as Module<R>>::Element>,
-    ) -> Result<Self, Error> {
-        match map.iter().all(|el| target.is_element(el)) {
-            true => Ok(Self::new_unchecked(source, target, map)),
-            false => Err(Error::InvalidElement),
-        }
-    }
-    */
 
     pub fn evaluate_unchecked(
         &self,
@@ -109,7 +105,7 @@ impl<R: SuperRing> Compose<CanonModule<R>, CanonModule<R>, CanonModule<R>, Self>
     type Output = Self;
 
     fn compose_unchecked(&self, other: &Self) -> Self {
-        Self::new_unchecked(
+        Self::new(
             Arc::clone(&self.source),
             Arc::clone(&other.target),
             self.map.compose_unchecked(&other.map),
@@ -124,6 +120,7 @@ impl<R: SuperRing> PreAbelianMorphism<R, CanonModule<R>, CanonModule<R>> for Can
 
     fn kernel(&self) -> Self {
         let (_u, s, v) = self.map.pseudo_smith();
+        println!("{v:?}");
         let mut columns = Vec::new();
         let mut coeffs = Vec::new();
         for (coeff, (smith_col, v_col)) in self
@@ -133,14 +130,17 @@ impl<R: SuperRing> PreAbelianMorphism<R, CanonModule<R>, CanonModule<R>> for Can
             .zip(s.cols().zip(v.cols()))
         {
             // there will be at most one nonzero element in the column
-            if let Some(c) = smith_col.into_iter().find(|&x| !x.is_zero()) {
-                if let Some(x) = coeff.divide_by(&c) {
-                    if x.is_one() {
-                    } else {
+            if let Some((row, c)) = smith_col
+                .into_iter()
+                .enumerate()
+                .find(|&(_row, x)| !(x % coeff).is_zero())
+            {
+                let row_coeff = &self.target.coeff_tree().coeffs().nth(row).unwrap();
+                let maybe_x = coeff.divide_by(&row_coeff.divide_by(&c).unwrap());
+                if let Some(x) = maybe_x && !x.is_one() {
                         coeffs.push(x);
                         columns.push(v_col.into_iter().map(|y| y * x).collect());
-                    }
-                } // else should never happen
+                }
             } else {
                 coeffs.push(coeff);
                 columns.push(v_col);
@@ -151,14 +151,15 @@ impl<R: SuperRing> PreAbelianMorphism<R, CanonModule<R>, CanonModule<R>> for Can
         let (columns, coeffs): (Vec<_>, Vec<_>) = columns
             .into_iter()
             .zip(coeffs)
-            .sorted_by(|a, b| Ord::cmp(&a.1, &b.1))
+            .sorted_by(|a, b| Ord::cmp(&a.1, &b.1).reverse())
             .unzip();
+        println!("{columns:?}");
 
         let ncols: u8 = columns
             .len()
             .try_into()
             .expect("we're gonna need a bigger int");
-        Self::new_unchecked(
+        Self::new(
             Arc::new(CanonModule::new(CoeffTree::from_iter(coeffs))),
             self.source(),
             Matrix::from_cols(columns, ncols),
@@ -170,19 +171,16 @@ impl<R: SuperRing> PreAbelianMorphism<R, CanonModule<R>, CanonModule<R>> for Can
         let mut rows = Vec::new();
         let mut coeffs = Vec::new();
         for (coeff, (smith_row, u_row)) in self
-            .source
+            .target
             .coeff_tree()
             .coeffs()
             .zip(s.rows().zip(u.rows()))
         {
             // there will be at most one nonzero element in the column
-            if let Some(c) = smith_row.into_iter().find(|&x| !x.is_zero()) {
-                if let Some(x) = coeff.divide_by(&c) {
-                    if x.is_one() {
-                    } else {
-                        coeffs.push(x);
-                        rows.push(u_row.into_iter().map(|y| y * x).collect());
-                    }
+            if let Some(c) = smith_row.into_iter().find(|&x| !(x % coeff).is_zero()) {
+                if !c.is_one() && let Some(x) = coeff.divide_by(&c) && !x.is_one() {
+                    coeffs.push(x);
+                    rows.push(u_row);
                 } // else should never happen
             } else {
                 coeffs.push(coeff);
@@ -201,7 +199,7 @@ impl<R: SuperRing> PreAbelianMorphism<R, CanonModule<R>, CanonModule<R>> for Can
             .len()
             .try_into()
             .expect("we're gonna need a bigger int");
-        Self::new_unchecked(
+        Self::new(
             self.target(),
             Arc::new(CanonModule::new(CoeffTree::from_iter(coeffs))),
             Matrix::from_rows(rows, nrows),
@@ -254,16 +252,16 @@ mod test {
         let z2 = Arc::new(CanonModule::new(CoeffTree::<R, ()>::from_iter([R::new(2)])));
         let z6 = Arc::new(CanonModule::new(CoeffTree::<R, ()>::from_iter([R::new(6)])));
         assert_eq!(
-            CanonToCanon::new_unchecked(
+            CanonToCanon::new(
                 Arc::clone(&z6),
                 Arc::clone(&z6),
                 Matrix::from_buffer([R::new(1), R::new(0), R::new(0), R::new(2)], 2, 2),
             )
             .kernel(),
-            CanonToCanon::new_unchecked(
+            CanonToCanon::new(
                 Arc::clone(&z2),
                 Arc::clone(&z6),
-                Matrix::from_buffer([R::new(1), R::new(0)], 1, 2),
+                Matrix::from_buffer([R::new(0), R::new(1)], 1, 2),
             )
         );
     }
@@ -276,13 +274,13 @@ mod test {
             R::new(2),
         ])));
         assert_eq!(
-            CanonToCanon::new_unchecked(
+            CanonToCanon::new(
                 Arc::clone(&z2sq),
                 Arc::clone(&z2sq),
                 Matrix::from_buffer([R::new(1), R::new(1), R::new(1), R::new(1)], 2, 2),
             )
             .kernel(),
-            CanonToCanon::new_unchecked(
+            CanonToCanon::new(
                 Arc::clone(&z2),
                 Arc::clone(&z2sq),
                 Matrix::from_buffer([R::new(1), R::new(1)], 1, 2),
@@ -307,7 +305,7 @@ mod test {
             R::new(2),
         ])));
         assert_eq!(
-            CanonToCanon::new_unchecked(
+            CanonToCanon::new(
                 Arc::clone(&z942),
                 Arc::clone(&z43),
                 Matrix::from_buffer(
@@ -315,7 +313,7 @@ mod test {
                         R::new(0),
                         R::new(2),
                         R::new(2),
-                        R::new(3),
+                        R::new(1),
                         R::new(0),
                         R::new(0)
                     ],
@@ -324,7 +322,7 @@ mod test {
                 ),
             )
             .kernel(),
-            CanonToCanon::new_unchecked(
+            CanonToCanon::new(
                 Arc::clone(&z322),
                 Arc::clone(&z942),
                 Matrix::from_buffer(
@@ -334,7 +332,7 @@ mod test {
                         R::new(0),
                         R::new(0),
                         R::new(2),
-                        R::new(1),
+                        R::new(3),
                         R::new(0),
                         R::new(0),
                         R::new(1)
@@ -351,13 +349,13 @@ mod test {
         let z2 = Arc::new(CanonModule::new(CoeffTree::<R, ()>::from_iter([R::new(2)])));
         let z6 = Arc::new(CanonModule::new(CoeffTree::<R, ()>::from_iter([R::new(6)])));
         assert_eq!(
-            CanonToCanon::new_unchecked(
+            CanonToCanon::new(
                 Arc::clone(&z6),
                 Arc::clone(&z6),
                 Matrix::from_buffer([R::new(1), R::new(0), R::new(0), R::new(2)], 2, 2),
             )
             .cokernel(),
-            CanonToCanon::new_unchecked(
+            CanonToCanon::new(
                 Arc::clone(&z6),
                 Arc::clone(&z2),
                 Matrix::from_buffer([R::new(0), R::new(1)], 2, 1),
@@ -373,13 +371,13 @@ mod test {
             R::new(2),
         ])));
         assert_eq!(
-            CanonToCanon::new_unchecked(
+            CanonToCanon::new(
                 Arc::clone(&z2sq),
                 Arc::clone(&z2sq),
                 Matrix::from_buffer([R::new(1), R::new(1), R::new(1), R::new(1)], 2, 2),
             )
             .cokernel(),
-            CanonToCanon::new_unchecked(
+            CanonToCanon::new(
                 Arc::clone(&z2sq),
                 Arc::clone(&z2),
                 Matrix::from_buffer([R::new(1), R::new(1)], 2, 1),
@@ -400,7 +398,7 @@ mod test {
             R::new(2),
         ])));
         assert_eq!(
-            CanonToCanon::new_unchecked(
+            CanonToCanon::new(
                 Arc::clone(&z942),
                 Arc::clone(&z43),
                 Matrix::from_buffer(
@@ -408,7 +406,7 @@ mod test {
                         R::new(0),
                         R::new(2),
                         R::new(2),
-                        R::new(3),
+                        R::new(1),
                         R::new(0),
                         R::new(0)
                     ],
@@ -417,8 +415,8 @@ mod test {
                 ),
             )
             .cokernel(),
-            CanonToCanon::new_unchecked(
-                Arc::clone(&z942),
+            CanonToCanon::new(
+                Arc::clone(&z43),
                 Arc::clone(&z2),
                 Matrix::from_buffer([R::new(1), R::new(0),], 2, 1),
             )

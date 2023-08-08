@@ -361,6 +361,9 @@ where
         for i in iter {
             bt.insert(i);
         }
+        // if bt.buffer.is_empty() {
+        //     bt.insert(T::one());
+        // }
         bt
     }
 }
@@ -370,17 +373,20 @@ where
 #[cfg(test)]
 mod test {
     use super::*;
-    use crate::{rmodule::ring::Set, util::number::divisors};
+    use crate::{
+        rmodule::ring::{Set, Zahl},
+        util::number::divisors,
+    };
     use typenum::U256;
 
     impl Set for i8 {
         type Card = U256;
 
-        fn new(x: u8) -> Self {
+        fn new(x: Zahl) -> Self {
             x as i8
         }
-        fn get(&self) -> u8 {
-            *self as u8
+        fn get(&self) -> Zahl {
+            *self as Zahl
         }
     }
     impl Ring for i8 {
@@ -406,7 +412,7 @@ mod test {
             [1, 2, 4, 8, 16, 32, 64].into_iter()
         }
         fn subideals(&self) -> impl Iterator<Item = Self> {
-            divisors(*self as u8).into_iter().map(|x| x as i8)
+            divisors(*self as Zahl).into_iter().map(|x| x as i8)
         }
     }
 

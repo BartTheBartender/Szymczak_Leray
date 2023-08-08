@@ -26,11 +26,14 @@ fn all_torsion_coeffs_fixed_dim(base: Zahl, dimension: Zahl) -> Vec<TorsionCoeff
 
 /* # canonical module */
 
-#[derive(Clone, PartialEq, Eq)]
+#[derive(Clone)]
 pub struct CanonModule<R: Ring> {
     // technically, this R in the Tree should be an ideal of the ring
     torsion_coeff: CoeffTree<R, ()>,
 }
+
+unsafe impl<R: Ring + Send> Send for CanonModule<R> {}
+unsafe impl<R: Ring + Sync> Sync for CanonModule<R> {}
 
 impl<R: Ring + Ord> fmt::Debug for CanonModule<R> {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
@@ -45,6 +48,15 @@ impl<R: Ring + Ord> fmt::Debug for CanonModule<R> {
         )
     }
 }
+
+impl<R: SuperRing> PartialEq for CanonModule<R> {
+    // we do not care if the coeff tree keys have different uuids
+    fn eq(&self, other: &Self) -> bool {
+        self.torsion_coeff.coeffs().eq(other.torsion_coeff.coeffs())
+    }
+}
+
+impl<R: SuperRing> Eq for CanonModule<R> {}
 
 impl<R: SuperRing> CanonModule<R> {
     pub fn new(torsion_coeff: CoeffTree<R, ()>) -> Self {
@@ -157,7 +169,7 @@ pub fn submodules_of_cyclic_module<R: SuperRing>(module: CanonModule<R>) -> Vec<
             let source = Arc::new(CanonModule::new(CoeffTree::<R, ()>::from_iter(vec![
                 subideal,
             ])));
-            CanonToCanon::new_unchecked(
+            CanonToCanon::new(
                 source,
                 target.clone(),
                 Matrix::<R>::from_buffer([subideal], 1, 1),
@@ -178,7 +190,7 @@ pub fn quotients_of_cyclic_module<R: SuperRing>(module: CanonModule<R>) -> Vec<C
             let target = Arc::new(CanonModule::new(CoeffTree::<R, ()>::from_iter(vec![
                 subideal,
             ])));
-            CanonToCanon::new_unchecked(
+            CanonToCanon::new(
                 source.clone(),
                 target,
                 Matrix::<R>::from_buffer([<R as Ring>::one()], 1, 1),

@@ -39,7 +39,10 @@ impl<T> Matrix<T> {
     {
         let buffer = rows.into_iter().concat();
         Self {
-            cols: u8::try_from(buffer.len()).expect("we're gonna need a bigger int") / nof_rows,
+            cols: match nof_rows {
+                0 => 0,
+                x => u8::try_from(buffer.len()).expect("we're gonna need a bigger int") / x,
+            },
             rows: nof_rows,
             buffer,
         }
@@ -81,7 +84,7 @@ impl<T> Matrix<T> {
             .take(usize::from(self.cols))
     }
 
-    fn row_mut(&mut self, row: u8) -> impl Iterator<Item = &mut T> {
+    pub fn row_mut(&mut self, row: u8) -> impl Iterator<Item = &mut T> {
         self.buffer
             .iter_mut()
             .skip(usize::from(row * self.cols))
@@ -96,7 +99,7 @@ impl<T> Matrix<T> {
             .take(usize::from(self.rows))
     }
 
-    fn col_mut(&mut self, col: u8) -> impl Iterator<Item = &mut T> {
+    pub fn col_mut(&mut self, col: u8) -> impl Iterator<Item = &mut T> {
         self.buffer
             .iter_mut()
             .skip(usize::from(col))
@@ -202,11 +205,14 @@ where
     }
 }
 
-impl<R: Ring + Rem<Output = R> + Ord + Gcd> Matrix<R> {
+impl<R: Ring + Rem<Output = R> + Ord + Gcd> Matrix<R>
+where
+    R: fmt::Debug,
+{
     fn identity(cols: u8, rows: u8) -> Self {
         Self::from_buffer(
-            (0..cols).flat_map(|c| {
-                (0..rows).map(move |r| match r == c {
+            (0..rows).flat_map(|r| {
+                (0..cols).map(move |c| match r == c {
                     true => R::one(),
                     false => R::zero(),
                 })
@@ -249,13 +255,22 @@ impl<R: Ring + Rem<Output = R> + Ord + Gcd> Matrix<R> {
     ) -> Option<(u8, u8)> {
         (0..self.cols)
             .filter(|col| !done_cols.contains(col))
-            .zip((0..self.rows).filter(|row| !done_rows.contains(row)))
-            .sorted_by_key(|(col, row)| self.get(*col, *row))
+            .cartesian_product((0..self.rows).filter(|row| !done_rows.contains(row)))
+            .map(|(col, row)| {
+                (
+                    col,
+                    row,
+                    *self.get(col, row).expect("index will not be out of range"),
+                )
+            })
+            .filter(|(_, _, v)| !v.is_zero())
+            .sorted_by_key(|(_, _, v)| *v)
+            .map(|(col, row, _)| (col, row))
             .next()
     }
 
     /**
-    A -> (U,S,V)
+    fn: A -> (U,S,V)
     should return a matrix with at most one nonzero entry
     in every row and column, such that UA = SV.
     psuedo, because it should never switch any columns or rows,
@@ -269,29 +284,7 @@ impl<R: Ring + Rem<Output = R> + Ord + Gcd> Matrix<R> {
         let mut done_rows = BTreeSet::new();
         for _ in 0..min(smith.rows, smith.cols) {
             if let Some((mincol, minrow)) = smith.smallest_nonzero_entry(&done_cols, &done_rows) {
-                let minx = *self.get(mincol, minrow).expect("indices in range");
-                for col in (0..smith.cols).filter(|&i| i != mincol) {
-                    if let Some(&x) = smith.get(col, minrow) {
-                        if x.is_zero() {
-                            continue;
-                        }
-                        let gcd = x.gcd(minx);
-                        if !(x % minx).is_zero() {
-                            smith.mul_col_by(col, minx.divide_by(&gcd).expect("gcd divdes evenly"));
-                            v.mul_col_by(col, minx);
-                        }
-                        smith.add_muled_col_to_col(
-                            mincol,
-                            col,
-                            x.divide_by(&gcd).expect("gcd divdes evenly"),
-                        );
-                        v.add_muled_col_to_col(
-                            mincol,
-                            col,
-                            x.divide_by(&gcd).expect("gcd divdes evenly"),
-                        );
-                    }
-                }
+                let minx = *smith.get(mincol, minrow).expect("indices in range");
                 for row in (0..smith.rows).filter(|&i| i != minrow) {
                     if let Some(&x) = smith.get(mincol, row) {
                         if x.is_zero() {
@@ -305,12 +298,34 @@ impl<R: Ring + Rem<Output = R> + Ord + Gcd> Matrix<R> {
                         smith.add_muled_row_to_row(
                             minrow,
                             row,
-                            x.divide_by(&gcd).expect("gcd divdes evenly"),
+                            -x.divide_by(&gcd).expect("gcd divdes evenly"),
                         );
                         u.add_muled_row_to_row(
                             minrow,
                             row,
-                            x.divide_by(&gcd).expect("gcd divdes evenly"),
+                            -x.divide_by(&gcd).expect("gcd divdes evenly"),
+                        );
+                    }
+                }
+                for col in (0..smith.cols).filter(|&i| i != mincol) {
+                    if let Some(&x) = smith.get(col, minrow) {
+                        if x.is_zero() {
+                            continue;
+                        }
+                        let gcd = x.gcd(minx);
+                        if !(x % minx).is_zero() {
+                            smith.mul_col_by(col, minx.divide_by(&gcd).expect("gcd divdes evenly"));
+                            v.mul_col_by(col, minx);
+                        }
+                        smith.add_muled_col_to_col(
+                            mincol,
+                            col,
+                            -x.divide_by(&gcd).expect("gcd divdes evenly"),
+                        );
+                        v.add_muled_col_to_col(
+                            mincol,
+                            col,
+                            -x.divide_by(&gcd).expect("gcd divdes evenly"),
                         );
                     }
                 }
@@ -378,6 +393,228 @@ mod test {
     }
 
     #[test]
+    fn identities() {
+        type R = Fin<U6>;
+        assert_eq!(
+            Matrix::<R>::identity(2, 2),
+            Matrix::<R>::from_buffer([R::new(1), R::new(0), R::new(0), R::new(1)], 2, 2)
+        );
+        assert_eq!(
+            Matrix::<R>::identity(3, 2),
+            Matrix::<R>::from_buffer(
+                [
+                    R::new(1),
+                    R::new(0),
+                    R::new(0),
+                    R::new(0),
+                    R::new(1),
+                    R::new(0)
+                ],
+                3,
+                2
+            )
+        );
+        assert_eq!(
+            Matrix::<R>::identity(2, 3),
+            Matrix::<R>::from_buffer(
+                [
+                    R::new(1),
+                    R::new(0),
+                    R::new(0),
+                    R::new(1),
+                    R::new(0),
+                    R::new(0)
+                ],
+                2,
+                3
+            )
+        );
+        assert_eq!(
+            Matrix::<R>::identity(3, 3),
+            Matrix::<R>::from_buffer(
+                [
+                    R::new(1),
+                    R::new(0),
+                    R::new(0),
+                    R::new(0),
+                    R::new(1),
+                    R::new(0),
+                    R::new(0),
+                    R::new(0),
+                    R::new(1)
+                ],
+                3,
+                3
+            )
+        );
+    }
+
+    #[test]
+    fn muling_row_by_element() {
+        type R = Fin<U6>;
+        let mut m = Matrix::<R>::from_buffer(
+            [
+                R::new(1),
+                R::new(2),
+                R::new(0),
+                R::new(1),
+                R::new(0),
+                R::new(0),
+            ],
+            3,
+            2,
+        );
+        m.mul_row_by(0, R::new(3));
+        assert_eq!(
+            m,
+            Matrix::<R>::from_buffer(
+                [
+                    R::new(3),
+                    R::new(0),
+                    R::new(0),
+                    R::new(1),
+                    R::new(0),
+                    R::new(0),
+                ],
+                3,
+                2,
+            )
+        )
+    }
+
+    #[test]
+    fn muling_col_by_element() {
+        type R = Fin<U6>;
+        let mut m = Matrix::<R>::from_buffer(
+            [
+                R::new(1),
+                R::new(2),
+                R::new(0),
+                R::new(1),
+                R::new(0),
+                R::new(0),
+            ],
+            3,
+            2,
+        );
+        m.mul_col_by(1, R::new(2));
+        assert_eq!(
+            m,
+            Matrix::<R>::from_buffer(
+                [
+                    R::new(1),
+                    R::new(4),
+                    R::new(0),
+                    R::new(1),
+                    R::new(0),
+                    R::new(0),
+                ],
+                3,
+                2,
+            )
+        )
+    }
+
+    #[test]
+    fn adding_row_muled_by_element() {
+        type R = Fin<U6>;
+        let mut m = Matrix::<R>::from_buffer(
+            [
+                R::new(1),
+                R::new(2),
+                R::new(0),
+                R::new(1),
+                R::new(0),
+                R::new(0),
+            ],
+            3,
+            2,
+        );
+        m.add_muled_row_to_row(0, 1, R::new(2));
+        assert_eq!(
+            m,
+            Matrix::<R>::from_buffer(
+                [
+                    R::new(1),
+                    R::new(2),
+                    R::new(0),
+                    R::new(3),
+                    R::new(4),
+                    R::new(0),
+                ],
+                3,
+                2,
+            )
+        )
+    }
+
+    #[test]
+    fn adding_col_muled_by_element() {
+        type R = Fin<U6>;
+        let mut m = Matrix::<R>::from_buffer(
+            [
+                R::new(1),
+                R::new(2),
+                R::new(0),
+                R::new(1),
+                R::new(0),
+                R::new(0),
+            ],
+            3,
+            2,
+        );
+        m.add_muled_col_to_col(1, 0, R::new(2));
+        assert_eq!(
+            m,
+            Matrix::<R>::from_buffer(
+                [
+                    R::new(5),
+                    R::new(2),
+                    R::new(0),
+                    R::new(1),
+                    R::new(0),
+                    R::new(0),
+                ],
+                3,
+                2,
+            )
+        )
+    }
+
+    #[test]
+    fn finding_smallest_nonzero_entry() {
+        type R = Fin<U6>;
+        let m = Matrix::<R>::from_buffer(
+            [
+                R::new(2),
+                R::new(4),
+                R::new(5),
+                R::new(1),
+                R::new(3),
+                R::new(6),
+            ],
+            3,
+            2,
+        );
+        assert_eq!(
+            m.smallest_nonzero_entry(&BTreeSet::new(), &BTreeSet::new()),
+            Some((0, 1))
+        );
+        assert_eq!(
+            m.smallest_nonzero_entry(&BTreeSet::from_iter([0]), &BTreeSet::new()),
+            Some((1, 1))
+        );
+        assert_eq!(
+            m.smallest_nonzero_entry(&BTreeSet::from_iter([0]), &BTreeSet::from_iter([0])),
+            Some((1, 1))
+        );
+        assert_eq!(
+            m.smallest_nonzero_entry(&BTreeSet::from_iter([0, 1]), &BTreeSet::from_iter([0])),
+            None
+        );
+    }
+
+    #[test]
     fn smithing_nonexample() {
         type R = Fin<U6>;
         let m = Matrix::<R>::from_buffer(
@@ -393,7 +630,7 @@ mod test {
             2,
         );
         let (u, s, v) = m.pseudo_smith();
-        assert_eq!(m, s);
+        assert_eq!(s, m);
         assert_eq!(
             u,
             Matrix::<R>::from_buffer([R::new(1), R::new(0), R::new(0), R::new(1)], 2, 2)
@@ -442,7 +679,7 @@ mod test {
                     R::new(0),
                     R::new(0),
                     R::new(0),
-                    R::new(20),
+                    R::new(18),
                     R::new(0)
                 ],
                 3,
@@ -459,13 +696,13 @@ mod test {
                 [
                     R::new(1),
                     R::new(27),
-                    R::new(11),
+                    R::new(25),
                     R::new(0),
                     R::new(2),
-                    R::new(10),
+                    R::new(26),
                     R::new(0),
                     R::new(0),
-                    R::new(20)
+                    R::new(18)
                 ],
                 3,
                 3

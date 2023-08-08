@@ -1,4 +1,4 @@
-use crate::{rmodule::torsion::Factorisable, util::number::divisors, Int};
+use crate::{rmodule::torsion::Factorisable, util::number::divisors};
 use gcd::Gcd;
 use std::{
     array::from_fn,
@@ -8,7 +8,7 @@ use std::{
 };
 use typenum::{NonZero, Unsigned};
 
-pub type Zahl = Int;
+pub type Zahl = u16;
 pub trait Radix = Unsigned + NonZero + Copy + Eq + Send + Sync;
 pub trait SuperRing = Ring + Ord + Rem<Output = Self> + Factorisable + Gcd;
 
@@ -22,7 +22,12 @@ pub struct Fin<Card: Radix> {
 
 impl<Card: Radix> fmt::Debug for Fin<Card> {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-        write!(f, "Z{}({})", Card::U16, self.zahl)
+        write!(
+            f,
+            "Z{}({})",
+            Card::U16,
+            if self.zahl == Card::U16 { 0 } else { self.zahl }
+        )
     }
 }
 
@@ -70,8 +75,8 @@ impl<Card: Radix> Set for Fin<Card> {
     fn new(z: Zahl) -> Self {
         // this will never panic, since Radix is known to be NonZero at compile time
         Self {
-            zahl: match z % Card::U8 {
-                0 => Card::U8,
+            zahl: match z % Card::U16 {
+                0 => Card::U16,
                 n => n,
             },
             _radix: std::marker::PhantomData,
@@ -118,7 +123,7 @@ impl<Card: Radix> Neg for Fin<Card> {
 
     fn neg(self) -> Self::Output {
         // this will never overflow
-        Self::Output::new(Card::U8 - self.zahl)
+        Self::Output::new(Card::U16 - self.zahl)
     }
 }
 
@@ -132,7 +137,7 @@ impl<Card: Radix> Ring for Fin<Card> {
     }
 
     fn is_zero(&self) -> bool {
-        self.zahl == Card::U8
+        self.zahl == Card::U16
     }
 
     fn is_one(&self) -> bool {
@@ -147,7 +152,7 @@ impl<Card: Radix> Ring for Fin<Card> {
     }
 
     fn ideals() -> impl Iterator<Item = Self> {
-        divisors(Card::U8).into_iter().map(Self::new)
+        divisors(Card::U16).into_iter().map(Self::new)
     }
 
     fn subideals(&self) -> impl Iterator<Item = Self> {
@@ -196,7 +201,7 @@ impl<Card: Radix + std::fmt::Debug> Factorisable for Fin<Card> {
     fn primes() -> Vec<Self> {
         SMALL_PRIMES
             .iter()
-            .filter(|&&p| p <= Card::U8)
+            .filter(|&&p| p <= Card::U16)
             .map(|p| Self::new(*p))
             .collect()
     }

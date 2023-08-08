@@ -121,7 +121,7 @@ impl<R: SuperRing> DirectModule<R> {
             .try_into()
             .expect("we're gonna need a bigger int");
         Self {
-            left_inclusion: CanonToCanon::new_unchecked(
+            left_inclusion: CanonToCanon::new(
                 Arc::clone(&left),
                 Arc::clone(&direct),
                 Matrix::from_cols(
@@ -131,7 +131,7 @@ impl<R: SuperRing> DirectModule<R> {
                     left_dim,
                 ),
             ),
-            right_inclusion: CanonToCanon::new_unchecked(
+            right_inclusion: CanonToCanon::new(
                 Arc::clone(&right),
                 Arc::clone(&direct),
                 Matrix::from_cols(
@@ -142,7 +142,7 @@ impl<R: SuperRing> DirectModule<R> {
                     right_dim,
                 ),
             ),
-            left_projection: CanonToCanon::new_unchecked(
+            left_projection: CanonToCanon::new(
                 Arc::clone(&direct),
                 Arc::clone(&left),
                 Matrix::from_cols(
@@ -157,7 +157,7 @@ impl<R: SuperRing> DirectModule<R> {
                     left_dim,
                 ),
             ),
-            right_projection: CanonToCanon::new_unchecked(
+            right_projection: CanonToCanon::new(
                 Arc::clone(&direct),
                 Arc::clone(&right),
                 Matrix::from_cols(
@@ -196,7 +196,7 @@ impl<R: SuperRing> DirectModule<R> {
                 }
             }
         }
-        CanonToCanon::new_unchecked(
+        CanonToCanon::new(
             left_par.source(),
             self.module(),
             Matrix::from_cols(
@@ -230,7 +230,7 @@ impl<R: SuperRing> DirectModule<R> {
                 }
             }
         }
-        CanonToCanon::new_unchecked(
+        CanonToCanon::new(
             self.module(),
             left_par.target(),
             Matrix::from_rows(
@@ -259,7 +259,7 @@ impl<R: SuperRing> From<CanonModule<R>> for DirectModule<R> {
         let left = Arc::new(CanonModule::new(left_coeff));
         let right = Arc::new(CanonModule::new(right_coeff));
         Self {
-            left_inclusion: CanonToCanon::new_unchecked(
+            left_inclusion: CanonToCanon::new(
                 Arc::clone(&left),
                 Arc::clone(&canon_arc),
                 Matrix::from_cols(
@@ -269,7 +269,7 @@ impl<R: SuperRing> From<CanonModule<R>> for DirectModule<R> {
                     left_dim,
                 ),
             ),
-            right_inclusion: CanonToCanon::new_unchecked(
+            right_inclusion: CanonToCanon::new(
                 Arc::clone(&right),
                 Arc::clone(&canon_arc),
                 Matrix::from_cols(
@@ -280,7 +280,7 @@ impl<R: SuperRing> From<CanonModule<R>> for DirectModule<R> {
                     right_dim,
                 ),
             ),
-            left_projection: CanonToCanon::new_unchecked(
+            left_projection: CanonToCanon::new(
                 Arc::clone(&canon_arc),
                 Arc::clone(&left),
                 Matrix::from_cols(
@@ -295,7 +295,7 @@ impl<R: SuperRing> From<CanonModule<R>> for DirectModule<R> {
                     left_dim,
                 ),
             ),
-            right_projection: CanonToCanon::new_unchecked(
+            right_projection: CanonToCanon::new(
                 Arc::clone(&canon_arc),
                 Arc::clone(&right),
                 Matrix::from_cols(
