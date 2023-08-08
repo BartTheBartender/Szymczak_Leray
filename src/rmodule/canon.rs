@@ -1,23 +1,14 @@
-#![allow(unused_imports)] // DELETE LATER
 use crate::{
-    category::morphism::{Compose, Morphism},
     matrix::Matrix,
     rmodule::{
         direct::DirectModule,
         map::CanonToCanon,
-        ring::{Radix, Ring, SuperRing},
+        ring::{Ring, SuperRing},
         torsion::{Coeff, CoeffTree},
         Module,
     },
-    util::{
-        iterator::{product, Dedup},
-        number::{are_coprime, divisors, versor},
-    },
-    Int, TorsionCoeff,
 };
-
-use itertools::*;
-use std::{collections::HashMap, ops::Rem, sync::Arc};
+use std::{ops::Rem, sync::Arc};
 
 /* # torsion coefficients */
 
@@ -30,30 +21,6 @@ pub fn all_torsion_coeffs(base: Zahl, max_dimension: Zahl) -> HashMap<Zahl, Vec<
 
 fn all_torsion_coeffs_fixed_dim(base: Zahl, dimension: Zahl) -> Vec<TorsionCoeff> {
     product(divisors(base), dimension)
-}
-
-pub fn canonise_torsion_coeff(torsion_coeff: TorsionCoeff) -> TorsionCoeff {
-    // combine all relatively prime elements
-    // może jest lepszy sposób by to zrobić
-    // zastanowię się nad tym później
-    let mut torsion_coeff = torsion_coeff;
-    let mut new_torsion_coeff = Vec::<TorsionCoeff>::new();
-    'outer: while let Some(x) = torsion_coeff.pop() {
-        for class in new_torsion_coeff.iter_mut() {
-            if class.iter().all(|&y| are_coprime(x, y)) {
-                class.push(x);
-                continue 'outer;
-            }
-        }
-        new_torsion_coeff.push(vec![x]);
-    }
-
-    // sort the resulting vec
-    new_torsion_coeff
-        .into_iter()
-        .flat_map(|class| class.into_iter().reduce(|acc, next| acc * next))
-        .sorted()
-        .collect()
 }
 */
 
@@ -74,12 +41,11 @@ impl<R: SuperRing> CanonModule<R> {
         self.torsion_coeff.len()
     }
 
-    // pub fn cardinality(&self) -> usize {
-    //     match self.torsion_coeff.coeffs().reduce(|acc, next| acc * next) {
-    //         None => 0,
-    //         Some(product) => product.get() as usize,
-    //     }
-    // }
+    pub fn cardinality(&self) -> usize {
+        self.torsion_coeff
+            .coeffs()
+            .fold(1, |acc, next| acc * next.get() as usize)
+    }
 
     pub fn torsion_coeffs(&self) -> impl Iterator<Item = R> + '_ {
         self.torsion_coeff.coeffs()

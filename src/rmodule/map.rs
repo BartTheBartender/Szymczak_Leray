@@ -1,18 +1,11 @@
-#![allow(unused_imports)] // DELETE LATER
 use crate::{
-    category::morphism::{AbelianMorphism, Compose, Morphism, PreAbelianMorphism},
-    error::Error,
+    category::morphism::{Compose, Morphism, PreAbelianMorphism},
     matrix::Matrix,
-    rmodule::{
-        canon::CanonModule,
-        ring::{Radix, Ring, SuperRing},
-        Module,
-    },
-    util::iterator::Dedup,
+    rmodule::{canon::CanonModule, ring::SuperRing, torsion::CoeffTree, Module},
 };
+use itertools::Itertools;
 use std::{
-    collections::HashMap,
-    ops::{Add, Neg, Rem},
+    ops::{Add, Neg},
     sync::Arc,
 };
 
@@ -36,6 +29,14 @@ impl<R: SuperRing> CanonToCanon<R> {
             target,
             map,
         }
+    }
+
+    pub fn rows(&self) -> impl Iterator<Item = Vec<R>> + '_ {
+        self.map.rows()
+    }
+
+    pub fn cols(&self) -> impl Iterator<Item = Vec<R>> + '_ {
+        self.map.rows()
     }
 
     /*
@@ -115,13 +116,89 @@ impl<R: SuperRing> PreAbelianMorphism<R, CanonModule<R>, CanonModule<R>> for Can
     }
 
     fn kernel(&self) -> Self {
-        // need smiths for that
-        todo!()
+        let (_u, s, v) = self.map.pseudo_smith();
+        let mut columns = Vec::new();
+        let mut coeffs = Vec::new();
+        for (coeff, (smith_col, v_col)) in self
+            .source
+            .coeff_tree()
+            .coeffs()
+            .zip(s.cols().zip(v.cols()))
+        {
+            // there will be at most one nonzero element in the column
+            if let Some(c) = smith_col.into_iter().find(|&x| !x.is_zero()) {
+                if let Some(x) = coeff.divide_by(&c) {
+                    if x.is_one() {
+                    } else {
+                        coeffs.push(x);
+                        columns.push(v_col.into_iter().map(|y| y * x).collect());
+                    }
+                } // else should never happen
+            } else {
+                coeffs.push(coeff);
+                columns.push(v_col);
+            }
+        }
+
+        // if coeffs are not in the correct order, reorder them along with their respective columns
+        let (columns, coeffs): (Vec<_>, Vec<_>) = columns
+            .into_iter()
+            .zip(coeffs)
+            .sorted_by(|a, b| Ord::cmp(&a.1, &b.1))
+            .unzip();
+
+        let ncols: u8 = columns
+            .len()
+            .try_into()
+            .expect("we're gonna need a bigger int");
+        Self::new_unchecked(
+            Arc::new(CanonModule::new(CoeffTree::from_iter(coeffs))),
+            self.source(),
+            Matrix::from_cols(columns, ncols),
+        )
     }
 
     fn cokernel(&self) -> Self {
-        // need smiths for that
-        todo!()
+        let (u, s, _v) = self.map.pseudo_smith();
+        let mut rows = Vec::new();
+        let mut coeffs = Vec::new();
+        for (coeff, (smith_row, u_row)) in self
+            .source
+            .coeff_tree()
+            .coeffs()
+            .zip(s.rows().zip(u.rows()))
+        {
+            // there will be at most one nonzero element in the column
+            if let Some(c) = smith_row.into_iter().find(|&x| !x.is_zero()) {
+                if let Some(x) = coeff.divide_by(&c) {
+                    if x.is_one() {
+                    } else {
+                        coeffs.push(x);
+                        rows.push(u_row.into_iter().map(|y| y * x).collect());
+                    }
+                } // else should never happen
+            } else {
+                coeffs.push(coeff);
+                rows.push(u_row);
+            }
+        }
+
+        // if coeffs are not in the correct order, reorder them along with their respective rows
+        let (rows, coeffs): (Vec<_>, Vec<_>) = rows
+            .into_iter()
+            .zip(coeffs)
+            .sorted_by(|a, b| Ord::cmp(&a.1, &b.1))
+            .unzip();
+
+        let nrows: u8 = rows
+            .len()
+            .try_into()
+            .expect("we're gonna need a bigger int");
+        Self::new_unchecked(
+            self.target(),
+            Arc::new(CanonModule::new(CoeffTree::from_iter(coeffs))),
+            Matrix::from_rows(rows, nrows),
+        )
     }
 }
 
@@ -161,83 +238,182 @@ mod test {
         ring::{Fin, Set},
         torsion::CoeffTree,
     };
-    use typenum::U6;
+    use typenum::U36;
+
+    type R = Fin<U36>;
 
     #[test]
-    fn kernels() {
-        type R = Fin<U6>;
-
+    fn kernel_easy() {
         let z2 = Arc::new(CanonModule::new(CoeffTree::<R, ()>::from_iter([R::new(2)])));
-        let z6 = Arc::new(CanonModule::new(CoeffTree::<R, ()>::from_iter([R::new(0)])));
+        let z6 = Arc::new(CanonModule::new(CoeffTree::<R, ()>::from_iter([R::new(6)])));
         assert_eq!(
             CanonToCanon::new_unchecked(
                 Arc::clone(&z6),
                 Arc::clone(&z6),
-                Matrix::from_buffer([R::new(2)], 1, 1),
+                Matrix::from_buffer([R::new(1), R::new(0), R::new(0), R::new(2)], 2, 2),
             )
             .kernel(),
             CanonToCanon::new_unchecked(
                 Arc::clone(&z2),
                 Arc::clone(&z6),
-                Matrix::from_buffer([R::new(3)], 1, 1),
-            )
-        );
-
-        let z6sq = Arc::new(CanonModule::new(CoeffTree::<R, ()>::from_iter([
-            R::new(0),
-            R::new(0),
-        ])));
-        assert_eq!(
-            CanonToCanon::new_unchecked(
-                Arc::clone(&z6sq),
-                Arc::clone(&z6sq),
-                Matrix::from_buffer([R::new(2), R::new(2), R::new(3), R::new(0)], 2, 2),
-            )
-            .kernel(),
-            CanonToCanon::new_unchecked(
-                Arc::clone(&z6),
-                Arc::clone(&z6sq),
-                Matrix::from_buffer([R::new(2), R::new(1)], 1, 2),
+                Matrix::from_buffer([R::new(1), R::new(0)], 1, 2),
             )
         );
     }
 
     #[test]
-    fn cokernels() {
-        type R = Fin<U6>;
-
+    fn kernel_medium() {
         let z2 = Arc::new(CanonModule::new(CoeffTree::<R, ()>::from_iter([R::new(2)])));
-        let z6 = Arc::new(CanonModule::new(CoeffTree::<R, ()>::from_iter([R::new(0)])));
+        let z2sq = Arc::new(CanonModule::new(CoeffTree::<R, ()>::from_iter([
+            R::new(2),
+            R::new(2),
+        ])));
+        assert_eq!(
+            CanonToCanon::new_unchecked(
+                Arc::clone(&z2sq),
+                Arc::clone(&z2sq),
+                Matrix::from_buffer([R::new(1), R::new(1), R::new(1), R::new(1)], 2, 2),
+            )
+            .kernel(),
+            CanonToCanon::new_unchecked(
+                Arc::clone(&z2),
+                Arc::clone(&z2sq),
+                Matrix::from_buffer([R::new(1), R::new(1)], 1, 2),
+            )
+        );
+    }
+
+    #[test]
+    fn kernel_hard() {
+        let z43 = Arc::new(CanonModule::new(CoeffTree::<R, ()>::from_iter([
+            R::new(4),
+            R::new(3),
+        ])));
+        let z942 = Arc::new(CanonModule::new(CoeffTree::<R, ()>::from_iter([
+            R::new(9),
+            R::new(4),
+            R::new(2),
+        ])));
+        let z322 = Arc::new(CanonModule::new(CoeffTree::<R, ()>::from_iter([
+            R::new(3),
+            R::new(2),
+            R::new(2),
+        ])));
+        assert_eq!(
+            CanonToCanon::new_unchecked(
+                Arc::clone(&z942),
+                Arc::clone(&z43),
+                Matrix::from_buffer(
+                    [
+                        R::new(0),
+                        R::new(2),
+                        R::new(2),
+                        R::new(3),
+                        R::new(0),
+                        R::new(0)
+                    ],
+                    3,
+                    2
+                ),
+            )
+            .kernel(),
+            CanonToCanon::new_unchecked(
+                Arc::clone(&z322),
+                Arc::clone(&z942),
+                Matrix::from_buffer(
+                    [
+                        R::new(3),
+                        R::new(0),
+                        R::new(0),
+                        R::new(0),
+                        R::new(2),
+                        R::new(1),
+                        R::new(0),
+                        R::new(0),
+                        R::new(1)
+                    ],
+                    3,
+                    3
+                ),
+            )
+        );
+    }
+
+    #[test]
+    fn cokernel_easy() {
+        let z2 = Arc::new(CanonModule::new(CoeffTree::<R, ()>::from_iter([R::new(2)])));
+        let z6 = Arc::new(CanonModule::new(CoeffTree::<R, ()>::from_iter([R::new(6)])));
         assert_eq!(
             CanonToCanon::new_unchecked(
                 Arc::clone(&z6),
                 Arc::clone(&z6),
-                Matrix::from_buffer([R::new(2)], 1, 1),
+                Matrix::from_buffer([R::new(1), R::new(0), R::new(0), R::new(2)], 2, 2),
             )
             .cokernel(),
             CanonToCanon::new_unchecked(
                 Arc::clone(&z6),
                 Arc::clone(&z2),
-                Matrix::from_buffer([R::new(1)], 1, 1),
+                Matrix::from_buffer([R::new(0), R::new(1)], 2, 1),
             )
         );
+    }
 
-        let z6sq = Arc::new(CanonModule::new(CoeffTree::<R, ()>::from_iter([
-            R::new(0),
-            R::new(0),
+    #[test]
+    fn cokernel_medium() {
+        let z2 = Arc::new(CanonModule::new(CoeffTree::<R, ()>::from_iter([R::new(2)])));
+        let z2sq = Arc::new(CanonModule::new(CoeffTree::<R, ()>::from_iter([
+            R::new(2),
+            R::new(2),
         ])));
         assert_eq!(
             CanonToCanon::new_unchecked(
-                Arc::clone(&z6sq),
-                Arc::clone(&z6sq),
-                Matrix::from_buffer([R::new(2), R::new(2), R::new(3), R::new(0)], 2, 2),
+                Arc::clone(&z2sq),
+                Arc::clone(&z2sq),
+                Matrix::from_buffer([R::new(1), R::new(1), R::new(1), R::new(1)], 2, 2),
             )
             .cokernel(),
             CanonToCanon::new_unchecked(
-                Arc::clone(&z6sq),
-                Arc::clone(&z6),
-                // 90% sure this this the cokernel
-                Matrix::from_buffer([R::new(1), R::new(2)], 2, 1),
+                Arc::clone(&z2sq),
+                Arc::clone(&z2),
+                Matrix::from_buffer([R::new(1), R::new(1)], 2, 1),
+            )
+        );
+    }
+
+    #[test]
+    fn cokernel_hard() {
+        let z2 = Arc::new(CanonModule::new(CoeffTree::<R, ()>::from_iter([R::new(2)])));
+        let z43 = Arc::new(CanonModule::new(CoeffTree::<R, ()>::from_iter([
+            R::new(4),
+            R::new(3),
+        ])));
+        let z942 = Arc::new(CanonModule::new(CoeffTree::<R, ()>::from_iter([
+            R::new(9),
+            R::new(4),
+            R::new(2),
+        ])));
+        assert_eq!(
+            CanonToCanon::new_unchecked(
+                Arc::clone(&z942),
+                Arc::clone(&z43),
+                Matrix::from_buffer(
+                    [
+                        R::new(0),
+                        R::new(2),
+                        R::new(2),
+                        R::new(3),
+                        R::new(0),
+                        R::new(0)
+                    ],
+                    3,
+                    2
+                ),
+            )
+            .cokernel(),
+            CanonToCanon::new_unchecked(
+                Arc::clone(&z942),
+                Arc::clone(&z2),
+                Matrix::from_buffer([R::new(1), R::new(0),], 2, 1),
             )
         );
     }

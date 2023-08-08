@@ -80,6 +80,29 @@ where
                 .collect(),
         }
     }
+
+    pub fn rows(&self) -> impl Iterator<Item = Vec<T>> + '_ {
+        (0..self.rows).map(|row| {
+            self.buffer
+                .iter()
+                .skip(usize::from(row * self.cols))
+                .take(usize::from(self.cols))
+                .copied()
+                .collect()
+        })
+    }
+
+    pub fn cols(&self) -> impl Iterator<Item = Vec<T>> + '_ {
+        (0..self.cols).map(|col| {
+            self.buffer
+                .iter()
+                .skip(usize::from(col))
+                .step_by(usize::from(self.cols))
+                .take(usize::from(self.rows))
+                .copied()
+                .collect()
+        })
+    }
 }
 
 impl<T> Matrix<T>
@@ -156,6 +179,18 @@ where
     }
 }
 
+impl<T> Matrix<T> {
+    /**
+    A -> (U,S,V)
+    should return a matrix with at most one nonzero entry in every column,
+    such that UA = SV.
+    psuedo, because it should never switch any columns or rows
+    */
+    pub fn pseudo_smith(&self) -> (Self, Self, Self) {
+        todo!()
+    }
+}
+
 #[cfg(test)]
 mod test {
     use super::*;
@@ -185,5 +220,25 @@ mod test {
         let d = Matrix::<u8>::from_buffer([10, 13, 28, 40], 2, 2);
         assert_eq!(a.compose_unchecked(&b), c);
         assert_eq!(b.compose_unchecked(&a), d);
+    }
+
+    #[test]
+    fn rows() {
+        let m = Matrix::<u8>::from_buffer([3, 4, 5, 9, 14, 19, 15, 24, 33], 3, 3);
+        let mut rows = m.rows();
+        assert_eq!(rows.next(), Some(vec![3, 4, 5]));
+        assert_eq!(rows.next(), Some(vec![9, 14, 19]));
+        assert_eq!(rows.next(), Some(vec![15, 24, 33]));
+        assert_eq!(rows.next(), None);
+    }
+
+    #[test]
+    fn cols() {
+        let m = Matrix::<u8>::from_buffer([3, 4, 5, 9, 14, 19, 15, 24, 33], 3, 3);
+        let mut cols = m.cols();
+        assert_eq!(cols.next(), Some(vec![3, 9, 15]));
+        assert_eq!(cols.next(), Some(vec![4, 14, 24]));
+        assert_eq!(cols.next(), Some(vec![5, 19, 33]));
+        assert_eq!(cols.next(), None);
     }
 }
