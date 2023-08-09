@@ -7,6 +7,7 @@ use crate::{
 };
 use gcd::Gcd;
 use std::{
+    cmp::Eq,
     collections::HashSet,
     hash::{Hash, Hasher},
     ops::{Add, Neg},
@@ -14,12 +15,12 @@ use std::{
     sync::Arc,
 };
 
-pub trait Morphism<Source, Target> {
+pub trait Morphism<Source: Eq, Target: Eq> {
     fn source(&self) -> Arc<Source>;
     fn target(&self) -> Arc<Target>;
 }
 
-pub trait Compose<Source, Middle: Eq, Target, Lhs: Morphism<Middle, Target>>:
+pub trait Compose<Source: Eq, Middle: Eq, Target: Eq, Lhs: Morphism<Middle, Target>>:
     Morphism<Source, Middle>
 {
     type Output: Morphism<Source, Target>;
@@ -37,7 +38,7 @@ pub trait Compose<Source, Middle: Eq, Target, Lhs: Morphism<Middle, Target>>:
     // ale można dopisać nowego traita na to gdzie `Middle` i `Target` są tym samym
 }
 
-pub trait EndoMorphism<Object: Eq>:
+pub trait Endomorphism<Object: Eq>:
     Sized
     + Clone
     + Hash
@@ -98,7 +99,7 @@ pub trait EndoMorphism<Object: Eq>:
     }
 }
 
-pub trait PreAbelianMorphism<R: Ring, Source: Module<R>, Target: Module<R>>:
+pub trait PreAbelianMorphism<R: Ring, Source: Module<R> + Eq, Target: Module<R> + Eq>:
     Morphism<Source, Target>
 {
     fn is_zero(&self) -> bool;
@@ -106,15 +107,15 @@ pub trait PreAbelianMorphism<R: Ring, Source: Module<R>, Target: Module<R>>:
     fn cokernel(&self) -> Self;
 }
 
-pub trait AbelianMorphism<R: Ring, Source: Module<R>, Target: Module<R>>:
+pub trait AbelianMorphism<R: Ring, Source: Module<R> + Eq, Target: Module<R> + Eq>:
     Sized + PreAbelianMorphism<R, Source, Target>
 {
     fn equaliser(self, other: Self) -> Self;
     fn coequaliser(self, other: Self) -> Self;
 }
 
-impl<R: Ring + Gcd, Source: Module<R>, Target: Module<R>, T> AbelianMorphism<R, Source, Target>
-    for T
+impl<R: Ring + Gcd, Source: Module<R> + Eq, Target: Module<R> + Eq, T>
+    AbelianMorphism<R, Source, Target> for T
 where
     T: PreAbelianMorphism<R, Source, Target>,
     T: Add<Output = T> + Neg<Output = T>,
@@ -128,8 +129,8 @@ where
     }
 }
 
-pub trait AbelianEndoMorphism<R: Ring, Object: Module<R> + Eq>:
-    EndoMorphism<Object> + AbelianMorphism<R, Object, Object>
+pub trait AbelianEndomorphism<R: Ring, Object: Module<R> + Eq>:
+    Endomorphism<Object> + AbelianMorphism<R, Object, Object>
 {
     fn high_kernel(&self) -> Self {
         // probably not the fastest, but will work consistently

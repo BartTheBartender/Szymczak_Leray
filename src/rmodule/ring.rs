@@ -1,4 +1,4 @@
-use crate::{rmodule::torsion::Factorisable, util::number::divisors};
+use crate::{rmodule::torsion::Factorisable, util::number::divisors, Int};
 use gcd::Gcd;
 use std::{
     array::from_fn,
@@ -8,7 +8,7 @@ use std::{
 };
 use typenum::{NonZero, Unsigned};
 
-pub type Zahl = u16;
+pub type Zahl = Int;
 pub trait Radix = Unsigned + NonZero + Copy + Eq + Send + Sync;
 pub trait SuperRing = Ring + Ord + Rem<Output = Self> + Factorisable + Gcd;
 

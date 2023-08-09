@@ -1,30 +1,72 @@
 use crate::{
     category::{
-        morphism::{Compose, Morphism},
-        Endocategory,
+        morphism::{Compose, Endomorphism, Morphism},
+        Category,
     },
     error::Error,
-    rmodule::canon::CanonModule,
+    rmodule::{
+        canon::CanonModule,
+        ring::{Ring, SuperRing},
+        Module,
+    },
     Int, TorsionCoeff,
 };
 
-use bitvec::vec::BitVec;
+use bitvec::prelude::*;
 use std::{
     collections::HashSet,
     fmt::{self, Display},
     sync::Arc,
 };
 
-pub struct Relation {
-    pub source: Arc<CanonModule>,
-    pub target: Arc<CanonModule>,
+#[derive(Clone, Debug, Hash, Eq)]
+pub struct Relation<R: Ring> {
+    pub source: Arc<CanonModule<R>>,
+    pub target: Arc<CanonModule<R>>,
     pub matrix_normal: BitVec,
     pub matrix_transposed: BitVec,
 }
 
-impl Relation {
+impl<R: SuperRing> Relation<R> {
+    pub fn new_unchecked(
+        elements: Vec<<CanonModule<R> as Module<R>>::Element>,
+        helper_indices_normal: &Vec<Int>,
+        helper_indices_transposed: &Vec<Int>,
+        helper_capacity: &usize,
+        source: Arc<CanonModule<R>>,
+        target: Arc<CanonModule<R>>,
+    ) -> Self {
+        let mut matrix_normal = BitVec::with_capacity(*helper_capacity);
+        let mut matrix_transposed = BitVec::with_capacity(*helper_capacity);
+        for element in elements.iter() {
+            matrix_normal.set(
+                element
+                    .iter()
+                    .zip(helper_indices_normal.iter())
+                    .map(|(&x, &y)| x * y)
+                    .sum::<Int>() as usize,
+                true,
+            );
+
+            matrix_transposed.set(
+                element
+                    .iter()
+                    .zip(helper_indices_transposed.iter())
+                    .map(|(&x, &y)| x * y)
+                    .sum::<Int>() as usize,
+                true,
+            );
+        }
+
+        Relation {
+            source,
+            target,
+            matrix_normal,
+            matrix_transposed,
+        }
+    }
+
     pub fn krakowian_product_unchecked(
-        //so far no couterexample against and two for xD
         left: &BitVec,
         right: &BitVec,
         column_size: usize,
@@ -51,13 +93,16 @@ impl Relation {
     }
 }
 
-impl PartialEq for Relation {
+impl<R: Ring> PartialEq for Relation<R> {
     fn eq(&self, other: &Self) -> bool {
-        self.matrix_normal == other.matrix_normal
+        self.source == other.source
+            && self.target == other.target
+            && self.matrix_normal == other.matrix_normal
+            && self.matrix_transposed == other.matrix_transposed //to be removed in the future
     }
 }
 
-impl Display for Relation {
+impl<R: Ring> Display for Relation<R> {
     //again, iterators...
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         let rows = self.matrix_transposed.chunks(self.source.cardinality());
@@ -78,21 +123,23 @@ impl Display for Relation {
     }
 }
 
-impl Morphism<CanonModule, CanonModule> for Relation {
-    fn source(&self) -> Arc<CanonModule> {
+impl<R: SuperRing> Morphism<CanonModule<R>, CanonModule<R>> for Relation<R> {
+    fn source(&self) -> Arc<CanonModule<R>> {
         Arc::clone(&self.source)
     }
 
-    fn target(&self) -> Arc<CanonModule> {
+    fn target(&self) -> Arc<CanonModule<R>> {
         Arc::clone(&self.target)
     }
 }
 
 //other * self
-impl Compose<CanonModule, CanonModule, CanonModule, Relation> for Relation {
-    type Output = Relation;
+impl<R: SuperRing> Compose<CanonModule<R>, CanonModule<R>, CanonModule<R>, Relation<R>>
+    for Relation<R>
+{
+    type Output = Relation<R>;
 
-    fn compose_unchecked(&self, other: &Relation) -> Self::Output {
+    fn compose_unchecked(&self, other: &Relation<R>) -> Self::Output {
         //consider switching from Rc to Arc and implementing it as below:
         /*
         rayon::join(
@@ -109,13 +156,13 @@ impl Compose<CanonModule, CanonModule, CanonModule, Relation> for Relation {
 
         let column_size = self.target.cardinality();
 
-        let output_normal = Relation::krakowian_product_unchecked(
+        let output_normal = Relation::<R>::krakowian_product_unchecked(
             other.matrix_transposed.as_ref(),
             self.matrix_normal.as_ref(),
             column_size,
         );
 
-        let output_transposed = Relation::krakowian_product_unchecked(
+        let output_transposed = Relation::<R>::krakowian_product_unchecked(
             self.matrix_normal.as_ref(),
             other.matrix_transposed.as_ref(),
             column_size,
@@ -130,8 +177,106 @@ impl Compose<CanonModule, CanonModule, CanonModule, Relation> for Relation {
     }
 }
 
+/*
+<<<<<<< HEAD
 impl Endocategory<CanonModule, CanonModule, Relation> {
     fn hom_set(source: &CanonModule, target: &CanonModule) -> HashSet<Relation> {
         todo!() //to jest funkcja o którą prosiłeś. w szczególności nie musi być d  dokładnie taka, chodzi mi o ideę (nie wiem np jak tutaj uwzględniać zanurzenia modułów w siebiw w tej syngnaturze
+=======
+impl Endomorphism<CanonZModule> for Relation {}
+
+*/
+/*
+#[cfg(test)]
+mod test {
+
+    use super::*;
+    use crate::error::Error;
+
+    #[test]
+    fn krakowian_product() {
+        let v = bitvec![1, 0, 0, 0];
+        let u = bitvec![1, 0, 0, 1];
+
+        let w = Relation::krakowian_product_unchecked(&v, &u, 2);
+
+        assert_eq!(w, v);
+    }
+
+    #[test]
+    fn relation_product_1() {
+        let v = bitvec![1, 0, 0, 0];
+        let canon_zmodule = Arc::new(CanonZModule::new_unchecked(vec![2]));
+
+        let r = Relation {
+            source: Arc::clone(&canon_zmodule),
+            target: Arc::clone(&canon_zmodule),
+            matrix_normal: v.clone(),
+            matrix_transposed: v.clone(),
+        };
+
+        let s = r.compose_unchecked(&r);
+
+        assert_eq!(r, s);
+    }
+
+    #[test]
+    fn relation_product_2() {
+        let v = bitvec![1, 1, 1, 1];
+        let canon_zmodule = Arc::new(CanonZModule::new_unchecked(vec![2]));
+
+        let r = Relation {
+            source: Arc::clone(&canon_zmodule),
+            target: Arc::clone(&canon_zmodule),
+            matrix_normal: v.clone(),
+            matrix_transposed: v.clone(),
+        };
+
+        let s = r.compose_unchecked(&r);
+
+        assert_eq!(r, s);
+    }
+
+    #[test]
+    fn relation_product_3() {
+        let v = bitvec![1, 0, 0, 1];
+        let canon_zmodule = Arc::new(CanonZModule::new_unchecked(vec![2]));
+
+        let r = Relation {
+            source: Arc::clone(&canon_zmodule),
+            target: Arc::clone(&canon_zmodule),
+            matrix_normal: v.clone(),
+            matrix_transposed: v.clone(),
+        };
+
+        let s = r.compose_unchecked(&r);
+
+        assert_eq!(r, s);
+    }
+
+    #[test]
+    fn relation_product_error_1() {
+        let v = bitvec![1, 0, 0, 1];
+        let u = bitvec![1, 0, 0, 0, 0, 0, 1, 1, 1];
+        let canon_zmodule_v = Arc::new(CanonZModule::new_unchecked(vec![2]));
+        let canon_zmodule_u = Arc::new(CanonZModule::new_unchecked(vec![3]));
+
+        let r = Relation {
+            source: Arc::clone(&canon_zmodule_v),
+            target: Arc::clone(&canon_zmodule_v),
+            matrix_normal: v.clone(),
+            matrix_transposed: v.clone(),
+        };
+        let s = Relation {
+            source: Arc::clone(&canon_zmodule_u),
+            target: Arc::clone(&canon_zmodule_u),
+            matrix_normal: u.clone(),
+            matrix_transposed: u.clone(),
+        };
+
+        let error = s.compose(&r);
+
+        assert_eq!(error, Err(Error::SourceTargetMismatch));
     }
 }
+*/

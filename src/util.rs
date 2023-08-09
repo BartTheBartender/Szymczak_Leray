@@ -119,3 +119,46 @@ pub mod iterator {
         }
     }
 }
+
+pub mod category_of_relations {
+    use crate::{
+        rmodule::{canon::CanonModule, ring::Ring},
+        Int,
+    };
+
+    pub fn calculate_helper_indices<R: Ring>(
+        source: &CanonModule<R>,
+        target: &CanonModule<R>,
+    ) -> (Vec<Int>, Vec<Int>, usize) {
+        let source_and_target_tc = [source.torsion_coeff(), target.torsion_coeff()].concat();
+        let target_and_source_tc = [target.torsion_coeff(), source.torsion_coeff()].concat();
+
+        let mut helper_indices_normal: Vec<Int> = target_and_source_tc
+            .into_iter()
+            .scan(1, |acc, num| {
+                *acc *= num;
+                Some(*acc)
+            })
+            .collect();
+        let mut helper_indices_transposed: Vec<Int> = source_and_target_tc
+            .into_iter()
+            .scan(1, |acc, num| {
+                *acc *= num;
+                Some(*acc)
+            })
+            .collect();
+
+        let helper_capacity = helper_indices_normal.pop().unwrap() as usize;
+        let helper_capacity_ = helper_indices_transposed.pop().unwrap() as usize;
+        assert_eq!(helper_capacity, helper_capacity_); //to be removed in the future
+
+        helper_indices_normal.insert(0, 1);
+        helper_indices_transposed.insert(0, 1);
+
+        (
+            helper_indices_normal,
+            helper_indices_transposed,
+            helper_capacity,
+        )
+    }
+}
