@@ -121,39 +121,47 @@ pub mod iterator {
 }
 
 pub mod category_of_relations {
-    use crate::{
-        rmodule::{canon::CanonModule, ring::Ring},
-        Int,
-    };
+    use crate::rmodule::{canon::CanonModule, ring::SuperRing};
 
-    pub fn calculate_helper_indices<R: Ring>(
+    // nie mam pojęcia, czy ta funkcja nadal robi to, co miała robić,
+    // ale teraz się typy zgadzają
+    // DO SPRAWDZENIA
+    pub fn calculate_helper_indices<R: SuperRing>(
         source: &CanonModule<R>,
         target: &CanonModule<R>,
-    ) -> (Vec<Int>, Vec<Int>, usize) {
-        let source_and_target_tc = [source.torsion_coeff(), target.torsion_coeff()].concat();
-        let target_and_source_tc = [target.torsion_coeff(), source.torsion_coeff()].concat();
+    ) -> (Vec<R>, Vec<R>, usize) {
+        let source_and_target_tc = [
+            source.coeff_tree().coeffs().collect::<Vec<_>>(),
+            target.coeff_tree().coeffs().collect::<Vec<_>>(),
+        ]
+        .concat();
+        let target_and_source_tc = [
+            target.coeff_tree().coeffs().collect::<Vec<_>>(),
+            source.coeff_tree().coeffs().collect::<Vec<_>>(),
+        ]
+        .concat();
 
-        let mut helper_indices_normal: Vec<Int> = target_and_source_tc
+        let mut helper_indices_normal: Vec<R> = target_and_source_tc
             .into_iter()
-            .scan(1, |acc, num| {
-                *acc *= num;
+            .scan(R::one(), |acc, num| {
+                *acc = *acc * num;
                 Some(*acc)
             })
             .collect();
-        let mut helper_indices_transposed: Vec<Int> = source_and_target_tc
+        let mut helper_indices_transposed: Vec<R> = source_and_target_tc
             .into_iter()
-            .scan(1, |acc, num| {
-                *acc *= num;
+            .scan(R::one(), |acc, num| {
+                *acc = *acc * num;
                 Some(*acc)
             })
             .collect();
 
-        let helper_capacity = helper_indices_normal.pop().unwrap() as usize;
-        let helper_capacity_ = helper_indices_transposed.pop().unwrap() as usize;
+        let helper_capacity = helper_indices_normal.pop().unwrap().get() as usize;
+        let helper_capacity_ = helper_indices_transposed.pop().unwrap().get() as usize;
         assert_eq!(helper_capacity, helper_capacity_); //to be removed in the future
 
-        helper_indices_normal.insert(0, 1);
-        helper_indices_transposed.insert(0, 1);
+        helper_indices_normal.insert(0, R::one());
+        helper_indices_transposed.insert(0, R::one());
 
         (
             helper_indices_normal,

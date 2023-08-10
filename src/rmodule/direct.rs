@@ -50,7 +50,7 @@ impl<R: SuperRing> DirectModule<R> {
             .flat_map(|(left_sub, right_sub)| {
                 let mut phi_epis = Arc::unwrap_or_clone(self.left()).quotients();
                 // this unfortunately is rather necessary
-                let smol = DirectModule::biproduct(left_sub.source(), right_sub.source());
+                let smol = DirectModule::sumproduct(left_sub.source(), right_sub.source());
                 Arc::unwrap_or_clone(right_sub.source())
                     .submodules()
                     .into_iter()
@@ -81,7 +81,7 @@ impl<R: SuperRing> DirectModule<R> {
             .zip(Arc::unwrap_or_clone(self.right()).quotients())
             .flat_map(|(left_quot, right_quot)| {
                 let mut phi_monos = Arc::unwrap_or_clone(self.right()).submodules();
-                let smol = DirectModule::biproduct(left_quot.target(), right_quot.target());
+                let smol = DirectModule::sumproduct(left_quot.target(), right_quot.target());
                 Arc::unwrap_or_clone(left_quot.target())
                     .quotients()
                     .into_iter()
@@ -106,7 +106,7 @@ impl<R: SuperRing> DirectModule<R> {
             .collect()
     }
 
-    fn biproduct(left: Arc<CanonModule<R>>, right: Arc<CanonModule<R>>) -> Self {
+    pub fn sumproduct(left: Arc<CanonModule<R>>, right: Arc<CanonModule<R>>) -> Self {
         let mut coeff_tree = left.coeff_tree().clone();
         coeff_tree.join(right.coeff_tree().clone());
         let direct = Arc::new(CanonModule::new(coeff_tree));

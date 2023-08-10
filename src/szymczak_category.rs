@@ -1,11 +1,11 @@
 use crate::{
     category::{
-        morphism::{Compose, Endomorphism, Morphism},
+        morphism::{Compose, EndoMorphism, Morphism},
         Category, HomSet,
     },
     RECURSION_PARAMETER_SZYMCZAK_FUNCTOR,
 };
-use rayon;
+// use rayon;
 use std::{
     collections::HashMap,
     fmt::{self, Display},
@@ -13,8 +13,8 @@ use std::{
     marker::{PhantomData, Send, Sync},
 };
 
-type Endomorphisms<E> = Vec<E>;
-type EndomorphismsWithCycles<E> = HashMap<E, Vec<E>>;
+type EndoMorphisms<E> = Vec<E>;
+type EndoMorphismsWithCycles<E> = HashMap<E, Vec<E>>;
 
 type RawSzymczakClass<E> = HashMap<E, Vec<E>>;
 type RawSzymczakClasses<E> = Vec<RawSzymczakClass<E>>;
@@ -22,7 +22,7 @@ type RawSzymczakClasses<E> = Vec<RawSzymczakClass<E>>;
 type SzymczakClass<Object, E> = HashMap<Object, Vec<E>>;
 type SzymczakClasses<Object, E> = Vec<SzymczakClass<Object, E>>;
 
-pub struct SzymczakCategory<Object: Eq, M: Morphism<Object, Object>, E: Endomorphism<Object>> {
+pub struct SzymczakCategory<Object: Eq, M: Morphism<Object, Object>, E: EndoMorphism<Object>> {
     pub szymczak_classes: SzymczakClasses<Object, E>,
     morphisms: PhantomData<M>,
 }
@@ -35,7 +35,7 @@ impl<
             + Compose<Object, Object, Object, E, Output = M>
             + Sync
             + Clone,
-        E: Endomorphism<Object>
+        E: EndoMorphism<Object>
             + Sync
             + Send
             + From<M>
@@ -47,7 +47,7 @@ impl<
     pub fn szymczak_functor(category: &Category<Object, M>) -> Self {
         //step 1. Clone all the endomorphisms (we will need them to be owned)
 
-        let endomorphisms: Endomorphisms<E> = category
+        let endomorphisms: EndoMorphisms<E> = category
             .hom_sets
             .iter()
             .flat_map(|(source, hom_sets_fixed_source)| {
@@ -79,7 +79,7 @@ impl<
     //----------------------------------------------------------------------
 
     fn raw_szymczak_functor(
-        mut endomorphisms: Endomorphisms<E>,
+        mut endomorphisms: EndoMorphisms<E>,
         hom_sets: &HomSet<Object, M>,
     ) -> RawSzymczakClasses<E> {
         if endomorphisms.len() > RECURSION_PARAMETER_SZYMCZAK_FUNCTOR {
@@ -102,12 +102,12 @@ impl<
     }
 
     fn raw_szymczak_functor_final_step(
-        endomorphisms: Endomorphisms<E>,
+        endomorphisms: EndoMorphisms<E>,
         hom_sets: &HomSet<Object, M>,
     ) -> RawSzymczakClasses<E> {
         let mut raw_szymczak_classes = RawSzymczakClasses::<E>::new();
 
-        let endomorphisms_with_cycles: EndomorphismsWithCycles<E> = endomorphisms
+        let endomorphisms_with_cycles: EndoMorphismsWithCycles<E> = endomorphisms
             .into_iter()
             .map(|endomorphism| {
                 let cycle: Vec<E> = endomorphism.cycle();
@@ -263,7 +263,7 @@ impl<
     }
 }
 
-impl<Object: Eq + Display, M: Morphism<Object, Object>, E: Endomorphism<Object> + Display> Display
+impl<Object: Eq + Display, M: Morphism<Object, Object>, E: EndoMorphism<Object> + Display> Display
     for SzymczakCategory<Object, M, E>
 {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
@@ -289,12 +289,13 @@ impl<Object: Eq + Display, M: Morphism<Object, Object>, E: Endomorphism<Object> 
 mod test {
     use super::*;
 
+    #[allow(unused_imports)]
     use crate::{
         category::{relation::Relation, Category, HomSet},
-        zmodule::canon::CanonZModule,
+        rmodule::canon::CanonModule,
     };
-    use bitvec::prelude::*;
-    use std::{collections::HashMap, sync::Arc};
+    // use bitvec::prelude::*;
+    // use std::{collections::HashMap, sync::Arc};
 
     #[test]
     fn zp_category_length() {

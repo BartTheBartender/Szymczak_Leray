@@ -1,26 +1,20 @@
+#[allow(unused_imports)] // DELETE LATER
 use crate::{
-    category::{
-        morphism::{Compose, Endomorphism, Morphism},
-        Category,
-    },
-    error::Error,
+    category::morphism::{Compose, EndoMorphism, Morphism},
     rmodule::{
-        canon::CanonModule,
-        ring::{Ring, SuperRing},
-        Module,
+        canon::CanonModule, direct::DirectModule, map::CanonToCanon, ring::SuperRing, Module,
     },
-    Int, TorsionCoeff,
+    Int,
 };
 
 use bitvec::prelude::*;
 use std::{
-    collections::HashSet,
     fmt::{self, Display},
     sync::Arc,
 };
 
-#[derive(Clone, Debug, Hash, Eq)]
-pub struct Relation<R: Ring> {
+#[derive(Clone, Debug, Hash, PartialEq, Eq)]
+pub struct Relation<R: SuperRing> {
     pub source: Arc<CanonModule<R>>,
     pub target: Arc<CanonModule<R>>,
     pub matrix_normal: BitVec,
@@ -28,10 +22,13 @@ pub struct Relation<R: Ring> {
 }
 
 impl<R: SuperRing> Relation<R> {
+    /*
+       nie mam pojęcia jak działa ta funkcja,
+       musisz ją naprawić samemu
     pub fn new_unchecked(
         elements: Vec<<CanonModule<R> as Module<R>>::Element>,
-        helper_indices_normal: &Vec<Int>,
-        helper_indices_transposed: &Vec<Int>,
+        helper_indices_normal: &Vec<R>,
+        helper_indices_transposed: &Vec<R>,
         helper_capacity: &usize,
         source: Arc<CanonModule<R>>,
         target: Arc<CanonModule<R>>,
@@ -65,6 +62,7 @@ impl<R: SuperRing> Relation<R> {
             matrix_transposed,
         }
     }
+    */
 
     pub fn krakowian_product_unchecked(
         left: &BitVec,
@@ -93,7 +91,8 @@ impl<R: SuperRing> Relation<R> {
     }
 }
 
-impl<R: Ring> PartialEq for Relation<R> {
+/* dlaczego implementujesz to sam?
+impl<R: SuperRing> PartialEq for Relation<R> {
     fn eq(&self, other: &Self) -> bool {
         self.source == other.source
             && self.target == other.target
@@ -101,8 +100,9 @@ impl<R: Ring> PartialEq for Relation<R> {
             && self.matrix_transposed == other.matrix_transposed //to be removed in the future
     }
 }
+*/
 
-impl<R: Ring> Display for Relation<R> {
+impl<R: SuperRing> Display for Relation<R> {
     //again, iterators...
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         let rows = self.matrix_transposed.chunks(self.source.cardinality());
@@ -169,23 +169,36 @@ impl<R: SuperRing> Compose<CanonModule<R>, CanonModule<R>, CanonModule<R>, Relat
         );
 
         Relation {
-            source: self.source,
-            target: other.target,
+            source: Arc::clone(&self.source),
+            target: Arc::clone(&other.target),
             matrix_normal: output_normal,
             matrix_transposed: output_transposed,
         }
     }
 }
 
+impl<R: SuperRing> TryFrom<(&DirectModule<R>, &CanonToCanon<R>)> for Relation<R> {
+    type Error = &'static str;
+    /**
+    the morphism should be mono in order for this conversion to work
+    although the implementation neglects to check this
+    */
+    fn try_from(pair: (&DirectModule<R>, &CanonToCanon<R>)) -> Result<Self, Self::Error> {
+        //
+        todo!()
+    }
+}
+
+impl<R: SuperRing + std::hash::Hash> EndoMorphism<CanonModule<R>> for Relation<R> {}
+
 /*
-<<<<<<< HEAD
 impl Endocategory<CanonModule, CanonModule, Relation> {
     fn hom_set(source: &CanonModule, target: &CanonModule) -> HashSet<Relation> {
         todo!() //to jest funkcja o którą prosiłeś. w szczególności nie musi być d  dokładnie taka, chodzi mi o ideę (nie wiem np jak tutaj uwzględniać zanurzenia modułów w siebiw w tej syngnaturze
-=======
-impl Endomorphism<CanonZModule> for Relation {}
+        }}
 
 */
+
 /*
 #[cfg(test)]
 mod test {

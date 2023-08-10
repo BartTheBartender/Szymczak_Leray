@@ -1,9 +1,6 @@
 use crate::{
     error::Error,
-    rmodule::{
-        ring::{Radix, Ring},
-        Module,
-    },
+    rmodule::{ring::Ring, Module},
 };
 use gcd::Gcd;
 use std::{
@@ -11,7 +8,6 @@ use std::{
     collections::HashSet,
     hash::{Hash, Hasher},
     ops::{Add, Neg},
-    rc::Rc,
     sync::Arc,
 };
 
@@ -38,7 +34,7 @@ pub trait Compose<Source: Eq, Middle: Eq, Target: Eq, Lhs: Morphism<Middle, Targ
     // ale można dopisać nowego traita na to gdzie `Middle` i `Target` są tym samym
 }
 
-pub trait Endomorphism<Object: Eq>:
+pub trait EndoMorphism<Object: Eq>:
     Sized
     + Clone
     + Hash
@@ -129,8 +125,8 @@ where
     }
 }
 
-pub trait AbelianEndomorphism<R: Ring, Object: Module<R> + Eq>:
-    Endomorphism<Object> + AbelianMorphism<R, Object, Object>
+pub trait AbelianEndoMorphism<R: Ring, Object: Module<R> + Eq>:
+    EndoMorphism<Object> + AbelianMorphism<R, Object, Object>
 {
     fn high_kernel(&self) -> Self {
         // probably not the fastest, but will work consistently

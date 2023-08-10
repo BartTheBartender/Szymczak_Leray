@@ -26,7 +26,7 @@ fn all_torsion_coeffs_fixed_dim(base: Zahl, dimension: Zahl) -> Vec<TorsionCoeff
 
 /* # canonical module */
 
-#[derive(Clone)]
+#[derive(Clone, Hash)]
 pub struct CanonModule<R: Ring> {
     // technically, this R in the Tree should be an ideal of the ring
     torsion_coeff: CoeffTree<R, ()>,

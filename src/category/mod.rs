@@ -1,13 +1,15 @@
 pub mod morphism;
 pub mod relation;
 
+#[allow(unused_imports)]
 use crate::{
     category::{
-        morphism::{Endomorphism, Morphism},
+        morphism::{EndoMorphism, Morphism},
         relation::Relation,
     },
     rmodule::{
         canon::{self, CanonModule},
+        direct::DirectModule,
         map::CanonToCanon,
         ring::{Ring, SuperRing},
     },
@@ -15,7 +17,7 @@ use crate::{
     Int, TorsionCoeff,
 };
 use std::{
-    collections::{HashMap, HashSet},
+    collections::HashMap,
     fmt::{self, Display},
     sync::Arc,
 };
@@ -60,23 +62,11 @@ impl<R: SuperRing> Category<CanonModule<R>, Relation<R>> {
     }
 
     fn hom_set(source: Arc<CanonModule<R>>, target: Arc<CanonModule<R>>) -> Vec<Relation<R>> {
-        let (helper_indices_normal, helper_indices_transposed, helper_capacity) =
-            calculate_helper_indices(source.as_ref(), target.as_ref());
-
-        CanonModule::<R>::product(source.as_ref().clone(), target.as_ref().clone())
-            .submodules()
+        let direct = DirectModule::<R>::sumproduct(source, target);
+        direct
+            .submodules_goursat()
             .into_iter()
-            .map(|canon_to_canon| canon_to_canon.image())
-            .map(|elements| {
-                Relation::<R>::new_unchecked(
-                    elements,
-                    &helper_indices_normal,
-                    &helper_indices_transposed,
-                    &helper_capacity,
-                    Arc::clone(&source),
-                    Arc::clone(&target),
-                )
-            })
+            .filter_map(|submodule| Relation::<R>::try_from((&direct, &submodule)).ok())
             .collect::<Vec<Relation<R>>>()
     }
 }

@@ -36,7 +36,9 @@ pub trait Factorisable: Ring + Rem<Output = Self> + Ord + std::fmt::Debug {
 
 /* # coeff wrapper */
 
-#[derive(Clone, PartialEq, Eq, Debug)]
+#[derive(Clone, Debug, PartialEq, Eq)]
+#[derive_where(Hash)]
+#[derive_where(skip_inner(Hash))]
 pub struct Coeff<T>
 where
     T: Clone + Eq,
@@ -91,7 +93,7 @@ this is structurally guaranteed to be not only sorted (descending),
 but also that every element is either a prime or a power of a prime
 */
 #[derive(Debug, Clone)]
-#[derive_where(PartialEq, Eq; V)]
+#[derive_where(PartialEq, Eq, Hash; V)]
 pub struct CoeffTree<T, V>
 where
     T: Clone + Eq,
