@@ -182,9 +182,13 @@ impl<R: SuperRing> TryFrom<(&DirectModule<R>, &CanonToCanon<R>)> for Relation<R>
     /**
     the morphism should be mono in order for this conversion to work
     although the implementation neglects to check this
+
+    the morphism should be a submodule of the given module
     */
     fn try_from(pair: (&DirectModule<R>, &CanonToCanon<R>)) -> Result<Self, Self::Error> {
-        //
+        let (module, submodule) = pair;
+        // allocate a matrix for every element of the module
+        // for every element of the submodule, apply the inclusion and set the corresponding matrix element to one
         todo!()
     }
 }

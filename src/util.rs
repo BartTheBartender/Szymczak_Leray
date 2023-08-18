@@ -63,14 +63,11 @@ pub mod iterator {
     use crate::rmodule::ring::Zahl;
     use itertools::*;
 
-    pub fn product<T>(iterator: Vec<T>, n: Zahl) -> Vec<Vec<T>>
+    pub fn product<T, I: Iterator<Item = T>>(iterator: I, n: Zahl) -> impl Iterator<Item = I>
     where
         T: Clone,
     {
-        (0..n)
-            .map(|_| iterator.clone().into_iter())
-            .multi_cartesian_product()
-            .collect()
+        (0..n).map(|_| iterator.cloned()).multi_cartesian_product()
     }
 
     pub trait Dedup<T: PartialEq + Clone> {

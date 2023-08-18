@@ -86,10 +86,6 @@ impl<Card: Radix> Set for Fin<Card> {
 
 /* ## ring */
 
-// i could try to enforce non zero CARD for rings
-// but this would require some advanced types that would have to be dragged around
-// technically they would be evaluated at comiple time
-// but they would take up memory
 pub trait Ring:
     Neg<Output = Self> + Add<Self, Output = Self> + Mul<Self, Output = Self> + Set
 {

@@ -1,9 +1,13 @@
-use crate::{matrix::Matrix, rmodule::ring::Ring};
+use crate::{
+    matrix::Matrix,
+    rmodule::ring::{Ring, Zahl},
+    util::iterator::product,
+};
 use derive_where::derive_where;
 use nanoid::nanoid;
 use std::{
     cmp::Ordering,
-    collections::{BTreeMap, BTreeSet},
+    collections::{BTreeMap, BTreeSet, HashMap},
     ops::Rem,
     rc::Rc,
 };
@@ -13,7 +17,7 @@ use std::{
 pub trait Factorisable: Ring + Rem<Output = Self> + Ord + std::fmt::Debug {
     fn primes() -> Vec<Self>;
 
-    fn prime_power_decomposition(self) -> Vec<Self> {
+    fn prime_power_decomposition(&self) -> Vec<Self> {
         let mut decomposition = Vec::new();
         let zero = Self::zero();
         let one = Self::one();
@@ -21,7 +25,7 @@ pub trait Factorisable: Ring + Rem<Output = Self> + Ord + std::fmt::Debug {
             // find highest power of p that divides self
             let mut n = one;
             let mut seen_powers = BTreeSet::new();
-            while !seen_powers.contains(&(n * p)) && self % (n * p) == zero {
+            while !seen_powers.contains(&(n * p)) && *self % (n * p) == zero {
                 seen_powers.insert(n * p);
                 n = n * p;
             }
@@ -349,6 +353,31 @@ where
         for (key, value) in other.buffer.into_iter() {
             self.buffer.insert(key, value);
         }
+    }
+
+    fn all_torsion_coeffs_fixed_dimension(dimension: Zahl) -> impl Iterator<Item = Self> {
+        product(
+            T::ideals()
+                .filter(|ideal| !ideal.is_one() && ideal.prime_power_decomposition().len() == 1),
+            dimension,
+        )
+        .map(|coeffs| Self::from_iter(coeffs))
+    }
+
+    pub fn all_torsion_coeffs(maximal_dimension: Zahl) -> impl Iterator<Item = Self> {
+        (1..maximal_dimension + 1)
+            .flat_map(|dimension| Self::all_torsion_coeffs_fixed_dimension(dimension))
+    }
+
+    pub fn all_torsion_coeffs_hashed(maximal_dimension: Zahl) -> HashMap<Zahl, Vec<Self>> {
+        (1..maximal_dimension + 1)
+            .map(|dimension| {
+                (
+                    dimension,
+                    Self::all_torsion_coeffs_fixed_dimension(dimension).collect(),
+                )
+            })
+            .collect()
     }
 }
 

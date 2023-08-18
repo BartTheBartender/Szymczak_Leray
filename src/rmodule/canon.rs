@@ -10,20 +10,6 @@ use crate::{
 };
 use std::{fmt, ops::Rem, sync::Arc};
 
-/* # torsion coefficients */
-
-/*
-pub fn all_torsion_coeffs(base: Zahl, max_dimension: Zahl) -> HashMap<Zahl, Vec<TorsionCoeff>> {
-    (1..max_dimension + 1)
-        .map(|dimension| (dimension, all_torsion_coeffs_fixed_dim(base, dimension)))
-        .collect()
-}
-
-fn all_torsion_coeffs_fixed_dim(base: Zahl, dimension: Zahl) -> Vec<TorsionCoeff> {
-    product(divisors(base), dimension)
-}
-*/
-
 /* # canonical module */
 
 #[derive(Clone, Hash)]
