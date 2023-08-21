@@ -439,7 +439,7 @@ mod test {
                 _ => None,
             }
         }
-        fn ideals() -> impl Iterator<Item = Self> {
+        fn ideals() -> impl Iterator<Item = Self> + Clone {
             [1, 2, 4, 8, 16, 32, 64].into_iter()
         }
         fn subideals(&self) -> impl Iterator<Item = Self> {
