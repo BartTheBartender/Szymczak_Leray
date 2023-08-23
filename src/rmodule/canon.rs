@@ -93,7 +93,7 @@ impl<R: SuperRing> CanonModule<R> {
             .coeffs()
             .map(|coeff| (0..coeff.get()).map(|r| R::new(r)))
             .multi_cartesian_product()
-            .map(move |vec| self.element_from_matrix(Matrix::<R>::from_buffer(vec, 1, dim)))
+            .map(move |vec| self.element_from_matrix(Matrix::<R>::from_buffer(vec, dim, 1)))
     }
 
     pub fn submodules(self) -> Vec<CanonToCanon<R>> {
