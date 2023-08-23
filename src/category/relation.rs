@@ -1,13 +1,17 @@
 #[allow(unused_imports)] // DELETE LATER
 use crate::{
-    category::morphism::{Compose, EndoMorphism, Morphism},
+    category::{
+        morphism::{Compose, EndoMorphism, Morphism},
+        Category,
+    },
     rmodule::{
         canon::CanonModule, direct::DirectModule, map::CanonToCanon, ring::SuperRing, Module,
     },
-    Int,
+    util, Int,
 };
 
 use bitvec::prelude::*;
+use rayon::prelude::*;
 use std::{
     fmt::{self, Display},
     sync::Arc,
@@ -23,8 +27,6 @@ pub struct Relation<R: SuperRing> {
 
 impl<R: SuperRing> Relation<R> {
     /*
-       nie mam pojęcia jak działa ta funkcja,
-       musisz ją naprawić samemu
     pub fn new_unchecked(
         elements: Vec<<CanonModule<R> as Module<R>>::Element>,
         helper_indices_normal: &Vec<R>,
@@ -177,7 +179,9 @@ impl<R: SuperRing> Compose<CanonModule<R>, CanonModule<R>, CanonModule<R>, Relat
     }
 }
 
-impl<R: SuperRing> TryFrom<(&DirectModule<R>, &CanonToCanon<R>)> for Relation<R> {
+impl<R: SuperRing> TryFrom<(&DirectModule<R>, CanonToCanon<R>, &Vec<R>, &Vec<R>, &usize)>
+    for Relation<R>
+{
     type Error = &'static str;
     /**
     the morphism should be mono in order for this conversion to work
@@ -185,23 +189,91 @@ impl<R: SuperRing> TryFrom<(&DirectModule<R>, &CanonToCanon<R>)> for Relation<R>
 
     the morphism should be a submodule of the given module
     */
-    fn try_from(pair: (&DirectModule<R>, &CanonToCanon<R>)) -> Result<Self, Self::Error> {
-        let (module, submodule) = pair;
-        // allocate a matrix for every element of the module
-        // for every element of the submodule, apply the inclusion and set the corresponding matrix element to one
+    fn try_from(
+        raw_data: (&DirectModule<R>, CanonToCanon<R>, &Vec<R>, &Vec<R>, &usize),
+    ) -> Result<Self, Self::Error> {
+        let (direct, submodule, helper_indices_normal, helper_indices_transposed, helper_length) =
+            raw_data;
+
+        /*
+
+        let matrix_normal = BitVec::with_capacity(*helper_length);
+        let matrix_transposed = BitVec::with_capacity(*helper_length);
+
+
+        for element in elements.iter() {
+            matrix_normal.set(
+                util::category_of_relations::dot_product(element, &helper_indices_normal),
+                true,
+            );
+        }
+
+        Ok(Relation::<R> {
+            source: direct.left(),
+            target: direct.right(),
+            matrix_normal,
+            matrix_transposed,
+        })
+        */
         todo!()
     }
 }
 
 impl<R: SuperRing + std::hash::Hash> EndoMorphism<CanonModule<R>> for Relation<R> {}
 
-/*
-impl Endocategory<CanonModule, CanonModule, Relation> {
-    fn hom_set(source: &CanonModule, target: &CanonModule) -> HashSet<Relation> {
-        todo!() //to jest funkcja o którą prosiłeś. w szczególności nie musi być d  dokładnie taka, chodzi mi o ideę (nie wiem np jak tutaj uwzględniać zanurzenia modułów w siebiw w tej syngnaturze
-        }}
+impl<R: SuperRing> Category<CanonModule<R>, Relation<R>> {
+    pub fn new(base: Int, max_dimension: Int) -> Self {
+        todo!()
+        /*
+        let all_canon_rmodules: HashSet<Arc<CanonModule<R>>> =
+            canon::all_torsion_coeffs(base, max_dimension)
+                .into_iter()
+                .map(CanonModule::<R>::new)
+                .map(Arc::new)
+                .collect();
 
-*/
+        let hom_sets = all_canon_rmodules
+            .iter()
+            .map(|source| {
+                (
+                    source.as_ref().clone(),
+                    all_canon_rmodules
+                        .iter()
+                        .map(|target| {
+                            (
+                                target.as_ref().clone(),
+                                Self::hom_set(Arc::clone(&source), Arc::clone(&target)),
+                            )
+                        })
+                        .collect::<HashMap<CanonModule<R>, Vec<Relation<R>>>>(),
+                )
+            })
+            .collect::<HomSet<CanonModule<R>, Relation<R>>>();
+
+        Category { hom_sets }
+        */
+    }
+
+    fn hom_set(source: Arc<CanonModule<R>>, target: Arc<CanonModule<R>>) -> Vec<Relation<R>> {
+        let direct = DirectModule::<R>::sumproduct(source, target);
+        let (helper_indices_normal, helper_indices_transposed, helper_length) =
+            util::category_of_relations::calculate_helper_indices(&direct);
+        direct
+            .submodules_goursat()
+            .into_par_iter()
+            .filter_map(|submodule| {
+                Relation::<R>::try_from((
+                    &direct,
+                    submodule,
+                    &helper_indices_normal,
+                    &helper_indices_transposed,
+                    &helper_length,
+                ))
+                .ok()
+            })
+            .collect::<Vec<Relation<R>>>()
+    }
+}
 
 /*
 #[cfg(test)]

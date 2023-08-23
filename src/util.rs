@@ -121,23 +121,23 @@ pub mod iterator {
 }
 
 pub mod category_of_relations {
-    use crate::rmodule::{canon::CanonModule, ring::SuperRing};
+    use crate::rmodule::{canon::CanonModule, direct::DirectModule, ring::SuperRing};
+    use std::ops::{Add, Mul};
 
     // nie mam pojęcia, czy ta funkcja nadal robi to, co miała robić,
     // ale teraz się typy zgadzają
     // DO SPRAWDZENIA
     pub fn calculate_helper_indices<R: SuperRing>(
-        source: &CanonModule<R>,
-        target: &CanonModule<R>,
+        direct: &DirectModule<R>,
     ) -> (Vec<R>, Vec<R>, usize) {
         let source_and_target_tc = [
-            source.coeff_tree().coeffs().collect::<Vec<_>>(),
-            target.coeff_tree().coeffs().collect::<Vec<_>>(),
+            direct.left().torsion_coeffs().collect::<Vec<_>>(),
+            direct.right().torsion_coeffs().collect::<Vec<_>>(),
         ]
         .concat();
         let target_and_source_tc = [
-            target.coeff_tree().coeffs().collect::<Vec<_>>(),
-            source.coeff_tree().coeffs().collect::<Vec<_>>(),
+            direct.left().torsion_coeffs().collect::<Vec<_>>(),
+            direct.right().torsion_coeffs().collect::<Vec<_>>(),
         ]
         .concat();
 
@@ -168,5 +168,9 @@ pub mod category_of_relations {
             helper_indices_transposed,
             helper_capacity,
         )
+    }
+
+    pub fn dot_product<R: Mul + Add + Clone>(u: &Vec<R>, v: &Vec<R>) -> R {
+        todo!()
     }
 }

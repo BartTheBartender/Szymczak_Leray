@@ -87,6 +87,7 @@ impl<R: SuperRing> CanonModule<R> {
         CoeffTree::<R, R>::from_matrix(matrix, &self.torsion_coeff)
     }
 
+
     pub fn all_elements(&self) -> impl Iterator<Item = <Self as Module<R>>::Element> + '_ {
         let dim = u8::try_from(self.dimension()).expect("we're gonna need a bigger int");
         self.torsion_coeff

@@ -18,17 +18,17 @@ pub struct DirectModule<R: SuperRing> {
 }
 
 impl<R: SuperRing> DirectModule<R> {
-    fn left(&self) -> Arc<CanonModule<R>> {
+    pub fn left(&self) -> Arc<CanonModule<R>> {
         // should be the same as left_projection.target()
         Arc::clone(&self.left_inclusion.source())
     }
 
-    fn right(&self) -> Arc<CanonModule<R>> {
+    pub fn right(&self) -> Arc<CanonModule<R>> {
         // should be the same as right_projection.target()
         Arc::clone(&self.right_inclusion.source())
     }
 
-    fn module(&self) -> Arc<CanonModule<R>> {
+    pub fn module(&self) -> Arc<CanonModule<R>> {
         // should be the same as right_inclusion.source()
         // should be the same as left_projection.target()
         // should be the same as right_projection.target()
