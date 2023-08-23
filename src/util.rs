@@ -1,5 +1,5 @@
 pub mod number {
-    use crate::zmodule::canon::Zahl;
+    use crate::rmodule::ring::Zahl;
     use gcd::Gcd;
 
     // to mogłoby zadziałać dla pozosałych liczbowych też, jakby się uprzeć, ale mi się nie chce
@@ -60,17 +60,17 @@ pub mod number {
 }
 
 pub mod iterator {
-    use crate::zmodule::canon::Zahl;
+    use crate::rmodule::ring::Zahl;
     use itertools::*;
 
-    pub fn product<T>(iterator: Vec<T>, n: Zahl) -> Vec<Vec<T>>
+    pub fn product<T, I: Iterator<Item = T> + Clone>(
+        iterator: I,
+        n: Zahl,
+    ) -> impl Iterator<Item = Vec<T>>
     where
         T: Clone,
     {
-        (0..n)
-            .map(|_| iterator.clone().into_iter())
-            .multi_cartesian_product()
-            .collect()
+        (0..n).map(|_| iterator.clone()).multi_cartesian_product()
     }
 
     pub trait Dedup<T: PartialEq + Clone> {
@@ -97,7 +97,7 @@ pub mod iterator {
         #[test]
         fn products() {
             assert_eq!(
-                product(vec![0, 1], 3),
+                product(vec![0, 1].into_iter(), 3).collect::<Vec<_>>(),
                 vec![
                     vec![0, 0, 0],
                     vec![0, 0, 1],
@@ -121,41 +121,56 @@ pub mod iterator {
 }
 
 pub mod category_of_relations {
-    use crate::{zmodule::canon::CanonZModule, Int};
+    use crate::rmodule::{canon::CanonModule, direct::DirectModule, ring::SuperRing};
+    use std::ops::{Add, Mul};
 
-    pub fn calculate_helper_indices(
-        source: &CanonZModule,
-        target: &CanonZModule,
-    ) -> (Vec<Int>, Vec<Int>, usize) {
-        let source_and_target_tc = [source.torsion_coeff(), target.torsion_coeff()].concat();
-        let target_and_source_tc = [target.torsion_coeff(), source.torsion_coeff()].concat();
+    // nie mam pojęcia, czy ta funkcja nadal robi to, co miała robić,
+    // ale teraz się typy zgadzają
+    // DO SPRAWDZENIA
+    pub fn calculate_helper_indices<R: SuperRing>(
+        direct: &DirectModule<R>,
+    ) -> (Vec<R>, Vec<R>, usize) {
+        let source_and_target_tc = [
+            direct.left().torsion_coeffs().collect::<Vec<_>>(),
+            direct.right().torsion_coeffs().collect::<Vec<_>>(),
+        ]
+        .concat();
+        let target_and_source_tc = [
+            direct.left().torsion_coeffs().collect::<Vec<_>>(),
+            direct.right().torsion_coeffs().collect::<Vec<_>>(),
+        ]
+        .concat();
 
-        let mut helper_indices_normal: Vec<Int> = target_and_source_tc
+        let mut helper_indices_normal: Vec<R> = target_and_source_tc
             .into_iter()
-            .scan(1, |acc, num| {
-                *acc *= num;
+            .scan(R::one(), |acc, num| {
+                *acc = *acc * num;
                 Some(*acc)
             })
             .collect();
-        let mut helper_indices_transposed: Vec<Int> = source_and_target_tc
+        let mut helper_indices_transposed: Vec<R> = source_and_target_tc
             .into_iter()
-            .scan(1, |acc, num| {
-                *acc *= num;
+            .scan(R::one(), |acc, num| {
+                *acc = *acc * num;
                 Some(*acc)
             })
             .collect();
 
-        let helper_capacity = helper_indices_normal.pop().unwrap() as usize;
-        let helper_capacity_ = helper_indices_transposed.pop().unwrap() as usize;
+        let helper_capacity = helper_indices_normal.pop().unwrap().get() as usize;
+        let helper_capacity_ = helper_indices_transposed.pop().unwrap().get() as usize;
         assert_eq!(helper_capacity, helper_capacity_); //to be removed in the future
 
-        helper_indices_normal.insert(0, 1);
-        helper_indices_transposed.insert(0, 1);
+        helper_indices_normal.insert(0, R::one());
+        helper_indices_transposed.insert(0, R::one());
 
         (
             helper_indices_normal,
             helper_indices_transposed,
             helper_capacity,
         )
+    }
+
+    pub fn dot_product<R: Mul + Add + Clone>(u: &Vec<R>, v: &Vec<R>) -> R {
+        todo!()
     }
 }

@@ -1,36 +1,39 @@
+#[allow(unused_imports)] // DELETE LATER
 use crate::{
     category::{
-        morphism::{Compose, Endomorphism, Morphism},
+        morphism::{Compose, EndoMorphism, Morphism},
         Category,
     },
-    error::Error,
-    zmodule::{canon::CanonZModule, ZModule},
-    Int, TorsionCoeff,
+    rmodule::{
+        canon::CanonModule, direct::DirectModule, map::CanonToCanon, ring::SuperRing, Module,
+    },
+    util, Int,
 };
 
 use bitvec::prelude::*;
+use rayon::prelude::*;
 use std::{
-    collections::HashSet,
     fmt::{self, Display},
     sync::Arc,
 };
 
-#[derive(Clone, Debug, Hash, Eq)]
-pub struct Relation {
-    pub source: Arc<CanonZModule>,
-    pub target: Arc<CanonZModule>,
+#[derive(Clone, Debug, Hash, PartialEq, Eq)]
+pub struct Relation<R: SuperRing> {
+    pub source: Arc<CanonModule<R>>,
+    pub target: Arc<CanonModule<R>>,
     pub matrix_normal: BitVec,
     pub matrix_transposed: BitVec,
 }
 
-impl Relation {
+impl<R: SuperRing> Relation<R> {
+    /*
     pub fn new_unchecked(
-        elements: Vec<<CanonZModule as ZModule>::Element>,
-        helper_indices_normal: &Vec<Int>,
-        helper_indices_transposed: &Vec<Int>,
+        elements: Vec<<CanonModule<R> as Module<R>>::Element>,
+        helper_indices_normal: &Vec<R>,
+        helper_indices_transposed: &Vec<R>,
         helper_capacity: &usize,
-        source: Arc<CanonZModule>,
-        target: Arc<CanonZModule>,
+        source: Arc<CanonModule<R>>,
+        target: Arc<CanonModule<R>>,
     ) -> Self {
         let mut matrix_normal = BitVec::with_capacity(*helper_capacity);
         let mut matrix_transposed = BitVec::with_capacity(*helper_capacity);
@@ -61,6 +64,7 @@ impl Relation {
             matrix_transposed,
         }
     }
+    */
 
     pub fn krakowian_product_unchecked(
         left: &BitVec,
@@ -89,7 +93,8 @@ impl Relation {
     }
 }
 
-impl PartialEq for Relation {
+/* dlaczego implementujesz to sam?
+impl<R: SuperRing> PartialEq for Relation<R> {
     fn eq(&self, other: &Self) -> bool {
         self.source == other.source
             && self.target == other.target
@@ -97,8 +102,9 @@ impl PartialEq for Relation {
             && self.matrix_transposed == other.matrix_transposed //to be removed in the future
     }
 }
+*/
 
-impl Display for Relation {
+impl<R: SuperRing> Display for Relation<R> {
     //again, iterators...
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         let rows = self.matrix_transposed.chunks(self.source.cardinality());
@@ -119,21 +125,23 @@ impl Display for Relation {
     }
 }
 
-impl Morphism<CanonZModule, CanonZModule> for Relation {
-    fn source(&self) -> Arc<CanonZModule> {
+impl<R: SuperRing> Morphism<CanonModule<R>, CanonModule<R>> for Relation<R> {
+    fn source(&self) -> Arc<CanonModule<R>> {
         Arc::clone(&self.source)
     }
 
-    fn target(&self) -> Arc<CanonZModule> {
+    fn target(&self) -> Arc<CanonModule<R>> {
         Arc::clone(&self.target)
     }
 }
 
 //other * self
-impl Compose<CanonZModule, CanonZModule, CanonZModule, Relation> for Relation {
-    type Output = Relation;
+impl<R: SuperRing> Compose<CanonModule<R>, CanonModule<R>, CanonModule<R>, Relation<R>>
+    for Relation<R>
+{
+    type Output = Relation<R>;
 
-    fn compose_unchecked(&self, other: &Relation) -> Self::Output {
+    fn compose_unchecked(&self, other: &Relation<R>) -> Self::Output {
         //consider switching from Rc to Arc and implementing it as below:
         /*
         rayon::join(
@@ -150,29 +158,124 @@ impl Compose<CanonZModule, CanonZModule, CanonZModule, Relation> for Relation {
 
         let column_size = self.target.cardinality();
 
-        let output_normal = Relation::krakowian_product_unchecked(
+        let output_normal = Relation::<R>::krakowian_product_unchecked(
             other.matrix_transposed.as_ref(),
             self.matrix_normal.as_ref(),
             column_size,
         );
 
-        let output_transposed = Relation::krakowian_product_unchecked(
+        let output_transposed = Relation::<R>::krakowian_product_unchecked(
             self.matrix_normal.as_ref(),
             other.matrix_transposed.as_ref(),
             column_size,
         );
 
         Relation {
-            source: self.source(),
-            target: other.target(),
+            source: Arc::clone(&self.source),
+            target: Arc::clone(&other.target),
             matrix_normal: output_normal,
             matrix_transposed: output_transposed,
         }
     }
 }
 
-impl Endomorphism<CanonZModule> for Relation {}
+impl<R: SuperRing> TryFrom<(&DirectModule<R>, CanonToCanon<R>, &Vec<R>, &Vec<R>, &usize)>
+    for Relation<R>
+{
+    type Error = &'static str;
+    /**
+    the morphism should be mono in order for this conversion to work
+    although the implementation neglects to check this
 
+    the morphism should be a submodule of the given module
+    */
+    fn try_from(
+        raw_data: (&DirectModule<R>, CanonToCanon<R>, &Vec<R>, &Vec<R>, &usize),
+    ) -> Result<Self, Self::Error> {
+        let (direct, submodule, helper_indices_normal, helper_indices_transposed, helper_length) =
+            raw_data;
+
+        /*
+
+        let matrix_normal = BitVec::with_capacity(*helper_length);
+        let matrix_transposed = BitVec::with_capacity(*helper_length);
+
+
+        for element in elements.iter() {
+            matrix_normal.set(
+                util::category_of_relations::dot_product(element, &helper_indices_normal),
+                true,
+            );
+        }
+
+        Ok(Relation::<R> {
+            source: direct.left(),
+            target: direct.right(),
+            matrix_normal,
+            matrix_transposed,
+        })
+        */
+        todo!()
+    }
+}
+
+impl<R: SuperRing + std::hash::Hash> EndoMorphism<CanonModule<R>> for Relation<R> {}
+
+impl<R: SuperRing> Category<CanonModule<R>, Relation<R>> {
+    pub fn new(base: Int, max_dimension: Int) -> Self {
+        todo!()
+        /*
+        let all_canon_rmodules: HashSet<Arc<CanonModule<R>>> =
+            canon::all_torsion_coeffs(base, max_dimension)
+                .into_iter()
+                .map(CanonModule::<R>::new)
+                .map(Arc::new)
+                .collect();
+
+        let hom_sets = all_canon_rmodules
+            .iter()
+            .map(|source| {
+                (
+                    source.as_ref().clone(),
+                    all_canon_rmodules
+                        .iter()
+                        .map(|target| {
+                            (
+                                target.as_ref().clone(),
+                                Self::hom_set(Arc::clone(&source), Arc::clone(&target)),
+                            )
+                        })
+                        .collect::<HashMap<CanonModule<R>, Vec<Relation<R>>>>(),
+                )
+            })
+            .collect::<HomSet<CanonModule<R>, Relation<R>>>();
+
+        Category { hom_sets }
+        */
+    }
+
+    fn hom_set(source: Arc<CanonModule<R>>, target: Arc<CanonModule<R>>) -> Vec<Relation<R>> {
+        let direct = DirectModule::<R>::sumproduct(source, target);
+        let (helper_indices_normal, helper_indices_transposed, helper_length) =
+            util::category_of_relations::calculate_helper_indices(&direct);
+        direct
+            .submodules_goursat()
+            .into_par_iter()
+            .filter_map(|submodule| {
+                Relation::<R>::try_from((
+                    &direct,
+                    submodule,
+                    &helper_indices_normal,
+                    &helper_indices_transposed,
+                    &helper_length,
+                ))
+                .ok()
+            })
+            .collect::<Vec<Relation<R>>>()
+    }
+}
+
+/*
 #[cfg(test)]
 mod test {
 
@@ -265,3 +368,4 @@ mod test {
         assert_eq!(error, Err(Error::SourceTargetMismatch));
     }
 }
+*/

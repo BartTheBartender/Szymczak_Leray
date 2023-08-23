@@ -1,8 +1,13 @@
-use crate::{error::Error, zmodule::ZModule};
+use crate::{
+    error::Error,
+    rmodule::{ring::Ring, Module},
+};
+use gcd::Gcd;
 use std::{
+    cmp::Eq,
     collections::HashSet,
     hash::{Hash, Hasher},
-    rc::Rc,
+    ops::{Add, Neg},
     sync::Arc,
 };
 
@@ -29,7 +34,7 @@ pub trait Compose<Source: Eq, Middle: Eq, Target: Eq, Lhs: Morphism<Middle, Targ
     // ale można dopisać nowego traita na to gdzie `Middle` i `Target` są tym samym
 }
 
-pub trait Endomorphism<Object: Eq>:
+pub trait EndoMorphism<Object: Eq>:
     Sized
     + Clone
     + Hash
@@ -38,16 +43,19 @@ pub trait Endomorphism<Object: Eq>:
     + Morphism<Object, Object>
     + Compose<Object, Object, Object, Self, Output = Self>
 {
+    /**
+    there is a possibility, that this hash is not perfect
+    which can be a huge problem if uncaught
+    implementators of this trait should make sure that their hash is perfect
+    */
     fn perfect_hash(&self) -> u64 {
-        // there is a possibility, that this hash is not perfect
-        // which can be a huge problem if uncaught
-        // implementators of this trait should make sure that their hash is perfect
         let mut s = std::collections::hash_map::DefaultHasher::new();
         self.hash(&mut s);
         s.finish()
     }
 
     // jeśli naprawdę potrzebujesz Rc
+    /*
     fn cycle_rc(&self) -> Vec<Rc<Self>> {
         let mut seen_iterations = HashSet::new();
 
@@ -65,6 +73,7 @@ pub trait Endomorphism<Object: Eq>:
         })
         .collect()
     }
+    */
 
     fn cycle(&self) -> Vec<Self> {
         // nie ma potrzeby trzymać całego morfizmu, wystarczy perfekcyjny hash
@@ -86,14 +95,38 @@ pub trait Endomorphism<Object: Eq>:
     }
 }
 
-pub trait AbelianMorphism<Source: ZModule, Target: ZModule>: Morphism<Source, Target> {
+pub trait PreAbelianMorphism<R: Ring, Source: Module<R> + Eq, Target: Module<R> + Eq>:
+    Morphism<Source, Target>
+{
     fn is_zero(&self) -> bool;
     fn kernel(&self) -> Self;
     fn cokernel(&self) -> Self;
 }
 
-pub trait AbelianEndoMorphism<Object: ZModule + Eq>:
-    Endomorphism<Object> + AbelianMorphism<Object, Object>
+pub trait AbelianMorphism<R: Ring, Source: Module<R> + Eq, Target: Module<R> + Eq>:
+    Sized + PreAbelianMorphism<R, Source, Target>
+{
+    fn equaliser(self, other: Self) -> Self;
+    fn coequaliser(self, other: Self) -> Self;
+}
+
+impl<R: Ring + Gcd, Source: Module<R> + Eq, Target: Module<R> + Eq, T>
+    AbelianMorphism<R, Source, Target> for T
+where
+    T: PreAbelianMorphism<R, Source, Target>,
+    T: Add<Output = T> + Neg<Output = T>,
+{
+    fn equaliser(self, other: Self) -> Self {
+        (self + -other).kernel()
+    }
+
+    fn coequaliser(self, other: Self) -> Self {
+        (self + -other).cokernel()
+    }
+}
+
+pub trait AbelianEndoMorphism<R: Ring, Object: Module<R> + Eq>:
+    EndoMorphism<Object> + AbelianMorphism<R, Object, Object>
 {
     fn high_kernel(&self) -> Self {
         // probably not the fastest, but will work consistently
