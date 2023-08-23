@@ -86,15 +86,13 @@ impl<R: SuperRing> CanonModule<R> {
         CoeffTree::<R, R>::from_matrix(matrix, &self.torsion_coeff)
     }
 
-    /*
-    pub fn all_elements(&self) -> Vec<<Self as ZModule>::Element> {
+    pub fn all_elements(&self) -> Vec<<Self as Module<R>>::Element> {
         self.torsion_coeff
             .iter()
-            .map(|coeff| 0..*coeff)
+            .map(|coeff| 0..*coeff.0)
             .multi_cartesian_product()
             .collect()
     }
-    */
 
     pub fn submodules(self) -> Vec<CanonToCanon<R>> {
         match self.dimension() {

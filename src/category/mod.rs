@@ -28,49 +28,6 @@ pub struct Category<Object: Eq, M: Morphism<Object, Object>> {
     pub hom_sets: HomSet<Object, M>,
 }
 
-impl<R: SuperRing> Category<CanonModule<R>, Relation<R>> {
-    pub fn new(base: Int, max_dimension: Int) -> Self {
-        todo!()
-        /*
-        let all_canon_rmodules: HashSet<Arc<CanonModule<R>>> =
-            canon::all_torsion_coeffs(base, max_dimension)
-                .into_iter()
-                .map(CanonModule::<R>::new)
-                .map(Arc::new)
-                .collect();
-
-        let hom_sets = all_canon_rmodules
-            .iter()
-            .map(|source| {
-                (
-                    source.as_ref().clone(),
-                    all_canon_rmodules
-                        .iter()
-                        .map(|target| {
-                            (
-                                target.as_ref().clone(),
-                                Self::hom_set(Arc::clone(&source), Arc::clone(&target)),
-                            )
-                        })
-                        .collect::<HashMap<CanonModule<R>, Vec<Relation<R>>>>(),
-                )
-            })
-            .collect::<HomSet<CanonModule<R>, Relation<R>>>();
-
-        Category { hom_sets }
-        */
-    }
-
-    fn hom_set(source: Arc<CanonModule<R>>, target: Arc<CanonModule<R>>) -> Vec<Relation<R>> {
-        let direct = DirectModule::<R>::sumproduct(source, target);
-        direct
-            .submodules_goursat()
-            .into_iter()
-            .filter_map(|submodule| Relation::<R>::try_from((&direct, &submodule)).ok())
-            .collect::<Vec<Relation<R>>>()
-    }
-}
-
 impl<Object: Eq + Display, M: Morphism<Object, Object> + Display> fmt::Display
     for Category<Object, M>
 {

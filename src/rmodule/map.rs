@@ -75,7 +75,6 @@ impl<R: SuperRing> CanonToCanon<R> {
     }
     */
 
-    /*
     pub fn image(&self) -> Vec<<CanonModule<R> as Module<R>>::Element> {
         let mut im: Vec<_> = self
             .source()
@@ -86,7 +85,6 @@ impl<R: SuperRing> CanonToCanon<R> {
         im.clear_duplicates();
         im
     }
-    */
 }
 
 impl<R: SuperRing> Morphism<CanonModule<R>, CanonModule<R>> for CanonToCanon<R> {
