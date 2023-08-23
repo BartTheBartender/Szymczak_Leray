@@ -2,6 +2,7 @@ use crate::{
     category::morphism::{Compose, Morphism, PreAbelianMorphism},
     matrix::Matrix,
     rmodule::{canon::CanonModule, ring::SuperRing, torsion::CoeffTree, Module},
+    util::iterator::Dedup,
 };
 use itertools::Itertools;
 use std::{
@@ -79,8 +80,7 @@ impl<R: SuperRing> CanonToCanon<R> {
         let mut im: Vec<_> = self
             .source()
             .all_elements()
-            .iter()
-            .map(|element| self.evaluate_unchecked(element))
+            .map(|element| self.evaluate_unchecked(&element))
             .collect();
         im.clear_duplicates();
         im

@@ -99,7 +99,7 @@ impl<R: SuperRing> CanonModule<R> {
 
     pub fn submodules(self) -> Vec<CanonToCanon<R>> {
         match self.dimension() {
-            0 => panic!("coś poszło nie tak"),
+            0 => panic!("coś poszło nie tak: submodules"),
             1 => submodules_of_cyclic_module(self),
             _n => DirectModule::from(self).submodules_goursat(),
         }
@@ -107,7 +107,7 @@ impl<R: SuperRing> CanonModule<R> {
 
     pub fn quotients(self) -> Vec<CanonToCanon<R>> {
         match self.dimension() {
-            0 => panic!("coś poszło nie tak"),
+            0 => panic!("coś poszło nie tak: quotients"),
             1 => quotients_of_cyclic_module(self),
             _n => DirectModule::from(self).quotients_goursat(),
         }

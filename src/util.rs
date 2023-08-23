@@ -170,7 +170,7 @@ pub mod category_of_relations {
         )
     }
 
-    pub fn dot_product<R: Mul + Add + Clone>(u: &Vec<R>, v: &Vec<R>) -> R {
+    pub fn dot_product<R: SuperRing>(u: &Vec<R>, v: &Vec<R>) -> R {
         todo!()
     }
 }

@@ -158,6 +158,10 @@ where
         self.buffer.keys().map(|key| key.coeff.clone())
     }
 
+    pub fn into_coeffs(self) -> impl Iterator<Item = T> {
+        self.buffer.into_keys().map(|key| key.coeff.clone())
+    }
+
     pub fn keys(&self) -> impl Iterator<Item = &Coeff<T>> {
         self.buffer.keys()
     }

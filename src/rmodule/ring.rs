@@ -4,17 +4,18 @@ use std::{
     array::from_fn,
     cmp::Ordering,
     fmt,
+    hash::Hash,
     ops::{Add, Mul, Neg, Rem},
 };
 use typenum::{NonZero, Unsigned};
 
 pub type Zahl = Int;
 pub trait Radix = Unsigned + NonZero + Copy + Eq + Send + Sync;
-pub trait SuperRing = Ring + Ord + Rem<Output = Self> + Factorisable + Gcd;
+pub trait SuperRing = Ring + Ord + Rem<Output = Self> + Factorisable + Gcd + Into<usize> + Hash;
 
 /* # structure */
 
-#[derive(Clone, Copy, PartialEq, Eq)]
+#[derive(Clone, Copy, PartialEq, Eq, Hash)]
 pub struct Fin<Card: Radix> {
     zahl: Zahl,
     _radix: std::marker::PhantomData<Card>,
@@ -187,6 +188,12 @@ impl<Card: Radix> Gcd for Fin<Card> {
 
     fn gcd_euclid(self, other: Self) -> Self {
         Self::new(self.zahl.gcd_euclid(other.zahl))
+    }
+}
+
+impl<Card: Radix> Into<usize> for Fin<Card> {
+    fn into(self) -> usize {
+        self.get() as usize
     }
 }
 

@@ -14,7 +14,7 @@ use crate::{
         ring::{Ring, SuperRing},
     },
     util::category_of_relations::calculate_helper_indices,
-    Int, TorsionCoeff,
+    Int,
 };
 use std::{
     collections::HashMap,

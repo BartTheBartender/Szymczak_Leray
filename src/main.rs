@@ -98,10 +98,17 @@ mod szymczak_category;
 mod util;
 
 #[allow(unused_imports)]
-use {crate::category::relation::*, bitvec::prelude::*, std::rc::Rc};
+use crate::{
+    category::{relation::Relation, Category},
+    rmodule::{canon::CanonModule, map::CanonToCanon, ring::Fin},
+};
+use typenum::*;
 
 pub type Int = u16;
-pub type TorsionCoeff = Vec<Int>; // this is probably unused nw
 pub const RECURSION_PARAMETER_SZYMCZAK_FUNCTOR: usize = 100; //idk xD
 
-fn main() {}
+fn main() {
+    let maximal_dimension: Int = 2;
+    type R = Fin<U3>;
+    let category = Category::<CanonModule<R>, Relation<R>>::new(maximal_dimension);
+}

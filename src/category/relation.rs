@@ -2,10 +2,11 @@
 use crate::{
     category::{
         morphism::{Compose, EndoMorphism, Morphism},
-        Category,
+        Category, HomSet,
     },
     rmodule::{
-        canon::CanonModule, direct::DirectModule, map::CanonToCanon, ring::SuperRing, Module,
+        canon::CanonModule, direct::DirectModule, map::CanonToCanon, ring::SuperRing,
+        torsion::CoeffTree, Module,
     },
     util, Int,
 };
@@ -13,11 +14,12 @@ use crate::{
 use bitvec::prelude::*;
 use rayon::prelude::*;
 use std::{
+    collections::{HashMap, HashSet},
     fmt::{self, Display},
     sync::Arc,
 };
 
-#[derive(Clone, Debug, Hash, PartialEq, Eq)]
+#[derive(Clone, Debug, Hash, Eq)]
 pub struct Relation<R: SuperRing> {
     pub source: Arc<CanonModule<R>>,
     pub target: Arc<CanonModule<R>>,
@@ -26,46 +28,6 @@ pub struct Relation<R: SuperRing> {
 }
 
 impl<R: SuperRing> Relation<R> {
-    /*
-    pub fn new_unchecked(
-        elements: Vec<<CanonModule<R> as Module<R>>::Element>,
-        helper_indices_normal: &Vec<R>,
-        helper_indices_transposed: &Vec<R>,
-        helper_capacity: &usize,
-        source: Arc<CanonModule<R>>,
-        target: Arc<CanonModule<R>>,
-    ) -> Self {
-        let mut matrix_normal = BitVec::with_capacity(*helper_capacity);
-        let mut matrix_transposed = BitVec::with_capacity(*helper_capacity);
-        for element in elements.iter() {
-            matrix_normal.set(
-                element
-                    .iter()
-                    .zip(helper_indices_normal.iter())
-                    .map(|(&x, &y)| x * y)
-                    .sum::<Int>() as usize,
-                true,
-            );
-
-            matrix_transposed.set(
-                element
-                    .iter()
-                    .zip(helper_indices_transposed.iter())
-                    .map(|(&x, &y)| x * y)
-                    .sum::<Int>() as usize,
-                true,
-            );
-        }
-
-        Relation {
-            source,
-            target,
-            matrix_normal,
-            matrix_transposed,
-        }
-    }
-    */
-
     pub fn krakowian_product_unchecked(
         left: &BitVec,
         right: &BitVec,
@@ -93,7 +55,6 @@ impl<R: SuperRing> Relation<R> {
     }
 }
 
-/* dlaczego implementujesz to sam?
 impl<R: SuperRing> PartialEq for Relation<R> {
     fn eq(&self, other: &Self) -> bool {
         self.source == other.source
@@ -102,7 +63,6 @@ impl<R: SuperRing> PartialEq for Relation<R> {
             && self.matrix_transposed == other.matrix_transposed //to be removed in the future
     }
 }
-*/
 
 impl<R: SuperRing> Display for Relation<R> {
     //again, iterators...
@@ -195,17 +155,29 @@ impl<R: SuperRing> TryFrom<(&DirectModule<R>, CanonToCanon<R>, &Vec<R>, &Vec<R>,
         let (direct, submodule, helper_indices_normal, helper_indices_transposed, helper_length) =
             raw_data;
 
-        /*
+        let elements = submodule.image();
 
-        let matrix_normal = BitVec::with_capacity(*helper_length);
-        let matrix_transposed = BitVec::with_capacity(*helper_length);
-
+        let mut matrix_normal = BitVec::with_capacity(*helper_length);
+        let mut matrix_transposed = BitVec::with_capacity(*helper_length);
 
         for element in elements.iter() {
-            matrix_normal.set(
-                util::category_of_relations::dot_product(element, &helper_indices_normal),
-                true,
-            );
+            //unsafe{ in the release
+            let index_normal: usize = element
+                .coeffs()
+                .zip(helper_indices_normal.iter())
+                .fold(R::zero(), |acc, (r, &s)| acc + r * s)
+                .into();
+
+            matrix_normal.set(index_normal, true);
+
+            let index_transposed: usize = element
+                .coeffs()
+                .zip(helper_indices_transposed.iter())
+                .fold(R::zero(), |acc, (r, &s)| acc + r * s)
+                .into();
+
+            matrix_transposed.set(index_transposed, true);
+            //}
         }
 
         Ok(Relation::<R> {
@@ -214,19 +186,15 @@ impl<R: SuperRing> TryFrom<(&DirectModule<R>, CanonToCanon<R>, &Vec<R>, &Vec<R>,
             matrix_normal,
             matrix_transposed,
         })
-        */
-        todo!()
     }
 }
 
 impl<R: SuperRing + std::hash::Hash> EndoMorphism<CanonModule<R>> for Relation<R> {}
 
 impl<R: SuperRing> Category<CanonModule<R>, Relation<R>> {
-    pub fn new(base: Int, max_dimension: Int) -> Self {
-        todo!()
-        /*
+    pub fn new(maximal_dimension: Int) -> Self {
         let all_canon_rmodules: HashSet<Arc<CanonModule<R>>> =
-            canon::all_torsion_coeffs(base, max_dimension)
+            CoeffTree::<R, ()>::all_torsion_coeffs(maximal_dimension)
                 .into_iter()
                 .map(CanonModule::<R>::new)
                 .map(Arc::new)
@@ -251,7 +219,6 @@ impl<R: SuperRing> Category<CanonModule<R>, Relation<R>> {
             .collect::<HomSet<CanonModule<R>, Relation<R>>>();
 
         Category { hom_sets }
-        */
     }
 
     fn hom_set(source: Arc<CanonModule<R>>, target: Arc<CanonModule<R>>) -> Vec<Relation<R>> {
