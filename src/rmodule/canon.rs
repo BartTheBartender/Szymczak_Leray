@@ -8,6 +8,7 @@ use crate::{
         Module,
     },
 };
+use itertools::Itertools;
 use std::{fmt, ops::Rem, sync::Arc};
 
 /* # canonical module */
@@ -86,12 +87,14 @@ impl<R: SuperRing> CanonModule<R> {
         CoeffTree::<R, R>::from_matrix(matrix, &self.torsion_coeff)
     }
 
-    pub fn all_elements(&self) -> Vec<<Self as Module<R>>::Element> {
+
+    pub fn all_elements(&self) -> impl Iterator<Item = <Self as Module<R>>::Element> + '_ {
+        let dim = u8::try_from(self.dimension()).expect("we're gonna need a bigger int");
         self.torsion_coeff
-            .iter()
-            .map(|coeff| 0..*coeff.0)
+            .coeffs()
+            .map(|coeff| (0..coeff.get()).map(|r| R::new(r)))
             .multi_cartesian_product()
-            .collect()
+            .map(move |vec| self.element_from_matrix(Matrix::<R>::from_buffer(vec, dim, 1)))
     }
 
     pub fn submodules(self) -> Vec<CanonToCanon<R>> {
