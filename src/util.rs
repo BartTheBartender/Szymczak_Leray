@@ -121,12 +121,8 @@ pub mod iterator {
 }
 
 pub mod category_of_relations {
-    use crate::rmodule::{canon::CanonModule, direct::DirectModule, ring::SuperRing};
-    use std::ops::{Add, Mul};
+    use crate::rmodule::{direct::DirectModule, ring::SuperRing};
 
-    // nie mam pojęcia, czy ta funkcja nadal robi to, co miała robić,
-    // ale teraz się typy zgadzają
-    // DO SPRAWDZENIA
     pub fn calculate_helper_indices<R: SuperRing>(
         direct: &DirectModule<R>,
     ) -> (Vec<R>, Vec<R>, usize) {
@@ -168,9 +164,5 @@ pub mod category_of_relations {
             helper_indices_transposed,
             helper_capacity,
         )
-    }
-
-    pub fn dot_product<R: SuperRing>(u: &Vec<R>, v: &Vec<R>) -> R {
-        todo!()
     }
 }

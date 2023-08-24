@@ -19,7 +19,6 @@ use crate::{
 use std::{
     collections::HashMap,
     fmt::{self, Display},
-    sync::Arc,
 };
 
 pub type HomSet<Object, M> = HashMap<Object, HashMap<Object, Vec<M>>>;
