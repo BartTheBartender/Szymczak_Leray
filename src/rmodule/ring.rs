@@ -94,7 +94,7 @@ pub trait Ring:
     fn one() -> Self;
     fn is_zero(&self) -> bool;
     fn is_one(&self) -> bool;
-    fn divide_by(&self, other: &Self) -> Option<Self>;
+    fn divide_by(&self, other: &Self) -> Self;
     fn ideals() -> impl Iterator<Item = Self> + Clone;
     fn subideals(&self) -> impl Iterator<Item = Self>;
 }
@@ -141,10 +141,13 @@ impl<Card: Radix> Ring for Fin<Card> {
         self.zahl == 1
     }
 
-    fn divide_by(&self, other: &Self) -> Option<Self> {
-        match self.zahl % other.zahl {
-            0 => Some(Self::new(self.zahl / other.zahl)),
-            _ => None,
+    fn divide_by(&self, other: &Self) -> Self {
+        match other.zahl {
+            0 => Self::zero(),
+            r => match self.zahl % r {
+                0 => Self::new(self.zahl / r),
+                _ => *self,
+            },
         }
     }
 

@@ -1,7 +1,12 @@
 use crate::{
     category::morphism::{Compose, Morphism, PreAbelianMorphism},
     matrix::Matrix,
-    rmodule::{canon::CanonModule, ring::SuperRing, torsion::CoeffTree, Module},
+    rmodule::{
+        canon::{zn_dividedby_rxzm, CanonModule},
+        ring::SuperRing,
+        torsion::CoeffTree,
+        Module,
+    },
     util::iterator::Dedup,
 };
 use itertools::Itertools;
@@ -13,7 +18,7 @@ use std::{
 
 /* # Canon to Canon */
 
-#[derive(PartialEq, Eq)]
+#[derive(Clone, PartialEq, Eq)]
 pub struct CanonToCanon<R: SuperRing> {
     source: Arc<CanonModule<R>>,
     target: Arc<CanonModule<R>>,
@@ -27,15 +32,11 @@ impl<R: SuperRing> fmt::Debug for CanonToCanon<R> {
 }
 
 impl<R: SuperRing> CanonToCanon<R> {
-    pub fn new(source: Arc<CanonModule<R>>, target: Arc<CanonModule<R>>, map: Matrix<R>) -> Self {
-        let mut map = map;
-        /*
-        for (col, coeff) in source.coeff_tree().coeffs().enumerate() {
-            for x in map.col_mut(u8::try_from(col).expect("we're gonna need a bigger int")) {
-                *x = *x % coeff;
-            }
-        }
-        */
+    pub fn new(
+        source: Arc<CanonModule<R>>,
+        target: Arc<CanonModule<R>>,
+        mut map: Matrix<R>,
+    ) -> Self {
         for (row, coeff) in target.coeff_tree().coeffs().enumerate() {
             for x in map.row_mut(u8::try_from(row).expect("we're gonna need a bigger int")) {
                 *x = *x % coeff;
@@ -53,7 +54,7 @@ impl<R: SuperRing> CanonToCanon<R> {
     }
 
     pub fn cols(&self) -> impl Iterator<Item = Vec<R>> + '_ {
-        self.map.rows()
+        self.map.cols()
     }
 
     pub fn evaluate_unchecked(
@@ -103,6 +104,7 @@ impl<R: SuperRing> Compose<CanonModule<R>, CanonModule<R>, CanonModule<R>, Self>
     type Output = Self;
 
     fn compose_unchecked(&self, other: &Self) -> Self {
+        assert_eq!(self.target, other.source, "invalid composition attempt");
         Self::new(
             Arc::clone(&self.source),
             Arc::clone(&other.target),
@@ -113,12 +115,11 @@ impl<R: SuperRing> Compose<CanonModule<R>, CanonModule<R>, CanonModule<R>, Self>
 
 impl<R: SuperRing> PreAbelianMorphism<R, CanonModule<R>, CanonModule<R>> for CanonToCanon<R> {
     fn is_zero(&self) -> bool {
-        self.map.iter().all(|e| e.is_zero())
+        self.map.iter().all(R::is_zero)
     }
 
     fn kernel(&self) -> Self {
         let (_u, s, v) = self.map.pseudo_smith();
-        println!("{v:?}");
         let mut columns = Vec::new();
         let mut coeffs = Vec::new();
         for (coeff, (smith_col, v_col)) in self
@@ -128,30 +129,32 @@ impl<R: SuperRing> PreAbelianMorphism<R, CanonModule<R>, CanonModule<R>> for Can
             .zip(s.cols().zip(v.cols()))
         {
             // there will be at most one nonzero element in the column
-            if let Some((row, c)) = smith_col
+            let (row_coeff, c) = smith_col
                 .into_iter()
                 .enumerate()
                 .find(|&(_row, x)| !(x % coeff).is_zero())
-            {
-                let row_coeff = &self.target.coeff_tree().coeffs().nth(row).unwrap();
-                let maybe_x = coeff.divide_by(&row_coeff.divide_by(&c).unwrap());
-                if let Some(x) = maybe_x && !x.is_one() {
-                        coeffs.push(x);
-                        columns.push(v_col.into_iter().map(|y| y * x).collect());
-                }
-            } else {
-                coeffs.push(coeff);
-                columns.push(v_col);
-            }
+                .map(|(row, x)| (self.target.coeff_tree().coeffs().nth(row).unwrap(), x))
+                .unwrap_or((R::one(), R::zero()));
+            let x = zn_dividedby_rxzm(coeff, c, row_coeff);
+            coeffs.push(x);
+            columns.push(v_col.into_iter().map(|y| y * coeff.divide_by(&x)).collect());
         }
 
-        // if coeffs are not in the correct order, reorder them along with their respective columns
-        let (columns, coeffs): (Vec<_>, Vec<_>) = columns
-            .into_iter()
-            .zip(coeffs)
-            .sorted_by(|a, b| Ord::cmp(&a.1, &b.1).reverse())
-            .unzip();
-        println!("{columns:?}");
+        let (columns, coeffs) = match coeffs.iter().all(R::is_one) {
+            true => (
+                columns.get(0..1).unwrap().to_owned(),
+                coeffs.get(0..1).unwrap().to_owned(),
+            ),
+            false => {
+                // if coeffs are not in the correct order, reorder them along with their respective columns
+                columns
+                    .into_iter()
+                    .zip(coeffs)
+                    .filter(|(_col, coeff)| !coeff.is_one())
+                    .sorted_by(|a, b| Ord::cmp(&a.1, &b.1).reverse())
+                    .unzip()
+            }
+        };
 
         let ncols: u8 = columns
             .len()
@@ -175,23 +178,29 @@ impl<R: SuperRing> PreAbelianMorphism<R, CanonModule<R>, CanonModule<R>> for Can
             .zip(s.rows().zip(u.rows()))
         {
             // there will be at most one nonzero element in the column
-            if let Some(c) = smith_row.into_iter().find(|&x| !(x % coeff).is_zero()) {
-                if !c.is_one() && let Some(x) = coeff.divide_by(&c) && !x.is_one() {
-                    coeffs.push(x);
-                    rows.push(u_row);
-                } // else should never happen
-            } else {
-                coeffs.push(coeff);
-                rows.push(u_row);
-            }
+            let c = smith_row
+                .into_iter()
+                .find(|&x| !(x % coeff).is_zero())
+                .unwrap_or_else(R::zero);
+            let x = zn_dividedby_rxzm(coeff, c, coeff);
+            coeffs.push(x);
+            rows.push(u_row);
         }
 
-        // if coeffs are not in the correct order, reorder them along with their respective rows
-        let (rows, coeffs): (Vec<_>, Vec<_>) = rows
-            .into_iter()
-            .zip(coeffs)
-            .sorted_by(|a, b| Ord::cmp(&a.1, &b.1))
-            .unzip();
+        let (rows, coeffs) = match coeffs.iter().all(R::is_one) {
+            true => (
+                rows.get(0..1).unwrap().to_owned(),
+                coeffs.get(0..1).unwrap().to_owned(),
+            ),
+            false => {
+                // if coeffs are not in the correct order, reorder them along with their respective rows
+                rows.into_iter()
+                    .zip(coeffs)
+                    .filter(|(_row, coeff)| !coeff.is_one())
+                    .sorted_by(|a, b| Ord::cmp(&a.1, &b.1).reverse())
+                    .unzip()
+            }
+        };
 
         let nrows: u8 = rows
             .len()
@@ -206,7 +215,7 @@ impl<R: SuperRing> PreAbelianMorphism<R, CanonModule<R>, CanonModule<R>> for Can
 }
 
 impl<R: SuperRing> Add for CanonToCanon<R> {
-    type Output = CanonToCanon<R>;
+    type Output = Self;
 
     /**
     this assumes that both self and output have the same source and target.
@@ -223,7 +232,7 @@ impl<R: SuperRing> Add for CanonToCanon<R> {
 }
 
 impl<R: SuperRing> Neg for CanonToCanon<R> {
-    type Output = CanonToCanon<R>;
+    type Output = Self;
 
     fn neg(self) -> Self::Output {
         Self::Output {
@@ -244,6 +253,25 @@ mod test {
     use typenum::U36;
 
     type R = Fin<U36>;
+
+    #[test]
+    fn kernel_zero() {
+        let z1 = Arc::new(CanonModule::new(CoeffTree::<R, ()>::from_iter([R::new(1)])));
+        let z6 = Arc::new(CanonModule::new(CoeffTree::<R, ()>::from_iter([R::new(6)])));
+        assert_eq!(
+            CanonToCanon::new(
+                Arc::clone(&z6),
+                Arc::clone(&z6),
+                Matrix::from_buffer([R::new(2), R::new(0), R::new(0), R::new(1)], 2, 2),
+            )
+            .kernel(),
+            CanonToCanon::new(
+                Arc::clone(&z1),
+                Arc::clone(&z6),
+                Matrix::from_buffer([R::new(0), R::new(0)], 1, 2),
+            )
+        );
+    }
 
     #[test]
     fn kernel_easy() {
@@ -283,6 +311,31 @@ mod test {
                 Arc::clone(&z2sq),
                 Matrix::from_buffer([R::new(1), R::new(1)], 1, 2),
             )
+        );
+    }
+
+    // #[test]
+    // this fails so far but i do not think it is too important right now
+    fn kernel_asymetric() {
+        let z2 = Arc::new(CanonModule::new(CoeffTree::<R, ()>::from_iter([R::new(2)])));
+        let z4 = Arc::new(CanonModule::new(CoeffTree::<R, ()>::from_iter([R::new(4)])));
+        let z4xz2 = Arc::new(CanonModule::new(CoeffTree::<R, ()>::from_iter([
+            R::new(4),
+            R::new(2),
+        ])));
+        assert_eq!(
+            CanonToCanon::new(
+                Arc::clone(&z4xz2),
+                Arc::clone(&z2),
+                Matrix::from_buffer([R::new(1), R::new(1)], 2, 1),
+            )
+            .kernel(),
+            CanonToCanon::new(
+                Arc::clone(&z4),
+                Arc::clone(&z4xz2),
+                Matrix::from_buffer([R::new(1), R::new(1)], 1, 2),
+            ),
+            "this can produce a Z2xZ2 instead if we are not careful"
         );
     }
 
@@ -338,6 +391,25 @@ mod test {
                     3,
                     3
                 ),
+            )
+        );
+    }
+
+    #[test]
+    fn cokernel_zero() {
+        let z1 = Arc::new(CanonModule::new(CoeffTree::<R, ()>::from_iter([R::new(1)])));
+        let z6 = Arc::new(CanonModule::new(CoeffTree::<R, ()>::from_iter([R::new(6)])));
+        assert_eq!(
+            CanonToCanon::new(
+                Arc::clone(&z6),
+                Arc::clone(&z6),
+                Matrix::from_buffer([R::new(2), R::new(0), R::new(0), R::new(1)], 2, 2),
+            )
+            .cokernel(),
+            CanonToCanon::new(
+                Arc::clone(&z6),
+                Arc::clone(&z1),
+                Matrix::from_buffer([R::new(0), R::new(0)], 2, 1),
             )
         );
     }

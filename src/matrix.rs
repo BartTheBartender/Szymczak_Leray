@@ -292,19 +292,11 @@ where
                         }
                         let gcd = x.gcd(minx);
                         if !(x % minx).is_zero() {
-                            smith.mul_row_by(row, minx.divide_by(&gcd).expect("gcd divdes evenly"));
+                            smith.mul_row_by(row, minx.divide_by(&gcd));
                             u.mul_row_by(row, minx);
                         }
-                        smith.add_muled_row_to_row(
-                            minrow,
-                            row,
-                            -x.divide_by(&gcd).expect("gcd divdes evenly"),
-                        );
-                        u.add_muled_row_to_row(
-                            minrow,
-                            row,
-                            -x.divide_by(&gcd).expect("gcd divdes evenly"),
-                        );
+                        smith.add_muled_row_to_row(minrow, row, -x.divide_by(&gcd));
+                        u.add_muled_row_to_row(minrow, row, -x.divide_by(&gcd));
                     }
                 }
                 for col in (0..smith.cols).filter(|&i| i != mincol) {
@@ -314,19 +306,11 @@ where
                         }
                         let gcd = x.gcd(minx);
                         if !(x % minx).is_zero() {
-                            smith.mul_col_by(col, minx.divide_by(&gcd).expect("gcd divdes evenly"));
+                            smith.mul_col_by(col, minx.divide_by(&gcd));
                             v.mul_col_by(col, minx);
                         }
-                        smith.add_muled_col_to_col(
-                            mincol,
-                            col,
-                            -x.divide_by(&gcd).expect("gcd divdes evenly"),
-                        );
-                        v.add_muled_col_to_col(
-                            mincol,
-                            col,
-                            -x.divide_by(&gcd).expect("gcd divdes evenly"),
-                        );
+                        smith.add_muled_col_to_col(mincol, col, -x.divide_by(&gcd));
+                        v.add_muled_col_to_col(mincol, col, -x.divide_by(&gcd));
                     }
                 }
                 done_cols.insert(mincol);
@@ -373,7 +357,42 @@ mod test {
     }
 
     #[test]
+    fn composing_from_rows() {
+        assert_eq!(
+            Matrix::<u8>::from_buffer([0, 1, 2, 3, 4, 5], 3, 2),
+            Matrix::<u8>::from_rows(vec![vec![0, 1, 2], vec![3, 4, 5]], 2)
+        );
+        assert_eq!(
+            Matrix::<u8>::from_buffer([0, 1, 2, 3, 4, 5], 2, 3),
+            Matrix::<u8>::from_rows(vec![vec![0, 1], vec![2, 3], vec![4, 5]], 3)
+        );
+    }
+
+    #[test]
+    fn composing_from_cols() {
+        assert_eq!(
+            Matrix::<u8>::from_buffer([0, 1, 2, 3, 4, 5], 3, 2),
+            Matrix::<u8>::from_cols(vec![vec![0, 3], vec![1, 4], vec![2, 5]], 3)
+        );
+        assert_eq!(
+            Matrix::<u8>::from_buffer([0, 1, 2, 3, 4, 5], 2, 3),
+            Matrix::<u8>::from_cols(vec![vec![0, 2, 4], vec![1, 3, 5]], 2)
+        );
+    }
+
+    #[test]
     fn rows() {
+        let m = Matrix::<u8>::from_buffer([1, 2], 1, 2);
+        let mut rows = m.rows();
+        assert_eq!(rows.next(), Some(vec![1]));
+        assert_eq!(rows.next(), Some(vec![2]));
+        assert_eq!(rows.next(), None);
+
+        let m = Matrix::<u8>::from_buffer([1, 2], 2, 1);
+        let mut rows = m.rows();
+        assert_eq!(rows.next(), Some(vec![1, 2]));
+        assert_eq!(rows.next(), None);
+
         let m = Matrix::<u8>::from_buffer([3, 4, 5, 9, 14, 19, 15, 24, 33], 3, 3);
         let mut rows = m.rows();
         assert_eq!(rows.next(), Some(vec![3, 4, 5]));
@@ -384,6 +403,17 @@ mod test {
 
     #[test]
     fn cols() {
+        let m = Matrix::<u8>::from_buffer([1, 2], 1, 2);
+        let mut cols = m.cols();
+        assert_eq!(cols.next(), Some(vec![1, 2]));
+        assert_eq!(cols.next(), None);
+
+        let m = Matrix::<u8>::from_buffer([1, 2], 2, 1);
+        let mut cols = m.cols();
+        assert_eq!(cols.next(), Some(vec![1]));
+        assert_eq!(cols.next(), Some(vec![2]));
+        assert_eq!(cols.next(), None);
+
         let m = Matrix::<u8>::from_buffer([3, 4, 5, 9, 14, 19, 15, 24, 33], 3, 3);
         let mut cols = m.cols();
         assert_eq!(cols.next(), Some(vec![3, 9, 15]));

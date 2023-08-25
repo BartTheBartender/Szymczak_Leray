@@ -102,13 +102,13 @@ use crate::{
     category::{relation::Relation, Category},
     rmodule::{canon::CanonModule, map::CanonToCanon, ring::Fin},
 };
-use typenum::*;
+use typenum::U3;
 
 pub type Int = u16;
 pub const RECURSION_PARAMETER_SZYMCZAK_FUNCTOR: usize = 100; //idk xD
 
 fn main() {
-    let maximal_dimension: Int = 2;
     type R = Fin<U3>;
-    let category = Category::<CanonModule<R>, Relation<R>>::new(maximal_dimension);
+    let maximal_dimension: Int = 2;
+    let _category = Category::<CanonModule<R>, Relation<R>>::new(maximal_dimension);
 }

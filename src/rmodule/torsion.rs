@@ -9,7 +9,7 @@ use std::{
     cmp::Ordering,
     collections::{BTreeMap, BTreeSet, HashMap},
     ops::Rem,
-    rc::Rc,
+    sync::Arc,
 };
 
 /* # factorisable trait */
@@ -24,6 +24,7 @@ pub trait Factorisable: Ring + Rem<Output = Self> + Ord + std::fmt::Debug {
         for p in Self::primes() {
             // find highest power of p that divides self
             let mut n = one;
+
             let mut seen_powers = BTreeSet::new();
             while !seen_powers.contains(&(n * p)) && *self % (n * p) == zero {
                 seen_powers.insert(n * p);
@@ -33,6 +34,9 @@ pub trait Factorisable: Ring + Rem<Output = Self> + Ord + std::fmt::Debug {
             if n != one {
                 decomposition.push(n);
             }
+        }
+        if decomposition.is_empty() {
+            decomposition.push(*self);
         }
         decomposition
     }
@@ -48,17 +52,20 @@ where
     T: Clone + Eq,
 {
     coeff: T,
-    index: Rc<str>,
+    index: Arc<str>,
 }
 
 impl<T> Coeff<T>
 where
     T: Clone + Eq,
 {
-    pub fn new(coeff: T, index: Rc<str>) -> Self {
+    pub fn new(coeff: T, index: Arc<str>) -> Self {
         Self { coeff, index }
     }
 }
+
+unsafe impl<T: Clone + Eq + Send> Send for Coeff<T> {}
+unsafe impl<T: Clone + Eq + Sync> Sync for Coeff<T> {}
 
 impl<T> PartialOrd for Coeff<T>
 where
@@ -84,8 +91,7 @@ where
     // lexicographic order, reversed on both fields
     fn cmp(&self, other: &Self) -> Ordering {
         match (self.coeff.cmp(&other.coeff), self.index.cmp(&other.index)) {
-            (Ordering::Equal, ord) => ord.reverse(),
-            (ord, _) => ord.reverse(),
+            (Ordering::Equal, ord) | (ord, _) => ord.reverse(),
         }
     }
 }
@@ -104,6 +110,9 @@ where
 {
     buffer: BTreeMap<Coeff<T>, V>,
 }
+
+unsafe impl<T: Clone + Eq + Send, V: Send> Send for CoeffTree<T, V> {}
+unsafe impl<T: Clone + Eq + Sync, V: Sync> Sync for CoeffTree<T, V> {}
 
 /* ## basic interface */
 
@@ -159,7 +168,7 @@ where
     }
 
     pub fn into_coeffs(self) -> impl Iterator<Item = T> {
-        self.buffer.into_keys().map(|key| key.coeff.clone())
+        self.buffer.into_keys().map(|key| key.coeff)
     }
 
     pub fn keys(&self) -> impl Iterator<Item = &Coeff<T>> {
@@ -197,7 +206,7 @@ where
             buffer: self
                 .buffer
                 .into_iter()
-                .map(|(key, value)| (key.clone(), action(value, key.coeff.clone())))
+                .map(|(key, value)| (key.clone(), action(value, key.coeff)))
                 .collect(),
         }
     }
@@ -219,7 +228,7 @@ where
     where
         F: Fn(&mut V, T),
     {
-        for (key, value) in self.buffer.iter_mut() {
+        for (key, value) in &mut self.buffer {
             action(value, key.coeff.clone());
         }
     }
@@ -321,16 +330,22 @@ where
 {
     // this is expensive and should not be done often
     fn insert(&mut self, key: T) {
-        self.buffer
-            .extend(key.prime_power_decomposition().into_iter().map(|p| {
-                (
-                    Coeff {
-                        coeff: p,
-                        index: Rc::from(nanoid!()),
-                    },
-                    (),
-                )
-            }));
+        if self.buffer.is_empty() || !key.is_one() {
+            if self.buffer.len() == 1 && self.coeffs().any(|coeff| coeff.is_one()) {
+                self.buffer.clear();
+            }
+
+            self.buffer
+                .extend(key.prime_power_decomposition().into_iter().map(|p| {
+                    (
+                        Coeff {
+                            coeff: p,
+                            index: Arc::from(nanoid!()),
+                        },
+                        (),
+                    )
+                }));
+        }
     }
 
     pub fn split(self) -> (Self, Self) {
@@ -354,7 +369,11 @@ where
     }
 
     pub fn join(&mut self, other: Self) {
-        for (key, value) in other.buffer.into_iter() {
+        for (key, value) in other
+            .buffer
+            .into_iter()
+            .filter(|(key, _value)| !key.coeff.is_one())
+        {
             self.buffer.insert(key, value);
         }
     }
@@ -369,12 +388,12 @@ where
     }
 
     pub fn all_torsion_coeffs(maximal_dimension: Zahl) -> impl Iterator<Item = Self> {
-        (1..maximal_dimension + 1)
+        (1..=maximal_dimension)
             .flat_map(|dimension| Self::all_torsion_coeffs_fixed_dimension(dimension))
     }
 
     pub fn all_torsion_coeffs_hashed(maximal_dimension: Zahl) -> HashMap<Zahl, Vec<Self>> {
-        (1..maximal_dimension + 1)
+        (1..=maximal_dimension)
             .map(|dimension| {
                 (
                     dimension,
@@ -418,12 +437,13 @@ mod test {
         type Card = U256;
 
         fn new(x: Zahl) -> Self {
-            x as i8
+            x.try_into().expect("we're gonna need a bigger int")
         }
         fn get(&self) -> Zahl {
-            *self as Zahl
+            Zahl::try_from(*self).unwrap()
         }
     }
+
     impl Ring for i8 {
         fn zero() -> Self {
             0
@@ -437,17 +457,20 @@ mod test {
         fn is_one(&self) -> bool {
             *self == 1
         }
-        fn divide_by(&self, other: &Self) -> Option<Self> {
-            match self % other {
-                0 => Some(self / other),
-                _ => None,
+        fn divide_by(&self, other: &Self) -> Self {
+            match *other {
+                0 => Self::MAX,
+                x => match self % x {
+                    0 => self / x,
+                    _ => 1,
+                },
             }
         }
         fn ideals() -> impl Iterator<Item = Self> + Clone {
             [1, 2, 4, 8, 16, 32, 64].into_iter()
         }
         fn subideals(&self) -> impl Iterator<Item = Self> {
-            divisors(*self as Zahl).into_iter().map(|x| x as i8)
+            divisors(self.get()).into_iter().map(Self::new)
         }
     }
 
@@ -459,6 +482,61 @@ mod test {
     }
 
     #[test]
+    fn decomposing_into_prime_powers() {
+        assert_eq!(1_i8.prime_power_decomposition(), vec![1]);
+        assert_eq!(2_i8.prime_power_decomposition(), vec![2]);
+        assert_eq!(4_i8.prime_power_decomposition(), vec![4]);
+        assert_eq!(6_i8.prime_power_decomposition(), vec![2, 3]);
+        assert_eq!(12_i8.prime_power_decomposition(), vec![4, 3]);
+    }
+
+    #[test]
+    fn building_with_ones() {
+        let mut ct = CoeffTree::<i8, ()>::default();
+
+        ct.insert(1);
+        let mut keys = ct.buffer.keys();
+        assert_eq!(
+            keys.next().map(|x| x.coeff),
+            Some(1),
+            "first unit should be here"
+        );
+        assert_eq!(keys.next(), None.as_ref(), "nothing else was pushed");
+
+        ct.insert(1);
+        let mut keys = ct.buffer.keys();
+        assert_eq!(
+            keys.next().map(|x| x.coeff),
+            Some(1),
+            "first unit should still be here"
+        );
+        assert_eq!(keys.next(), None.as_ref(), "but not the second unit");
+
+        ct.insert(2); // inserting a non unit should remove the unit
+        let mut keys = ct.buffer.keys();
+        assert_eq!(keys.next().map(|x| x.coeff), Some(2), "we inserted a two");
+        assert_eq!(keys.next(), None.as_ref(), "the unit should be gone");
+    }
+
+    #[test]
+    fn joining_two_trivial_trees() {
+        let mut left = CoeffTree::<i8, ()>::default();
+        left.insert(1);
+        let mut right = CoeffTree::<i8, ()>::default();
+        right.insert(1);
+
+        left.join(right);
+
+        let mut keys = left.buffer.keys();
+        assert_eq!(
+            keys.next().map(|x| x.coeff),
+            Some(1),
+            "first unit should be here"
+        );
+        assert_eq!(keys.next(), None.as_ref(), "but not the second unit");
+    }
+
+    #[test]
     fn building() {
         let mut ct = CoeffTree::<i8, ()>::default();
         ct.insert(6);
@@ -467,12 +545,12 @@ mod test {
         ct.insert(2);
 
         let mut keys = ct.buffer.keys();
-        assert_eq!(keys.next().unwrap().coeff, 3);
-        assert_eq!(keys.next().unwrap().coeff, 3);
-        assert_eq!(keys.next().unwrap().coeff, 2);
-        assert_eq!(keys.next().unwrap().coeff, 2);
-        assert_eq!(keys.next().unwrap().coeff, 2);
-        assert_eq!(keys.next().unwrap().coeff, 2);
+        assert_eq!(keys.next().map(|x| x.coeff), Some(3));
+        assert_eq!(keys.next().map(|x| x.coeff), Some(3));
+        assert_eq!(keys.next().map(|x| x.coeff), Some(2));
+        assert_eq!(keys.next().map(|x| x.coeff), Some(2));
+        assert_eq!(keys.next().map(|x| x.coeff), Some(2));
+        assert_eq!(keys.next().map(|x| x.coeff), Some(2));
         assert_eq!(keys.next(), None.as_ref());
     }
 
@@ -481,9 +559,9 @@ mod test {
         let ct = CoeffTree::<i8, ()>::from_iter(vec![6, 4]);
 
         let mut keys = ct.buffer.keys();
-        assert_eq!(keys.next().unwrap().coeff, 4);
-        assert_eq!(keys.next().unwrap().coeff, 3);
-        assert_eq!(keys.next().unwrap().coeff, 2);
+        assert_eq!(keys.next().map(|x| x.coeff), Some(4));
+        assert_eq!(keys.next().map(|x| x.coeff), Some(3));
+        assert_eq!(keys.next().map(|x| x.coeff), Some(2));
         assert_eq!(keys.next(), None.as_ref());
     }
 
@@ -498,16 +576,16 @@ mod test {
 
         let (l, r) = ct.split();
 
-        let mut keys = l.buffer.keys();
-        assert_eq!(keys.next().unwrap().coeff, 32);
-        assert_eq!(keys.next().unwrap().coeff, 8);
-        assert_eq!(keys.next().unwrap().coeff, 2);
-        assert_eq!(keys.next(), None.as_ref());
+        let mut keys_left = l.buffer.keys();
+        assert_eq!(keys_left.next().map(|x| x.coeff), Some(32));
+        assert_eq!(keys_left.next().map(|x| x.coeff), Some(8));
+        assert_eq!(keys_left.next().map(|x| x.coeff), Some(2));
+        assert_eq!(keys_left.next(), None.as_ref());
 
-        let mut keys = r.buffer.keys();
-        assert_eq!(keys.next().unwrap().coeff, 16);
-        assert_eq!(keys.next().unwrap().coeff, 4);
-        assert_eq!(keys.next(), None.as_ref());
+        let mut keys_right = r.buffer.keys();
+        assert_eq!(keys_right.next().map(|x| x.coeff), Some(16));
+        assert_eq!(keys_right.next().map(|x| x.coeff), Some(4));
+        assert_eq!(keys_right.next(), None.as_ref());
     }
 
     #[test]
@@ -523,11 +601,11 @@ mod test {
         l.join(r);
 
         let mut keys = l.buffer.keys();
-        assert_eq!(keys.next().unwrap().coeff, 4);
-        assert_eq!(keys.next().unwrap().coeff, 3);
-        assert_eq!(keys.next().unwrap().coeff, 3);
-        assert_eq!(keys.next().unwrap().coeff, 2);
-        assert_eq!(keys.next().unwrap().coeff, 2);
+        assert_eq!(keys.next().map(|x| x.coeff), Some(4));
+        assert_eq!(keys.next().map(|x| x.coeff), Some(3));
+        assert_eq!(keys.next().map(|x| x.coeff), Some(3));
+        assert_eq!(keys.next().map(|x| x.coeff), Some(2));
+        assert_eq!(keys.next().map(|x| x.coeff), Some(2));
         assert_eq!(keys.next(), None.as_ref());
     }
 

@@ -14,6 +14,7 @@ use std::{fmt, ops::Rem, sync::Arc};
 /* # canonical module */
 
 #[derive(Clone, Hash)]
+#[allow(clippy::module_name_repetitions)]
 pub struct CanonModule<R: Ring> {
     // technically, this R in the Tree should be an ideal of the ring
     torsion_coeff: CoeffTree<R, ()>,
@@ -46,7 +47,7 @@ impl<R: SuperRing> PartialEq for CanonModule<R> {
 impl<R: SuperRing> Eq for CanonModule<R> {}
 
 impl<R: SuperRing> CanonModule<R> {
-    pub fn new(torsion_coeff: CoeffTree<R, ()>) -> Self {
+    pub const fn new(torsion_coeff: CoeffTree<R, ()>) -> Self {
         Self { torsion_coeff }
     }
 
@@ -57,15 +58,19 @@ impl<R: SuperRing> CanonModule<R> {
     pub fn cardinality(&self) -> usize {
         self.torsion_coeff
             .coeffs()
-            .fold(1, |acc, next| acc * next.get() as usize)
+            .fold(1, |acc, next| acc.saturating_mul(usize::from(next.get())))
     }
 
     pub fn torsion_coeffs(&self) -> impl Iterator<Item = R> + '_ {
         self.torsion_coeff.coeffs()
     }
 
-    pub fn coeff_tree(&self) -> &CoeffTree<R, ()> {
+    pub const fn coeff_tree(&self) -> &CoeffTree<R, ()> {
         &self.torsion_coeff
+    }
+
+    pub fn into_coeff_tree(self) -> CoeffTree<R, ()> {
+        self.torsion_coeff
     }
 
     /* # module stuff */
@@ -87,7 +92,6 @@ impl<R: SuperRing> CanonModule<R> {
         CoeffTree::<R, R>::from_matrix(matrix, &self.torsion_coeff)
     }
 
-
     pub fn all_elements(&self) -> impl Iterator<Item = <Self as Module<R>>::Element> + '_ {
         let dim = u8::try_from(self.dimension()).expect("we're gonna need a bigger int");
         self.torsion_coeff
@@ -101,7 +105,7 @@ impl<R: SuperRing> CanonModule<R> {
         match self.dimension() {
             0 => panic!("coś poszło nie tak: submodules"),
             1 => submodules_of_cyclic_module(self),
-            _n => DirectModule::from(self).submodules_goursat(),
+            _n => DirectModule::from(self).submodules_goursat().collect(),
         }
     }
 
@@ -109,7 +113,7 @@ impl<R: SuperRing> CanonModule<R> {
         match self.dimension() {
             0 => panic!("coś poszło nie tak: quotients"),
             1 => quotients_of_cyclic_module(self),
-            _n => DirectModule::from(self).quotients_goursat(),
+            _n => DirectModule::from(self).quotients_goursat().collect(),
         }
     }
 }
@@ -122,7 +126,7 @@ impl<R: Ring + Ord + Rem<Output = R>> Module<R> for CanonModule<R> {
     }
 
     fn zero(&self) -> Self::Element {
-        self.torsion_coeff.clone().map(|_, _| R::zero())
+        self.torsion_coeff.clone().map(|(), _| R::zero())
     }
 
     fn add_unchecked(&self, v: &Self::Element, u: &Self::Element) -> Self::Element {
@@ -145,46 +149,66 @@ impl<R: Ring + Ord + Rem<Output = R>> Module<R> for CanonModule<R> {
 
 /* # helper functions */
 
+pub fn zn_dividedby_rxzm<R: SuperRing>(n: R, r: R, m: R) -> R {
+    let denom = match r.is_zero() || r == m {
+        true => R::one(),
+        false => m.divide_by(&r),
+    };
+    n.divide_by(&denom)
+}
+
 pub fn submodules_of_cyclic_module<R: SuperRing>(module: CanonModule<R>) -> Vec<CanonToCanon<R>> {
     let target = Arc::new(module);
-    let out = target
+    target
         .torsion_coeffs()
-        .next()
-        .expect("we assumed the module is cyclic, so has exactly one coefficient")
-        .subideals()
-        .map(|subideal| {
-            let source = Arc::new(CanonModule::new(CoeffTree::<R, ()>::from_iter(vec![
-                subideal,
-            ])));
-            CanonToCanon::new(
-                source,
-                target.clone(),
-                Matrix::<R>::from_buffer([subideal], 1, 1),
-            )
-        })
-        .collect();
-    out
+        .collect::<Vec<_>>()
+        .first()
+        .map_or_else(
+            || panic!("we assumed the module is cyclic, so it should exactly one coefficient"),
+            |coeff| {
+                coeff
+                    .subideals()
+                    .map(|subideal| {
+                        let source =
+                            Arc::new(CanonModule::new(CoeffTree::<R, ()>::from_iter(vec![
+                                subideal,
+                            ])));
+                        CanonToCanon::new(
+                            source,
+                            Arc::clone(&target),
+                            Matrix::<R>::from_buffer([coeff.divide_by(&subideal)], 1, 1),
+                        )
+                    })
+                    .collect()
+            },
+        )
 }
 
 pub fn quotients_of_cyclic_module<R: SuperRing>(module: CanonModule<R>) -> Vec<CanonToCanon<R>> {
     let source = Arc::new(module);
-    let out = source
+    source
         .torsion_coeffs()
-        .next()
-        .expect("we assumed the module is cyclic, so has exactly one coefficient")
-        .subideals()
-        .map(|subideal| {
-            let target = Arc::new(CanonModule::new(CoeffTree::<R, ()>::from_iter(vec![
-                subideal,
-            ])));
-            CanonToCanon::new(
-                source.clone(),
-                target,
-                Matrix::<R>::from_buffer([<R as Ring>::one()], 1, 1),
-            )
-        })
-        .collect();
-    out
+        .collect::<Vec<_>>()
+        .first()
+        .map_or_else(
+            || panic!("we assumed the module is cyclic, so has exactly one coefficient"),
+            |coeff| {
+                coeff
+                    .subideals()
+                    .map(|subideal| {
+                        let target =
+                            Arc::new(CanonModule::new(CoeffTree::<R, ()>::from_iter(vec![
+                                subideal,
+                            ])));
+                        CanonToCanon::new(
+                            Arc::clone(&source),
+                            target,
+                            Matrix::<R>::from_buffer([<R as Ring>::one()], 1, 1),
+                        )
+                    })
+                    .collect()
+            },
+        )
 }
 
 /* # tests */
@@ -196,7 +220,7 @@ mod test {
         error::Error,
         rmodule::ring::{Fin, Set},
     };
-    use typenum::{U3, U6};
+    use typenum::{U12, U3, U4, U6, U8};
 
     #[test]
     fn addition() {
@@ -253,5 +277,230 @@ mod test {
             z3sq.mul_by_scalar(R::new(2), &z3cb.element_from_matrix(a)),
             Err(Error::InvalidElement)
         );
+    }
+
+    #[test]
+    fn module_division() {
+        type R = Fin<U12>;
+        assert_eq!(
+            zn_dividedby_rxzm(R::new(3), R::new(1), R::new(3)),
+            R::new(1)
+        );
+        assert_eq!(
+            zn_dividedby_rxzm(R::new(3), R::new(2), R::new(3)),
+            R::new(1)
+        );
+        assert_eq!(
+            zn_dividedby_rxzm(R::new(3), R::new(0), R::new(3)),
+            R::new(3)
+        );
+        assert_eq!(
+            zn_dividedby_rxzm(R::new(4), R::new(2), R::new(4)),
+            R::new(2)
+        );
+        assert_eq!(
+            zn_dividedby_rxzm(R::new(6), R::new(1), R::new(3)),
+            R::new(2)
+        );
+    }
+
+    #[test]
+    #[allow(non_snake_case)] // module names look this way
+    fn submodules_of_Z8() {
+        type R = Fin<U8>;
+        let z8 = CanonModule::new(CoeffTree::<R, ()>::from_iter([R::new(0)]));
+        let mut submodules = z8.submodules().into_iter();
+        assert_eq!(
+            submodules.next(),
+            Some(CanonToCanon::new(
+                Arc::new(CanonModule::new(CoeffTree::<R, ()>::from_iter([R::new(1)]))),
+                Arc::new(CanonModule::new(CoeffTree::<R, ()>::from_iter([R::new(0)]))),
+                Matrix::from_buffer([R::new(0)], 1, 1),
+            ))
+        );
+        assert_eq!(
+            submodules.next(),
+            Some(CanonToCanon::new(
+                Arc::new(CanonModule::new(CoeffTree::<R, ()>::from_iter([R::new(2)]))),
+                Arc::new(CanonModule::new(CoeffTree::<R, ()>::from_iter([R::new(0)]))),
+                Matrix::from_buffer([R::new(4)], 1, 1),
+            ))
+        );
+        assert_eq!(
+            submodules.next(),
+            Some(CanonToCanon::new(
+                Arc::new(CanonModule::new(CoeffTree::<R, ()>::from_iter([R::new(4)]))),
+                Arc::new(CanonModule::new(CoeffTree::<R, ()>::from_iter([R::new(0)]))),
+                Matrix::from_buffer([R::new(2)], 1, 1),
+            ))
+        );
+        assert_eq!(
+            submodules.next(),
+            Some(CanonToCanon::new(
+                Arc::new(CanonModule::new(CoeffTree::<R, ()>::from_iter([R::new(0)]))),
+                Arc::new(CanonModule::new(CoeffTree::<R, ()>::from_iter([R::new(0)]))),
+                Matrix::from_buffer([R::new(1)], 1, 1),
+            ))
+        );
+        assert_eq!(submodules.next(), None);
+    }
+
+    #[test]
+    #[allow(non_snake_case)] // module names look this way
+    fn quotients_of_Z8() {
+        type R = Fin<U8>;
+        let z8 = CanonModule::new(CoeffTree::<R, ()>::from_iter([R::new(0)]));
+        let mut quotients = z8.quotients().into_iter();
+        assert_eq!(
+            quotients.next(),
+            Some(CanonToCanon::new(
+                Arc::new(CanonModule::new(CoeffTree::<R, ()>::from_iter([R::new(0)]))),
+                Arc::new(CanonModule::new(CoeffTree::<R, ()>::from_iter([R::new(1)]))),
+                Matrix::from_buffer([R::new(1)], 1, 1),
+            ))
+        );
+        assert_eq!(
+            quotients.next(),
+            Some(CanonToCanon::new(
+                Arc::new(CanonModule::new(CoeffTree::<R, ()>::from_iter([R::new(0)]))),
+                Arc::new(CanonModule::new(CoeffTree::<R, ()>::from_iter([R::new(2)]))),
+                Matrix::from_buffer([R::new(1)], 1, 1),
+            ))
+        );
+        assert_eq!(
+            quotients.next(),
+            Some(CanonToCanon::new(
+                Arc::new(CanonModule::new(CoeffTree::<R, ()>::from_iter([R::new(0)]))),
+                Arc::new(CanonModule::new(CoeffTree::<R, ()>::from_iter([R::new(4)]))),
+                Matrix::from_buffer([R::new(1)], 1, 1),
+            ))
+        );
+        assert_eq!(
+            quotients.next(),
+            Some(CanonToCanon::new(
+                Arc::new(CanonModule::new(CoeffTree::<R, ()>::from_iter([R::new(0)]))),
+                Arc::new(CanonModule::new(CoeffTree::<R, ()>::from_iter([R::new(0)]))),
+                Matrix::from_buffer([R::new(1)], 1, 1),
+            ))
+        );
+        assert_eq!(quotients.next(), None);
+    }
+
+    #[test]
+    #[allow(non_snake_case)] // module names look this way
+    fn submodules_of_Z2xZ4() {
+        type R = Fin<U4>;
+        let z2xz4 = CanonModule::new(CoeffTree::<R, ()>::from_iter([R::new(4), R::new(2)]));
+        let mut submodules = z2xz4.submodules().into_iter();
+        let z2xz4_arc = Arc::new(CanonModule::new(CoeffTree::<R, ()>::from_iter([
+            R::new(4),
+            R::new(2),
+        ])));
+
+        assert_eq!(
+            submodules.next(),
+            Some(CanonToCanon::new(
+                Arc::new(CanonModule::new(CoeffTree::<R, ()>::from_iter([R::new(1)]))),
+                Arc::clone(&z2xz4_arc),
+                Matrix::from_buffer([R::new(0), R::new(0)], 1, 2),
+            )),
+            "trivial submodule"
+        );
+
+        assert_eq!(
+            submodules.next(),
+            Some(CanonToCanon::new(
+                Arc::new(CanonModule::new(CoeffTree::<R, ()>::from_iter([R::new(2)]))),
+                Arc::clone(&z2xz4_arc),
+                Matrix::from_buffer([R::new(0), R::new(1)], 1, 2),
+            )),
+            "right Z2"
+        );
+
+        assert_eq!(
+            submodules.next(),
+            Some(CanonToCanon::new(
+                Arc::new(CanonModule::new(CoeffTree::<R, ()>::from_iter([R::new(2)]))),
+                Arc::clone(&z2xz4_arc),
+                Matrix::from_buffer([R::new(2), R::new(0)], 1, 2),
+            )),
+            "left Z2"
+        );
+
+        assert_eq!(
+            submodules.next(),
+            Some(CanonToCanon::new(
+                Arc::new(CanonModule::new(CoeffTree::<R, ()>::from_iter([R::new(2)]))),
+                Arc::clone(&z2xz4_arc),
+                Matrix::from_buffer([R::new(2), R::new(1)], 1, 2),
+            )),
+            "diagonal Z2"
+        );
+
+        assert_eq!(
+            submodules.next(),
+            Some(CanonToCanon::new(
+                Arc::new(CanonModule::new(CoeffTree::<R, ()>::from_iter([
+                    R::new(2),
+                    R::new(2)
+                ]))),
+                Arc::clone(&z2xz4_arc),
+                Matrix::from_buffer([R::new(2), R::new(0), R::new(0), R::new(1)], 2, 2),
+            )),
+            "Z2 squared"
+        );
+
+        assert_eq!(
+            submodules.next(),
+            Some(CanonToCanon::new(
+                Arc::new(CanonModule::new(CoeffTree::<R, ()>::from_iter([R::new(4)]))),
+                Arc::clone(&z2xz4_arc),
+                Matrix::from_buffer([R::new(1), R::new(0)], 1, 2),
+            )),
+            "straight Z4"
+        );
+
+        /*
+        this does not work due to a small inconsistency i found
+        the result still provides the right elements of the group, just in the wrong configuration
+        this is attested by the `kernel_asymetric` test that fails
+        assert_eq!(
+            submodules.next(),
+            Some(CanonToCanon::new(
+                Arc::new(CanonModule::new(CoeffTree::<R, ()>::from_iter([R::new(4)]))),
+                Arc::clone(&z2xz4_arc),
+                Matrix::from_buffer([R::new(1), R::new(1)], 1, 2),
+            )),
+            "diagonal Z4"
+        );
+        */
+
+        assert_eq!(
+            submodules.next(),
+            Some(CanonToCanon::new(
+                Arc::new(CanonModule::new(CoeffTree::<R, ()>::from_iter([
+                    R::new(2),
+                    R::new(2)
+                ]))),
+                Arc::clone(&z2xz4_arc),
+                Matrix::from_buffer([R::new(2), R::new(1), R::new(0), R::new(1)], 2, 2),
+            )),
+            "diagonal Z4"
+        );
+
+        assert_eq!(
+            submodules.next(),
+            Some(CanonToCanon::new(
+                Arc::new(CanonModule::new(CoeffTree::<R, ()>::from_iter([
+                    R::new(4),
+                    R::new(2)
+                ]))),
+                Arc::clone(&z2xz4_arc),
+                Matrix::from_buffer([R::new(1), R::new(0), R::new(0), R::new(1)], 2, 2),
+            )),
+            "full submodule"
+        );
+
+        assert_eq!(submodules.next(), None);
     }
 }

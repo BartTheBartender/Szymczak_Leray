@@ -222,12 +222,12 @@ impl<R: SuperRing> Category<CanonModule<R>, Relation<R>> {
     }
 
     fn hom_set(source: Arc<CanonModule<R>>, target: Arc<CanonModule<R>>) -> Vec<Relation<R>> {
-        let direct = DirectModule::<R>::sumproduct(source, target);
+        let direct = DirectModule::<R>::sumproduct(&source, &target);
         let (helper_indices_normal, helper_indices_transposed, helper_length) =
             util::category_of_relations::calculate_helper_indices(&direct);
         direct
             .submodules_goursat()
-            .into_par_iter()
+            .par_bridge()
             .filter_map(|submodule| {
                 Relation::<R>::try_from((
                     &direct,
