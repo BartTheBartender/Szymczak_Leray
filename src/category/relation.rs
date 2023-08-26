@@ -348,11 +348,13 @@ mod test {
         use typenum::U2 as N;
         type R = Fin<N>;
 
-        let torsion_coeffs_z2 = CoeffTree::<R, ()>::all_torsion_coeffs(1).next().unwrap();
-        assert_eq!(torsion_coeffs_z2.len(), 1);
+        let torsion_coeffs_zn = CoeffTree::<R, ()>::all_torsion_coeffs(1).next().unwrap();
+        assert_eq!(torsion_coeffs_zn.len(), 1);
 
-        let z2_module_arc = Arc::new(CanonModule::<R>::new(torsion_coeffs_z2));
-        let submodules = z2_module_arc.as_ref().clone().submodules();
+        let zn_module_arc = Arc::new(CanonModule::<R>::new(torsion_coeffs_zn));
+        assert_eq!(zn_module_arc.cardinality(), 2);
+
+        let submodules = zn_module_arc.as_ref().clone().submodules();
         assert_eq!(submodules.len(), 5);
     }
 }
