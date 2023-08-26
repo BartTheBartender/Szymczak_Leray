@@ -242,97 +242,117 @@ impl<R: SuperRing> Category<CanonModule<R>, Relation<R>> {
     }
 }
 
-/*
 #[cfg(test)]
 mod test {
 
-    use super::*;
-    use crate::error::Error;
+    use crate::{
+        error::Error,
+        rmodule::{
+            canon::CanonModule,
+            ring::{Fin, Ring},
+            torsion::CoeffTree,
+        },
+    };
+    use std::sync::Arc;
 
+    /*
+        #[test]
+        fn krakowian_product() {
+            let v = bitvec![1, 0, 0, 0];
+            let u = bitvec![1, 0, 0, 1];
+
+            let w = Relation::krakowian_product_unchecked(&v, &u, 2);
+
+            assert_eq!(w, v);
+        }
+
+        #[test]
+        fn relation_product_1() {
+            let v = bitvec![1, 0, 0, 0];
+            let canon_zmodule = Arc::new(CanonZModule::new_unchecked(vec![2]));
+    :x
+    :z:x
+            let r = Relation {
+                source: Arc::clone(&canon_zmodule),
+                target: Arc::clone(&canon_zmodule),
+                matrix_normal: v.clone(),
+                matrix_transposed: v.clone(),
+            };
+
+            let s = r.compose_unchecked(&r);
+
+            assert_eq!(r, s);
+        }
+
+        #[test]
+        fn relation_product_2() {
+            let v = bitvec![1, 1, 1, 1];
+            let canon_zmodule = Arc::new(CanonZModule::new_unchecked(vec![2]));
+
+            let r = Relation {
+                source: Arc::clone(&canon_zmodule),
+                target: Arc::clone(&canon_zmodule),
+                matrix_normal: v.clone(),
+                matrix_transposed: v.clone(),
+            };
+
+            let s = r.compose_unchecked(&r);
+
+            assert_eq!(r, s);
+        }
+
+        #[test]
+        fn relation_product_3() {
+            let v = bitvec![1, 0, 0, 1];
+            let canon_zmodule = Arc::new(CanonZModule::new_unchecked(vec![2]));
+
+            let r = Relation {
+                source: Arc::clone(&canon_zmodule),
+                target: Arc::clone(&canon_zmodule),
+                matrix_normal: v.clone(),
+                matrix_transposed: v.clone(),
+            };
+
+            let s = r.compose_unchecked(&r);
+
+            assert_eq!(r, s);
+        }
+
+        #[test]
+        fn relation_product_error_1() {
+            let v = bitvec![1, 0, 0, 1];
+            let u = bitvec![1, 0, 0, 0, 0, 0, 1, 1, 1];
+            let canon_zmodule_v = Arc::new(CanonZModule::new_unchecked(vec![2]));
+            let canon_zmodule_u = Arc::new(CanonZModule::new_unchecked(vec![3]));
+
+            let r = Relation {
+                source: Arc::clone(&canon_zmodule_v),
+                target: Arc::clone(&canon_zmodule_v),
+                matrix_normal: v.clone(),
+                matrix_transposed: v.clone(),
+            };
+            let s = Relation {
+                source: Arc::clone(&canon_zmodule_u),
+                target: Arc::clone(&canon_zmodule_u),
+                matrix_normal: u.clone(),
+                matrix_transposed: u.clone(),
+            };
+
+            let error = s.compose(&r);
+
+            assert_eq!(error, Err(Error::SourceTargetMismatch));
+        }
+    */
     #[test]
-    fn krakowian_product() {
-        let v = bitvec![1, 0, 0, 0];
-        let u = bitvec![1, 0, 0, 1];
+    fn relation_from_direct() {
+        use typenum::U2 as N;
+        type R = Fin<N>;
 
-        let w = Relation::krakowian_product_unchecked(&v, &u, 2);
+        let torsion_coeffs_z2 = CoeffTree::<R, ()>::all_torsion_coeffs(1).next().unwrap();
+        assert_eq!(torsion_coeffs_z2.len(), 1);
 
-        assert_eq!(w, v);
-    }
-
-    #[test]
-    fn relation_product_1() {
-        let v = bitvec![1, 0, 0, 0];
-        let canon_zmodule = Arc::new(CanonZModule::new_unchecked(vec![2]));
-
-        let r = Relation {
-            source: Arc::clone(&canon_zmodule),
-            target: Arc::clone(&canon_zmodule),
-            matrix_normal: v.clone(),
-            matrix_transposed: v.clone(),
-        };
-
-        let s = r.compose_unchecked(&r);
-
-        assert_eq!(r, s);
-    }
-
-    #[test]
-    fn relation_product_2() {
-        let v = bitvec![1, 1, 1, 1];
-        let canon_zmodule = Arc::new(CanonZModule::new_unchecked(vec![2]));
-
-        let r = Relation {
-            source: Arc::clone(&canon_zmodule),
-            target: Arc::clone(&canon_zmodule),
-            matrix_normal: v.clone(),
-            matrix_transposed: v.clone(),
-        };
-
-        let s = r.compose_unchecked(&r);
-
-        assert_eq!(r, s);
-    }
-
-    #[test]
-    fn relation_product_3() {
-        let v = bitvec![1, 0, 0, 1];
-        let canon_zmodule = Arc::new(CanonZModule::new_unchecked(vec![2]));
-
-        let r = Relation {
-            source: Arc::clone(&canon_zmodule),
-            target: Arc::clone(&canon_zmodule),
-            matrix_normal: v.clone(),
-            matrix_transposed: v.clone(),
-        };
-
-        let s = r.compose_unchecked(&r);
-
-        assert_eq!(r, s);
-    }
-
-    #[test]
-    fn relation_product_error_1() {
-        let v = bitvec![1, 0, 0, 1];
-        let u = bitvec![1, 0, 0, 0, 0, 0, 1, 1, 1];
-        let canon_zmodule_v = Arc::new(CanonZModule::new_unchecked(vec![2]));
-        let canon_zmodule_u = Arc::new(CanonZModule::new_unchecked(vec![3]));
-
-        let r = Relation {
-            source: Arc::clone(&canon_zmodule_v),
-            target: Arc::clone(&canon_zmodule_v),
-            matrix_normal: v.clone(),
-            matrix_transposed: v.clone(),
-        };
-        let s = Relation {
-            source: Arc::clone(&canon_zmodule_u),
-            target: Arc::clone(&canon_zmodule_u),
-            matrix_normal: u.clone(),
-            matrix_transposed: u.clone(),
-        };
-
-        let error = s.compose(&r);
-
-        assert_eq!(error, Err(Error::SourceTargetMismatch));
+        let z2_module_arc = Arc::new(CanonModule::<R>::new(torsion_coeffs_z2));
+        let submodules = z2_module_arc.as_ref().clone().submodules();
+        assert_eq!(submodules.len(), 5);
     }
 }
-*/
