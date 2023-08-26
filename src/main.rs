@@ -101,6 +101,7 @@ mod util;
 use crate::{
     category::{relation::Relation, Category},
     rmodule::{canon::CanonModule, map::CanonToCanon, ring::Fin},
+    szymczak_category::SzymczakCategory,
 };
 use typenum::U2;
 
@@ -110,5 +111,7 @@ pub const RECURSION_PARAMETER_SZYMCZAK_FUNCTOR: usize = 100; //idk xD
 fn main() {
     type R = Fin<U2>;
     let maximal_dimension: Int = 1;
-    let _category = Category::<CanonModule<R>, Relation<R>>::new(maximal_dimension);
+    let category = Category::<CanonModule<R>, Relation<R>>::new(maximal_dimension);
+    let szymczak_category = SzymczakCategory::szymczak_functor(&category);
+    print!("{}", szymczak_category);
 }

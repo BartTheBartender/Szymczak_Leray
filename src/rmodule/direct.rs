@@ -7,6 +7,7 @@ use itertools::iproduct;
 use std::{collections::BTreeSet, sync::Arc};
 
 #[allow(clippy::module_name_repetitions)]
+#[derive(Debug)]
 pub struct DirectModule<R: SuperRing> {
     left_inclusion: CanonToCanon<R>,
     right_inclusion: CanonToCanon<R>,

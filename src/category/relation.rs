@@ -139,8 +139,14 @@ impl<R: SuperRing> Compose<CanonModule<R>, CanonModule<R>, CanonModule<R>, Relat
     }
 }
 
-impl<R: SuperRing> TryFrom<(&DirectModule<R>, CanonToCanon<R>, &Vec<R>, &Vec<R>, &usize)>
-    for Relation<R>
+impl<R: SuperRing>
+    TryFrom<(
+        &DirectModule<R>,
+        CanonToCanon<R>,
+        &Vec<usize>,
+        &Vec<usize>,
+        &usize,
+    )> for Relation<R>
 {
     type Error = &'static str;
     /**
@@ -150,31 +156,44 @@ impl<R: SuperRing> TryFrom<(&DirectModule<R>, CanonToCanon<R>, &Vec<R>, &Vec<R>,
     the morphism should be a submodule of the given module
     */
     fn try_from(
-        raw_data: (&DirectModule<R>, CanonToCanon<R>, &Vec<R>, &Vec<R>, &usize),
+        raw_data: (
+            &DirectModule<R>,
+            CanonToCanon<R>,
+            &Vec<usize>,
+            &Vec<usize>,
+            &usize,
+        ),
     ) -> Result<Self, Self::Error> {
-        let (direct, submodule, helper_indices_normal, helper_indices_transposed, helper_length) =
+        let (direct, submodule, helper_indices_normal, helper_indices_transposed, helper_capacity) =
             raw_data;
 
         let elements = submodule.image();
 
-        let mut matrix_normal = BitVec::with_capacity(*helper_length);
-        let mut matrix_transposed = BitVec::with_capacity(*helper_length);
+        let mut matrix_normal = BitVec::with_capacity(*helper_capacity);
+        let mut matrix_transposed = BitVec::with_capacity(*helper_capacity);
+
+        unsafe {
+            matrix_normal.set_len(*helper_capacity);
+            matrix_transposed.set_len(*helper_capacity);
+        }
 
         for element in elements.iter() {
-            //unsafe{ in the release
-            let index_normal: usize = element
+            //unsafe{
+            let index_normal = element
                 .coeffs()
+                .map(|x| x.into())
                 .zip(helper_indices_normal.iter())
-                .fold(R::zero(), |acc, (r, &s)| acc + r * s)
-                .into();
+                .map(|(x, y)| x * y)
+                .sum::<usize>();
 
             matrix_normal.set(index_normal, true);
 
-            let index_transposed: usize = element
+            let index_transposed = element
                 .coeffs()
+                .map(|x| x.into())
                 .zip(helper_indices_transposed.iter())
-                .fold(R::zero(), |acc, (r, &s)| acc + r * s)
-                .into();
+                .map(|(x, y)| x * y)
+                .sum::<usize>();
 
             matrix_transposed.set(index_transposed, true);
             //}
@@ -244,15 +263,19 @@ impl<R: SuperRing> Category<CanonModule<R>, Relation<R>> {
 
 #[cfg(test)]
 mod test {
-
     use crate::{
+        category::relation::Relation,
         error::Error,
         rmodule::{
             canon::CanonModule,
-            ring::{Fin, Ring},
+            direct::DirectModule,
+            map::CanonToCanon,
+            ring::{Fin, Ring, Set},
             torsion::CoeffTree,
         },
+        util,
     };
+    use bitvec::prelude::*;
     use std::sync::Arc;
 
     /*
@@ -348,13 +371,60 @@ mod test {
         use typenum::U2 as N;
         type R = Fin<N>;
 
-        let torsion_coeffs_zn = CoeffTree::<R, ()>::all_torsion_coeffs(1).next().unwrap();
+        let mut tc = CoeffTree::<R, ()>::all_torsion_coeffs(1);
+
+        let torsion_coeffs_zn = tc.next().unwrap();
+
         assert_eq!(torsion_coeffs_zn.len(), 1);
 
         let zn_module_arc = Arc::new(CanonModule::<R>::new(torsion_coeffs_zn));
         assert_eq!(zn_module_arc.cardinality(), 2);
 
-        let submodules = zn_module_arc.as_ref().clone().submodules();
-        assert_eq!(submodules.len(), 5);
+        let direct = DirectModule::<R>::sumproduct(&zn_module_arc, &zn_module_arc);
+        let submodules: Vec<CanonToCanon<R>> = direct.submodules_goursat().collect();
+        let direct = DirectModule::<R>::sumproduct(&zn_module_arc, &zn_module_arc);
+        let (helper_indices_normal, helper_indices_transposed, helper_capacity) =
+            util::category_of_relations::calculate_helper_indices(&direct);
+
+        let submodules_elements: Vec<_> = submodules
+            .into_iter()
+            .map(|submodule| submodule.image())
+            .collect();
+
+        assert_eq!(submodules_elements.len(), 5);
+        assert_eq!(helper_capacity, 4);
+
+        for submodule_elements in submodules_elements {
+            let mut matrix_normal = BitVec::<usize, Lsb0>::with_capacity(helper_capacity);
+            let mut matrix_transposed = BitVec::<usize, Lsb0>::with_capacity(helper_capacity);
+
+            unsafe {
+                matrix_normal.set_len(helper_capacity);
+                matrix_transposed.set_len(helper_capacity);
+            }
+
+            assert_eq!(matrix_normal.len(), helper_capacity);
+            assert_eq!(matrix_transposed.len(), helper_capacity);
+
+            for element in submodule_elements {
+                let index_normal = element
+                    .coeffs()
+                    .map(|x| x.get() as usize)
+                    .zip(helper_indices_normal.iter())
+                    .map(|(x, y)| x * y)
+                    .sum::<usize>();
+                assert!(index_normal < helper_capacity);
+                matrix_normal.set(index_normal, true);
+
+                let index_transposed = element
+                    .coeffs()
+                    .map(|x| x.get() as usize)
+                    .zip(helper_indices_transposed.iter())
+                    .map(|(x, y)| x * y)
+                    .sum::<usize>();
+                assert!(index_transposed < helper_capacity);
+                matrix_transposed.set(index_transposed, true);
+            }
+        }
     }
 }
