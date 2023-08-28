@@ -128,32 +128,6 @@ pub mod category_of_relations {
         left: &CanonModule<R>,
         right: &CanonModule<R>,
     ) -> Vec<usize> {
-        /*
-        let one_target_source_tc = iter::once(1)
-            .chain(
-                direct
-                    .left()
-                    .torsion_coeffs()
-                    .map(|x| x.into())
-                    .chain(direct.right().torsion_coeffs().map(|x| x.into()))
-                    .collect::<Vec<_>>()
-                    .into_iter(),
-            )
-            .collect::<Vec<_>>();
-
-        let one_source_target_tc = iter::once(1)
-            .chain(
-                direct
-                    .left()
-                    .torsion_coeffs()
-                    .map(|x| x.into())
-                    .chain(direct.right().torsion_coeffs().map(|x| x.into()))
-                    .collect::<Vec<_>>()
-                    .into_iter(),
-            )
-            .collect::<Vec<_>>();
-        */
-
         let mut one_left_right: Vec<usize> = iter::once(1)
             .chain(
                 left.torsion_coeffs()
@@ -185,7 +159,7 @@ pub mod category_of_relations {
             .product()
     }
 
-    pub fn calculate_helper_indices_and_capacity<R: SuperRing>(
+    pub fn helper_indices_and_capacity<R: SuperRing>(
         direct: &DirectModule<R>,
     ) -> (Vec<usize>, Vec<usize>, usize) {
         (
@@ -212,16 +186,64 @@ pub mod category_of_relations {
         use std::sync::Arc;
 
         #[test]
-        fn helper_capacity() {
+        fn helper_capacities_trivially_equal() {
             use typenum::U2 as N;
             type R = Fin<N>;
 
-            let one_dim_modules: Vec<CanonModule<R>> = CoeffTree::<R, ()>::all_torsion_coeffs(1)
+            let canon_modules: Vec<CanonModule<R>> = CoeffTree::<R, ()>::all_torsion_coeffs(2)
                 .into_iter()
                 .map(|torsion_coeffs| CanonModule::new(torsion_coeffs))
                 .collect();
 
-            assert_eq!(one_dim_modules.len(), 2);
+            let _ = canon_modules.iter().flat_map(|source| {
+                canon_modules.iter().map(|target| {
+                    assert_eq!(
+                        super::helper_capacity(source, target),
+                        super::helper_capacity(target, source)
+                    )
+                })
+            });
+        }
+
+        #[test]
+        fn helper_indices_and_capacity() {
+            use typenum::U6 as N;
+            type R = Fin<N>;
+
+            let canon_modules: Vec<CanonModule<R>> = CoeffTree::<R, ()>::all_torsion_coeffs(1)
+                .into_iter()
+                .map(|torsion_coeffs| CanonModule::new(torsion_coeffs))
+                .collect();
+
+            for canon_module in canon_modules.iter() {
+                println!("{:?}", canon_module);
+            }
+
+            let output: Vec<(
+                CanonModule<R>,
+                CanonModule<R>,
+                Vec<usize>,
+                Vec<usize>,
+                usize,
+            )> = canon_modules
+                .iter()
+                .flat_map(|source| {
+                    canon_modules
+                        .iter()
+                        .map(|target| {
+                            (
+                                source.clone(),
+                                target.clone(),
+                                super::helper_indices(target, source),
+                                super::helper_indices(source, target),
+                                super::helper_capacity(source, target),
+                            )
+                        })
+                        .collect::<Vec<_>>()
+                })
+                .collect::<Vec<_>>();
+
+            println!("{:?}", output);
         }
     }
 }

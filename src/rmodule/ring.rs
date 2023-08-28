@@ -11,7 +11,7 @@ use typenum::{NonZero, Unsigned};
 
 pub type Zahl = Int;
 pub trait Radix = Unsigned + NonZero + Copy + Eq + Send + Sync;
-pub trait SuperRing = Ring + Ord + Rem<Output = Self> + Factorisable + Gcd + Into<usize> + Hash;
+pub trait SuperRing = Ring + Ord + Rem<Output = Self> + Factorisable + Gcd + Hash;
 
 /* # structure */
 
@@ -53,7 +53,7 @@ but is immediately associative and scales well.
 
 /* ## set */
 
-pub trait Set: PartialEq + Eq + Clone + Copy + Send + Sync {
+pub trait Set: PartialEq + Eq + Clone + Copy + Send + Sync + Into<usize> {
     type Card: Radix;
 
     fn get(&self) -> Zahl;
@@ -82,6 +82,12 @@ impl<Card: Radix> Set for Fin<Card> {
             },
             _radix: std::marker::PhantomData,
         }
+    }
+}
+
+impl<Card: Radix> Into<usize> for Fin<Card> {
+    fn into(self) -> usize {
+        self.get() as usize
     }
 }
 
@@ -191,12 +197,6 @@ impl<Card: Radix> Gcd for Fin<Card> {
 
     fn gcd_euclid(self, other: Self) -> Self {
         Self::new(self.zahl.gcd_euclid(other.zahl))
-    }
-}
-
-impl<Card: Radix> Into<usize> for Fin<Card> {
-    fn into(self) -> usize {
-        self.get() as usize
     }
 }
 

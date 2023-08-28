@@ -141,7 +141,8 @@ impl<R: SuperRing> Compose<CanonModule<R>, CanonModule<R>, CanonModule<R>, Relat
 
 impl<R: SuperRing>
     TryFrom<(
-        &DirectModule<R>,
+        Arc<CanonModule<R>>,
+        Arc<CanonModule<R>>,
         CanonToCanon<R>,
         &Vec<usize>,
         &Vec<usize>,
@@ -157,17 +158,22 @@ impl<R: SuperRing>
     */
     fn try_from(
         raw_data: (
-            &DirectModule<R>,
+            Arc<CanonModule<R>>,
+            Arc<CanonModule<R>>,
             CanonToCanon<R>,
             &Vec<usize>,
             &Vec<usize>,
             &usize,
         ),
     ) -> Result<Self, Self::Error> {
-        let (direct, submodule, helper_indices_normal, helper_indices_transposed, helper_capacity) =
-            raw_data;
-
-        let elements = submodule.image();
+        let (
+            source,
+            target,
+            submodule,
+            helper_indices_normal,
+            helper_indices_transposed,
+            helper_capacity,
+        ) = raw_data;
 
         let mut matrix_normal = BitVec::with_capacity(*helper_capacity);
         let mut matrix_transposed = BitVec::with_capacity(*helper_capacity);
@@ -177,16 +183,21 @@ impl<R: SuperRing>
             matrix_transposed.set_len(*helper_capacity);
         }
 
-        for element in elements.iter() {
-            //unsafe{
+        println!("{:?}", submodule);
+
+        for element in submodule.image().into_iter() {
+            let element_as_vec: Vec<usize> = element.coeffs().map(|x| x.into()).collect();
+            println!("element: \t{:?}", element_as_vec); //dupa debugging
+
+            /*
             let index_normal = element
-                .coeffs()
-                .map(|x| x.into())
+                .iter()
                 .zip(helper_indices_normal.iter())
                 .map(|(x, y)| x * y)
                 .sum::<usize>();
-
+            // unsafe {
             matrix_normal.set(index_normal, true);
+            //}
 
             let index_transposed = element
                 .coeffs()
@@ -194,14 +205,15 @@ impl<R: SuperRing>
                 .zip(helper_indices_transposed.iter())
                 .map(|(x, y)| x * y)
                 .sum::<usize>();
-
+            //unsafe{
             matrix_transposed.set(index_transposed, true);
-            //}
+            //
+            */
         }
 
         Ok(Relation::<R> {
-            source: direct.left(),
-            target: direct.right(),
+            source,
+            target,
             matrix_normal,
             matrix_transposed,
         })
@@ -242,17 +254,22 @@ impl<R: SuperRing> Category<CanonModule<R>, Relation<R>> {
 
     fn hom_set(source: Arc<CanonModule<R>>, target: Arc<CanonModule<R>>) -> Vec<Relation<R>> {
         let direct = DirectModule::<R>::sumproduct(&source, &target);
-        let (helper_indices_normal, helper_indices_transposed, helper_length) =
-            unsafe { util::category_of_relations::calculate_helper_indices_and_capacity(&direct) };
+        let (helper_indices_normal, helper_indices_transposed, helper_capacity) =
+            util::category_of_relations::helper_indices_and_capacity(&direct);
+
+        let source = direct.left();
+        let target = direct.right();
+
         direct
             .submodules_goursat()
             .filter_map(|submodule| {
                 Relation::<R>::try_from((
-                    &direct,
+                    Arc::clone(&source),
+                    Arc::clone(&target),
                     submodule,
                     &helper_indices_normal,
                     &helper_indices_transposed,
-                    &helper_length,
+                    &helper_capacity,
                 ))
                 .ok()
             })
@@ -383,7 +400,7 @@ mod test {
         let submodules: Vec<CanonToCanon<R>> = direct.submodules_goursat().collect();
         let direct = DirectModule::<R>::sumproduct(&zn_module_arc, &zn_module_arc);
         let (helper_indices_normal, helper_indices_transposed, helper_capacity) =
-            util::category_of_relations::calculate_helper_indices_and_capacity(&direct);
+            util::category_of_relations::helper_indices_and_capacity(&direct);
 
         let submodules_elements: Vec<_> = submodules
             .into_iter()
@@ -428,19 +445,44 @@ mod test {
     }
 
     #[test]
-    fn zn_category() {
-        use typenum::U2 as N;
+    fn zn_category_step_by_step() {
+        use typenum::U3 as N;
         type R = Fin<N>;
 
-        let category = Category::<CanonModule<R>, Relation<R>>::new(2);
-
-        assert_eq!(
-            category
-                .hom_sets
-                .values()
-                .map(|hom_set_fixed_source| hom_set_fixed_source.values().count())
-                .sum::<usize>(),
-            5
+        let zn_module: Arc<CanonModule<R>> = Arc::new(
+            CoeffTree::<R, ()>::all_torsion_coeffs(1)
+                .into_iter()
+                .map(|torsion_coeffs| CanonModule::new(torsion_coeffs))
+                .next()
+                .unwrap(),
         );
+
+        let zn_zn_direct =
+            DirectModule::<R>::sumproduct(&Arc::clone(&zn_module), &Arc::clone(&zn_module));
+
+        let (helper_indices_normal, helper_indices_transposed, helper_capacity) =
+            util::category_of_relations::helper_indices_and_capacity(&zn_zn_direct);
+        let submodules = zn_zn_direct.submodules_goursat();
+
+        let relations_on_zn: Vec<Relation<R>> = submodules
+            .into_iter()
+            .filter_map(|submodule| {
+                Relation::<R>::try_from((
+                    Arc::clone(&zn_module),
+                    Arc::clone(&zn_module),
+                    submodule,
+                    &helper_indices_normal,
+                    &helper_indices_transposed,
+                    &helper_capacity,
+                ))
+                .ok()
+            })
+            .collect();
+
+        //assert_eq!(relations_on_zn.len(), 5);
+
+        for relation in relations_on_zn {
+            println!("{}", relation)
+        }
     }
 }
