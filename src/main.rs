@@ -108,9 +108,4 @@ use typenum::U2;
 pub type Int = u16;
 pub const RECURSION_PARAMETER_SZYMCZAK_FUNCTOR: usize = 100; //idk xD
 
-fn main() {
-    type R = Fin<U2>;
-    let maximal_dimension: Int = 2;
-    let category = Category::<CanonModule<R>, Relation<R>>::new(maximal_dimension);
-    let szymczak_category = SzymczakCategory::szymczak_functor(&category);
-}
+fn main() {}

@@ -2,7 +2,7 @@
 use crate::{
     category::{
         morphism::{Compose, EndoMorphism, Morphism},
-        Category, HomSet,
+        AllMorphisms, Category, HomSet,
     },
     rmodule::{
         canon::CanonModule, direct::DirectModule, map::CanonToCanon, ring::SuperRing,
@@ -222,36 +222,7 @@ impl<R: SuperRing>
 
 impl<R: SuperRing + std::hash::Hash> EndoMorphism<CanonModule<R>> for Relation<R> {}
 
-impl<R: SuperRing> Category<CanonModule<R>, Relation<R>> {
-    pub fn new(maximal_dimension: Int) -> Self {
-        let all_canon_rmodules: HashSet<Arc<CanonModule<R>>> =
-            CoeffTree::<R, ()>::all_torsion_coeffs(maximal_dimension)
-                .into_iter()
-                .map(CanonModule::<R>::new)
-                .map(Arc::new)
-                .collect();
-
-        let hom_sets = all_canon_rmodules
-            .iter()
-            .map(|source| {
-                (
-                    source.as_ref().clone(),
-                    all_canon_rmodules
-                        .iter()
-                        .map(|target| {
-                            (
-                                target.as_ref().clone(),
-                                Self::hom_set(Arc::clone(&source), Arc::clone(&target)),
-                            )
-                        })
-                        .collect::<HashMap<CanonModule<R>, Vec<Relation<R>>>>(),
-                )
-            })
-            .collect::<HomSet<CanonModule<R>, Relation<R>>>();
-
-        Category { hom_sets }
-    }
-
+impl<R: SuperRing> AllMorphisms<CanonModule<R>> for Relation<R> {
     fn hom_set(source: Arc<CanonModule<R>>, target: Arc<CanonModule<R>>) -> Vec<Relation<R>> {
         let direct = DirectModule::<R>::sumproduct(&source, &target);
         let (helper_indices_normal, helper_indices_transposed, helper_capacity) =

@@ -1,4 +1,5 @@
 use crate::{
+    category::AllObjects,
     matrix::Matrix,
     rmodule::{
         direct::DirectModule,
@@ -7,6 +8,7 @@ use crate::{
         torsion::{Coeff, CoeffTree},
         Module,
     },
+    Int,
 };
 use itertools::Itertools;
 use std::{fmt, ops::Rem, sync::Arc};
@@ -223,6 +225,15 @@ pub fn quotients_of_cyclic_module<R: SuperRing>(module: CanonModule<R>) -> Vec<C
                     .collect()
             },
         )
+}
+
+impl<R: SuperRing> AllObjects for CanonModule<R> {
+    fn all_objects(maximal_dimension: Int) -> Vec<Self> {
+        CoeffTree::<R, ()>::all_torsion_coeffs(maximal_dimension)
+            .into_iter()
+            .map(CanonModule::<R>::new)
+            .collect::<Vec<Self>>()
+    }
 }
 
 /* # tests */
