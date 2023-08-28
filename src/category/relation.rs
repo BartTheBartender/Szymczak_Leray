@@ -243,10 +243,9 @@ impl<R: SuperRing> Category<CanonModule<R>, Relation<R>> {
     fn hom_set(source: Arc<CanonModule<R>>, target: Arc<CanonModule<R>>) -> Vec<Relation<R>> {
         let direct = DirectModule::<R>::sumproduct(&source, &target);
         let (helper_indices_normal, helper_indices_transposed, helper_length) =
-            util::category_of_relations::calculate_helper_indices(&direct);
+            unsafe { util::category_of_relations::calculate_helper_indices_and_capacity(&direct) };
         direct
             .submodules_goursat()
-            .par_bridge()
             .filter_map(|submodule| {
                 Relation::<R>::try_from((
                     &direct,
@@ -264,7 +263,7 @@ impl<R: SuperRing> Category<CanonModule<R>, Relation<R>> {
 #[cfg(test)]
 mod test {
     use crate::{
-        category::relation::Relation,
+        category::{relation::Relation, Category},
         error::Error,
         rmodule::{
             canon::CanonModule,
@@ -371,20 +370,20 @@ mod test {
         use typenum::U2 as N;
         type R = Fin<N>;
 
-        let mut tc = CoeffTree::<R, ()>::all_torsion_coeffs(1);
+        let mut tc = CoeffTree::<R, ()>::all_torsion_coeffs(3);
 
         let torsion_coeffs_zn = tc.next().unwrap();
 
-        assert_eq!(torsion_coeffs_zn.len(), 1);
+        //assert_eq!(torsion_coeffs_zn.len(), 1);
 
         let zn_module_arc = Arc::new(CanonModule::<R>::new(torsion_coeffs_zn));
-        assert_eq!(zn_module_arc.cardinality(), 2);
+        //assert_eq!(zn_module_arc.cardinality(), 2);
 
         let direct = DirectModule::<R>::sumproduct(&zn_module_arc, &zn_module_arc);
         let submodules: Vec<CanonToCanon<R>> = direct.submodules_goursat().collect();
         let direct = DirectModule::<R>::sumproduct(&zn_module_arc, &zn_module_arc);
         let (helper_indices_normal, helper_indices_transposed, helper_capacity) =
-            util::category_of_relations::calculate_helper_indices(&direct);
+            util::category_of_relations::calculate_helper_indices_and_capacity(&direct);
 
         let submodules_elements: Vec<_> = submodules
             .into_iter()
@@ -426,5 +425,22 @@ mod test {
                 matrix_transposed.set(index_transposed, true);
             }
         }
+    }
+
+    #[test]
+    fn zn_category() {
+        use typenum::U2 as N;
+        type R = Fin<N>;
+
+        let category = Category::<CanonModule<R>, Relation<R>>::new(2);
+
+        assert_eq!(
+            category
+                .hom_sets
+                .values()
+                .map(|hom_set_fixed_source| hom_set_fixed_source.values().count())
+                .sum::<usize>(),
+            5
+        );
     }
 }

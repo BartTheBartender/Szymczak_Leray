@@ -13,7 +13,6 @@ use crate::{
         map::CanonToCanon,
         ring::{Ring, SuperRing},
     },
-    util::category_of_relations::calculate_helper_indices,
     Int,
 };
 use std::{

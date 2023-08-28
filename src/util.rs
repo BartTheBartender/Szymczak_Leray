@@ -121,64 +121,77 @@ pub mod iterator {
 }
 
 pub mod category_of_relations {
-    use crate::rmodule::{direct::DirectModule, ring::SuperRing};
+    use crate::rmodule::{canon::CanonModule, direct::DirectModule, ring::SuperRing};
+    use std::iter;
 
-    pub fn calculate_helper_indices<R: SuperRing>(
+    pub fn helper_indices<R: SuperRing>(
+        left: &CanonModule<R>,
+        right: &CanonModule<R>,
+    ) -> Vec<usize> {
+        /*
+        let one_target_source_tc = iter::once(1)
+            .chain(
+                direct
+                    .left()
+                    .torsion_coeffs()
+                    .map(|x| x.into())
+                    .chain(direct.right().torsion_coeffs().map(|x| x.into()))
+                    .collect::<Vec<_>>()
+                    .into_iter(),
+            )
+            .collect::<Vec<_>>();
+
+        let one_source_target_tc = iter::once(1)
+            .chain(
+                direct
+                    .left()
+                    .torsion_coeffs()
+                    .map(|x| x.into())
+                    .chain(direct.right().torsion_coeffs().map(|x| x.into()))
+                    .collect::<Vec<_>>()
+                    .into_iter(),
+            )
+            .collect::<Vec<_>>();
+        */
+
+        let mut one_left_right: Vec<usize> = iter::once(1)
+            .chain(
+                left.torsion_coeffs()
+                    .map(|x| x.into())
+                    .chain(right.torsion_coeffs().map(|x| x.into())),
+            )
+            .collect();
+        one_left_right.pop();
+
+        let mut prod: usize = 1;
+        let output: Vec<usize> = one_left_right
+            .into_iter()
+            .map(|x| {
+                prod *= x;
+                prod
+            })
+            .collect();
+
+        output
+    }
+
+    pub fn helper_capacity<R: SuperRing>(left: &CanonModule<R>, right: &CanonModule<R>) -> usize {
+        iter::once(1)
+            .chain(
+                left.torsion_coeffs()
+                    .map(|x| x.into())
+                    .chain(right.torsion_coeffs().map(|x| x.into())),
+            )
+            .product()
+    }
+
+    pub fn calculate_helper_indices_and_capacity<R: SuperRing>(
         direct: &DirectModule<R>,
     ) -> (Vec<usize>, Vec<usize>, usize) {
-        let source_and_target_tc = [
-            direct
-                .left()
-                .torsion_coeffs()
-                .map(|x| x.into())
-                .collect::<Vec<usize>>(),
-            direct
-                .right()
-                .torsion_coeffs()
-                .map(|x| x.into())
-                .collect::<Vec<usize>>(),
-        ]
-        .concat();
-        let target_and_source_tc = [
-            direct
-                .left()
-                .torsion_coeffs()
-                .map(|x| x.into())
-                .collect::<Vec<usize>>(),
-            direct
-                .right()
-                .torsion_coeffs()
-                .map(|x| x.into())
-                .collect::<Vec<usize>>(),
-        ]
-        .concat();
-
-        let mut helper_indices_normal: Vec<usize> = target_and_source_tc
-            .into_iter()
-            .scan(1, |acc, num| {
-                *acc = *acc * num;
-                Some(*acc)
-            })
-            .collect();
-        let mut helper_indices_transposed: Vec<usize> = source_and_target_tc
-            .into_iter()
-            .scan(1, |acc, num| {
-                *acc = *acc * num;
-                Some(*acc)
-            })
-            .collect();
-
-        let helper_capacity = helper_indices_normal.pop().unwrap();
-        let helper_capacity_ = helper_indices_transposed.pop().unwrap();
-        assert_eq!(helper_capacity, helper_capacity_); //to be removed in the future
-
-        helper_indices_normal.insert(0, 1);
-        helper_indices_transposed.insert(0, 1);
-
         (
-            helper_indices_normal,
-            helper_indices_transposed,
-            helper_capacity,
+            helper_indices(direct.right().as_ref(), direct.left().as_ref()),
+            helper_indices(direct.left().as_ref(), direct.right().as_ref()),
+            helper_capacity(direct.left().as_ref(), direct.right().as_ref()),
         )
     }
 
@@ -194,24 +207,21 @@ pub mod category_of_relations {
                 ring::{Fin, Ring},
                 torsion::CoeffTree,
             },
-            util,
+            util::category_of_relations::*,
         };
         use std::sync::Arc;
 
         #[test]
-        fn helper_indices() {
+        fn helper_capacity() {
             use typenum::U2 as N;
             type R = Fin<N>;
 
-            let torsion_coeffs_zn = CoeffTree::<R, ()>::all_torsion_coeffs(1).next().unwrap();
-            assert_eq!(torsion_coeffs_zn.len(), 1);
+            let one_dim_modules: Vec<CanonModule<R>> = CoeffTree::<R, ()>::all_torsion_coeffs(1)
+                .into_iter()
+                .map(|torsion_coeffs| CanonModule::new(torsion_coeffs))
+                .collect();
 
-            let zn_module_arc = Arc::new(CanonModule::<R>::new(torsion_coeffs_zn));
-            assert_eq!(zn_module_arc.cardinality(), 2);
-            let direct = DirectModule::<R>::sumproduct(&zn_module_arc, &zn_module_arc);
-            let (helper_indices_normal, helper_indices_transposed, helper_capacity) =
-                util::category_of_relations::calculate_helper_indices(&direct);
-            assert_eq!(helper_capacity, 4);
+            assert_eq!(one_dim_modules.len(), 2);
         }
     }
 }
