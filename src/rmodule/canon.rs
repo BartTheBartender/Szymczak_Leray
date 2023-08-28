@@ -37,6 +37,20 @@ impl<R: Ring + Ord> fmt::Debug for CanonModule<R> {
     }
 }
 
+impl<R: Ring + Ord> fmt::Display for CanonModule<R> {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        write!(
+            f,
+            "{}",
+            self.torsion_coeff
+                .coeffs()
+                .map(|c| format!("Z{}", c.get().to_string()))
+                .collect::<Vec<_>>()
+                .join(" x "),
+        )
+    }
+}
+
 impl<R: SuperRing> PartialEq for CanonModule<R> {
     // we do not care if the coeff tree keys have different uuids
     fn eq(&self, other: &Self) -> bool {
