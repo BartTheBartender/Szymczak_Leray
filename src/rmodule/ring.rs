@@ -53,7 +53,7 @@ but is immediately associative and scales well.
 
 /* ## set */
 
-pub trait Set: PartialEq + Eq + Clone + Copy + Send + Sync + Into<usize> {
+pub trait Set: PartialEq + Eq + Clone + Copy + Send + Sync {
     type Card: Radix;
 
     fn get(&self) -> Zahl;

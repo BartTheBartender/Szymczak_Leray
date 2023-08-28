@@ -121,24 +121,24 @@ pub mod iterator {
 }
 
 pub mod category_of_relations {
-    use crate::rmodule::{canon::CanonModule, direct::DirectModule, ring::SuperRing};
+    use crate::{
+        rmodule::{canon::CanonModule, direct::DirectModule, ring::SuperRing},
+        Int,
+    };
     use std::iter;
 
-    pub fn helper_indices<R: SuperRing>(
-        left: &CanonModule<R>,
-        right: &CanonModule<R>,
-    ) -> Vec<usize> {
-        let mut one_left_right: Vec<usize> = iter::once(1)
+    pub fn helper_indices<R: SuperRing>(left: &CanonModule<R>, right: &CanonModule<R>) -> Vec<Int> {
+        let mut one_left_right: Vec<Int> = iter::once(1)
             .chain(
                 left.torsion_coeffs()
-                    .map(|x| x.into())
-                    .chain(right.torsion_coeffs().map(|x| x.into())),
+                    .map(|x| x.get())
+                    .chain(right.torsion_coeffs().map(|x| x.get())),
             )
             .collect();
         one_left_right.pop();
 
-        let mut prod: usize = 1;
-        let output: Vec<usize> = one_left_right
+        let mut prod: Int = 1;
+        let output: Vec<Int> = one_left_right
             .into_iter()
             .map(|x| {
                 prod *= x;
@@ -149,19 +149,19 @@ pub mod category_of_relations {
         output
     }
 
-    pub fn helper_capacity<R: SuperRing>(left: &CanonModule<R>, right: &CanonModule<R>) -> usize {
+    pub fn helper_capacity<R: SuperRing>(left: &CanonModule<R>, right: &CanonModule<R>) -> Int {
         iter::once(1)
             .chain(
                 left.torsion_coeffs()
-                    .map(|x| x.into())
-                    .chain(right.torsion_coeffs().map(|x| x.into())),
+                    .map(|x| x.get())
+                    .chain(right.torsion_coeffs().map(|x| x.get())),
             )
             .product()
     }
 
     pub fn helper_indices_and_capacity<R: SuperRing>(
         direct: &DirectModule<R>,
-    ) -> (Vec<usize>, Vec<usize>, usize) {
+    ) -> (Vec<Int>, Vec<Int>, Int) {
         (
             helper_indices(direct.right().as_ref(), direct.left().as_ref()),
             helper_indices(direct.left().as_ref(), direct.right().as_ref()),
@@ -219,29 +219,24 @@ pub mod category_of_relations {
                 println!("{:?}", canon_module);
             }
 
-            let output: Vec<(
-                CanonModule<R>,
-                CanonModule<R>,
-                Vec<usize>,
-                Vec<usize>,
-                usize,
-            )> = canon_modules
-                .iter()
-                .flat_map(|source| {
-                    canon_modules
-                        .iter()
-                        .map(|target| {
-                            (
-                                source.clone(),
-                                target.clone(),
-                                super::helper_indices(target, source),
-                                super::helper_indices(source, target),
-                                super::helper_capacity(source, target),
-                            )
-                        })
-                        .collect::<Vec<_>>()
-                })
-                .collect::<Vec<_>>();
+            let output: Vec<(CanonModule<R>, CanonModule<R>, Vec<Int>, Vec<Int>, Int)> =
+                canon_modules
+                    .iter()
+                    .flat_map(|source| {
+                        canon_modules
+                            .iter()
+                            .map(|target| {
+                                (
+                                    source.clone(),
+                                    target.clone(),
+                                    super::helper_indices(target, source),
+                                    super::helper_indices(source, target),
+                                    super::helper_capacity(source, target),
+                                )
+                            })
+                            .collect::<Vec<_>>()
+                    })
+                    .collect::<Vec<_>>();
 
             println!("{:?}", output);
         }

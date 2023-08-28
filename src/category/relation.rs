@@ -144,9 +144,9 @@ impl<R: SuperRing>
         Arc<CanonModule<R>>,
         Arc<CanonModule<R>>,
         CanonToCanon<R>,
-        &Vec<usize>,
-        &Vec<usize>,
-        &usize,
+        &Vec<Int>,
+        &Vec<Int>,
+        &Int,
     )> for Relation<R>
 {
     type Error = &'static str;
@@ -161,9 +161,9 @@ impl<R: SuperRing>
             Arc<CanonModule<R>>,
             Arc<CanonModule<R>>,
             CanonToCanon<R>,
-            &Vec<usize>,
-            &Vec<usize>,
-            &usize,
+            &Vec<Int>,
+            &Vec<Int>,
+            &Int,
         ),
     ) -> Result<Self, Self::Error> {
         let (
@@ -175,18 +175,18 @@ impl<R: SuperRing>
             helper_capacity,
         ) = raw_data;
 
-        let mut matrix_normal = BitVec::with_capacity(*helper_capacity);
-        let mut matrix_transposed = BitVec::with_capacity(*helper_capacity);
+        let mut matrix_normal = BitVec::with_capacity(*helper_capacity as usize);
+        let mut matrix_transposed = BitVec::with_capacity(*helper_capacity as usize);
 
         unsafe {
-            matrix_normal.set_len(*helper_capacity);
-            matrix_transposed.set_len(*helper_capacity);
+            matrix_normal.set_len(*helper_capacity as usize);
+            matrix_transposed.set_len(*helper_capacity as usize);
         }
 
         println!("{:?}", submodule);
 
         for element in submodule.image().into_iter() {
-            let element_as_vec: Vec<usize> = element.coeffs().map(|x| x.into()).collect();
+            let element_as_vec: Vec<Int> = element.coeffs().map(|x| x.get()).collect();
             println!("element: \t{:?}", element_as_vec); //dupa debugging
 
             /*
@@ -194,9 +194,9 @@ impl<R: SuperRing>
                 .iter()
                 .zip(helper_indices_normal.iter())
                 .map(|(x, y)| x * y)
-                .sum::<usize>();
+                .sum::<Int>();
             // unsafe {
-            matrix_normal.set(index_normal, true);
+            matrix_normal.set(index_normal as usize, true);
             //}
 
             let index_transposed = element
@@ -204,9 +204,9 @@ impl<R: SuperRing>
                 .map(|x| x.into())
                 .zip(helper_indices_transposed.iter())
                 .map(|(x, y)| x * y)
-                .sum::<usize>();
+                .sum::<Int>();
             //unsafe{
-            matrix_transposed.set(index_transposed, true);
+            matrix_transposed.set(index_transposed as usize, true);
             //
             */
         }
@@ -289,7 +289,7 @@ mod test {
             ring::{Fin, Ring, Set},
             torsion::CoeffTree,
         },
-        util,
+        util, Int,
     };
     use bitvec::prelude::*;
     use std::sync::Arc;
@@ -411,35 +411,36 @@ mod test {
         assert_eq!(helper_capacity, 4);
 
         for submodule_elements in submodules_elements {
-            let mut matrix_normal = BitVec::<usize, Lsb0>::with_capacity(helper_capacity);
-            let mut matrix_transposed = BitVec::<usize, Lsb0>::with_capacity(helper_capacity);
+            let mut matrix_normal = BitVec::<usize, Lsb0>::with_capacity(helper_capacity as usize);
+            let mut matrix_transposed =
+                BitVec::<usize, Lsb0>::with_capacity(helper_capacity as usize);
 
             unsafe {
-                matrix_normal.set_len(helper_capacity);
-                matrix_transposed.set_len(helper_capacity);
+                matrix_normal.set_len(helper_capacity as usize);
+                matrix_transposed.set_len(helper_capacity as usize);
             }
 
-            assert_eq!(matrix_normal.len(), helper_capacity);
-            assert_eq!(matrix_transposed.len(), helper_capacity);
+            assert_eq!(matrix_normal.len(), helper_capacity as usize);
+            assert_eq!(matrix_transposed.len(), helper_capacity as usize);
 
             for element in submodule_elements {
                 let index_normal = element
                     .coeffs()
-                    .map(|x| x.get() as usize)
+                    .map(|x| x.get())
                     .zip(helper_indices_normal.iter())
                     .map(|(x, y)| x * y)
-                    .sum::<usize>();
+                    .sum::<Int>();
                 assert!(index_normal < helper_capacity);
-                matrix_normal.set(index_normal, true);
+                matrix_normal.set(index_normal as usize, true);
 
                 let index_transposed = element
                     .coeffs()
-                    .map(|x| x.get() as usize)
+                    .map(|x| x.get())
                     .zip(helper_indices_transposed.iter())
                     .map(|(x, y)| x * y)
-                    .sum::<usize>();
+                    .sum::<Int>();
                 assert!(index_transposed < helper_capacity);
-                matrix_transposed.set(index_transposed, true);
+                matrix_transposed.set(index_transposed as usize, true);
             }
         }
     }
