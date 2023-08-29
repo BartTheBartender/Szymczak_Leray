@@ -357,6 +357,7 @@ mod test {
             &Arc::new(zn_module.duplicate()),
         );
 
+
         let submodules = direct.submodules_goursat();
         let helper_data = HelperData::<R>::new(&direct);
 

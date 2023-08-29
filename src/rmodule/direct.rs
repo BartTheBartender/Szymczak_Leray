@@ -39,15 +39,18 @@ impl<R: SuperRing> DirectModule<R> {
             Arc::unwrap_or_clone(self.right()).submodules()
         )
         .flat_map(|(left_sub, right_sub)| {
+            println!(
+                "entering submodules with:\n   lft: {:?}\n   rht: {:?}",
+                left_sub, right_sub
+            );
             let smol = Self::sumproduct(&left_sub.source(), &right_sub.source());
-            let mut phi_epis = Arc::unwrap_or_clone(smol.left()).quotients();
             Arc::unwrap_or_clone(right_sub.source())
                 .submodules()
                 .into_iter()
                 .map(|sub| sub.cokernel())
                 .flat_map(|right_quot| {
-                    phi_epis
-                        .extract_if(|phi| phi.target() == right_quot.target())
+                    CanonToCanon::hom(smol.left(), right_quot.target())
+                        .filter(|map| map.cokernel().is_zero())
                         .map(|phi| {
                             smol.left_projection
                                 .compose_unchecked(&phi)
@@ -70,14 +73,13 @@ impl<R: SuperRing> DirectModule<R> {
         )
         .flat_map(|(left_quot, right_quot)| {
             let smol = Self::sumproduct(&left_quot.target(), &right_quot.target());
-            let mut phi_monos = Arc::unwrap_or_clone(smol.right()).submodules();
             Arc::unwrap_or_clone(left_quot.target())
                 .quotients()
                 .into_iter()
                 .map(|quot| quot.kernel())
                 .flat_map(|left_sub| {
-                    phi_monos
-                        .extract_if(|phi| phi.source() == left_sub.source())
+                    CanonToCanon::hom(smol.right(), left_sub.source())
+                        .filter(|map| map.kernel().is_zero())
                         .map(|phi| {
                             smol.universal_in(
                                 &self.left_projection.compose_unchecked(&left_quot),
