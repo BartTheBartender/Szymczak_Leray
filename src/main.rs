@@ -105,10 +105,15 @@ use crate::{
 };
 
 //parameters for the code
-use typenum::U2 as N;
+use typenum::U5 as N;
 pub const MAX_DIMENSION: Int = 2;
 pub type Int = u16;
 pub const RECURSION_PARAMETER_SZYMCZAK_FUNCTOR: usize = 20;
 
 type R = Fin<N>;
-fn main() {}
+fn main() {
+    let category = Category::<CanonModule<R>, Relation<R>>::new(1);
+    let szymczak_category: SzymczakCategory<CanonModule<R>, Relation<R>, Relation<R>> =
+        SzymczakCategory::szymczak_functor(&category);
+    print!("{}", szymczak_category);
+}

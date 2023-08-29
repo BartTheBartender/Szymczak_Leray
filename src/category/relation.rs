@@ -20,7 +20,7 @@ use std::{
     sync::Arc,
 };
 
-#[derive(Clone, Debug, Hash, Eq)]
+#[derive(Clone, Debug, Hash, PartialEq, Eq)]
 pub struct Relation<R: SuperRing> {
     pub source: Arc<CanonModule<R>>,
     pub target: Arc<CanonModule<R>>,
@@ -53,15 +53,6 @@ impl<R: SuperRing> Relation<R> {
                 })
             })
             .collect::<BitVec>()
-    }
-}
-
-impl<R: SuperRing> PartialEq for Relation<R> {
-    fn eq(&self, other: &Self) -> bool {
-        self.source == other.source
-            && self.target == other.target
-            && self.matrix_normal == other.matrix_normal
-            && self.matrix_transposed == other.matrix_transposed //to be removed in the future
     }
 }
 
@@ -232,7 +223,11 @@ impl<R: SuperRing> AllMorphisms<CanonModule<R>> for Relation<R> {
 #[cfg(test)]
 mod test {
     use crate::{
-        category::{morphism::Morphism, relation::Relation, Category, Duplicate},
+        category::{
+            morphism::{Compose, Morphism},
+            relation::Relation,
+            Category, Duplicate,
+        },
         error::Error,
         rmodule::{
             canon::CanonModule,
@@ -247,94 +242,60 @@ mod test {
     use bitvec::prelude::*;
     use std::{collections::HashMap, sync::Arc};
 
-    /*
-        #[test]
-        fn krakowian_product() {
-            let v = bitvec![1, 0, 0, 0];
-            let u = bitvec![1, 0, 0, 1];
+    #[test]
+    fn relation_composition_z5() {
+        use typenum::U5 as N;
+        type R = Fin<N>;
+        let category = Category::<CanonModule<R>, Relation<R>>::new(1);
 
-            let w = Relation::krakowian_product_unchecked(&v, &u, 2);
+        let mut relations: Vec<Relation<R>> = category
+            .hom_sets
+            .iter()
+            .filter(|(source, _)| source.cardinality() > 1)
+            .map(|(_, hom_sets_fixed_source)| hom_sets_fixed_source)
+            .next()
+            .expect("there is non-trivial source")
+            .iter()
+            .filter(|(target, _)| target.cardinality() > 1)
+            .map(|(_, relations_iter)| relations_iter)
+            .next()
+            .expect("there is non-trivial target")
+            .to_vec();
 
-            assert_eq!(w, v);
+        assert_eq!(relations.len(), 8);
+        let top = relations.pop().expect("there are exactly eight relations");
+        let four = relations.pop().expect("there are exactly eight relations");
+        let three = relations.pop().expect("there are exactly eight relations");
+        let two = relations.pop().expect("there are exactly eight relations");
+        let one = relations.pop().expect("there are exactly eight relations");
+        let zero = relations.pop().expect("there are exactly eight relations");
+        let zero_dagger = relations.pop().expect("there are exactly eight relations");
+        let bottom = relations.pop().expect("there are exactly eight relations");
+
+        println!("{}\n{}\n", zero, zero_dagger);
+
+        assert_eq!(relations.len(), 0);
+        assert_eq!(zero.source(), one.source());
+        assert_eq!(one.source(), top.target());
+        assert_eq!(zero.matrix_normal, zero_dagger.matrix_transposed);
+
+        for relation in relations.iter() {
+            println!("{}", relation);
         }
+        println!("------\nafter multiplacation:");
+        println!("{}", bottom.compose_unchecked(&top));
+        println!("{}", zero_dagger);
 
-        #[test]
-        fn relation_product_1() {
-            let v = bitvec![1, 0, 0, 0];
-            let canon_zmodule = Arc::new(CanonZModule::new_unchecked(vec![2]));
-    :x
-    :z:x
-            let r = Relation {
-                source: Arc::clone(&canon_zmodule),
-                target: Arc::clone(&canon_zmodule),
-                matrix_normal: v.clone(),
-                matrix_transposed: v.clone(),
-            };
-
-            let s = r.compose_unchecked(&r);
-
-            assert_eq!(r, s);
-        }
-
-        #[test]
-        fn relation_product_2() {
-            let v = bitvec![1, 1, 1, 1];
-            let canon_zmodule = Arc::new(CanonZModule::new_unchecked(vec![2]));
-
-            let r = Relation {
-                source: Arc::clone(&canon_zmodule),
-                target: Arc::clone(&canon_zmodule),
-                matrix_normal: v.clone(),
-                matrix_transposed: v.clone(),
-            };
-
-            let s = r.compose_unchecked(&r);
-
-            assert_eq!(r, s);
-        }
-
-        #[test]
-        fn relation_product_3() {
-            let v = bitvec![1, 0, 0, 1];
-            let canon_zmodule = Arc::new(CanonZModule::new_unchecked(vec![2]));
-
-            let r = Relation {
-                source: Arc::clone(&canon_zmodule),
-                target: Arc::clone(&canon_zmodule),
-                matrix_normal: v.clone(),
-                matrix_transposed: v.clone(),
-            };
-
-            let s = r.compose_unchecked(&r);
-
-            assert_eq!(r, s);
-        }
-
-        #[test]
-        fn relation_product_error_1() {
-            let v = bitvec![1, 0, 0, 1];
-            let u = bitvec![1, 0, 0, 0, 0, 0, 1, 1, 1];
-            let canon_zmodule_v = Arc::new(CanonZModule::new_unchecked(vec![2]));
-            let canon_zmodule_u = Arc::new(CanonZModule::new_unchecked(vec![3]));
-
-            let r = Relation {
-                source: Arc::clone(&canon_zmodule_v),
-                target: Arc::clone(&canon_zmodule_v),
-                matrix_normal: v.clone(),
-                matrix_transposed: v.clone(),
-            };
-            let s = Relation {
-                source: Arc::clone(&canon_zmodule_u),
-                target: Arc::clone(&canon_zmodule_u),
-                matrix_normal: u.clone(),
-                matrix_transposed: u.clone(),
-            };
-
-            let error = s.compose(&r);
-
-            assert_eq!(error, Err(Error::SourceTargetMismatch));
-        }
-    */
+        //36
+        //assert_eq!(bottom.compose_unchecked(&bottom), bottom);
+        //assert_eq!(bottom.compose_unchecked(&zero_dagger), zero_dagger);
+        //assert_eq!(bottom.compose_unchecked(&zero), bottom);
+        //assert_eq!(bottom.compose_unchecked(&one), bottom);
+        //assert_eq!(bottom.compose_unchecked(&two), bottom);
+        //assert_eq!(bottom.compose_unchecked(&three), bottom);
+        //assert_eq!(bottom.compose_unchecked(&four), bottom);
+        assert_eq!(bottom.compose_unchecked(&top), zero_dagger);
+    }
 
     #[test]
     fn z3_category_step_by_step() {

@@ -292,7 +292,8 @@ mod test {
     use typenum::{U11, U13, U2, U3, U5, U7};
 
     #[test]
-    fn szymczak_isomorphic() {
+    #[should_panic]
+    fn szymczak_isomorphic_wrong() {
         type R = Fin<U5>;
 
         let category = Category::<CanonModule<R>, Relation<R>>::new(1);
@@ -320,12 +321,58 @@ mod test {
         let left = szymczak_class.pop().expect("there are two");
         let right = szymczak_class.pop().expect("there are two");
 
-        let are_szymczak_isomorphic: bool = SzymczakCategory::are_szymczak_isomorphic(
-            (&left, &(left.cycle())),
-            (&right, &(right.cycle())),
-            &category.hom_sets,
-        );
+        println!("left:\n{}\n\nright:\n{}\n------------", left, right);
 
-        assert!(!are_szymczak_isomorphic);
+        let left_cycle = left.cycle();
+        let right_cycle = right.cycle();
+
+        let mut left_to_right_ = None;
+        let mut right_to_left_ = None;
+
+        let morphisms_left_to_right = category
+            .hom_sets
+            .get(left.target().as_ref())
+            .expect("there is a hom_set with the given object")
+            .get(right.source().as_ref())
+            .expect("there is a hom_set with the given object");
+
+        let morphisms_right_to_left = category
+            .hom_sets
+            .get(right.target().as_ref())
+            .expect("there is a hom_set with the given object")
+            .get(left.source().as_ref())
+            .expect("there is a hom_set with the given object");
+
+        for left_to_right in morphisms_left_to_right.iter() {
+            for right_to_left in morphisms_right_to_left.iter() {
+                if left.compose_unchecked(left_to_right) == left_to_right.compose_unchecked(&right)
+                    && right.compose_unchecked(right_to_left)
+                        == right_to_left.compose_unchecked(&left)
+                    && SzymczakCategory::is_identity(
+                        &left_to_right.compose_unchecked(right_to_left),
+                        &left_cycle,
+                    )
+                    && SzymczakCategory::is_identity(
+                        &right_to_left.compose_unchecked(left_to_right),
+                        &right_cycle,
+                    )
+                {
+                    left_to_right_ = Some(left_to_right);
+                    right_to_left_ = Some(right_to_left);
+                }
+            }
+        }
+
+        if let Some(left_to_right) = left_to_right_ {
+            if let Some(right_to_left) = right_to_left_ {
+                println!(
+                    "left_to_right:\n{}\n\nright_to_left:\n{}",
+                    left_to_right, right_to_left
+                );
+            }
+        }
+
+        assert!(left_to_right_.is_some());
+        assert!(right_to_left_.is_some());
     }
 }
