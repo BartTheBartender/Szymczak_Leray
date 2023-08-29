@@ -511,15 +511,17 @@ mod test {
 
         let zn_module: Arc<CanonModule<R>> = Arc::new(
             CoeffTree::<R, ()>::all_torsion_coeffs(1)
-                .into_iter()
-                .map(|torsion_coeffs| CanonModule::new(torsion_coeffs))
+                .map(CanonModule::new)
                 .next()
                 .unwrap(),
         );
 
-        let zn_zn = DirectModule::<R>::sumproduct(&Arc::clone(&zn_module), &Arc::clone(&zn_module))
-            .module();
+        let zn_zn = DirectModule::<R>::sumproduct(
+            &Arc::clone(&zn_module),
+            &Arc::new(zn_module.duplicate()),
+        )
+        .module();
 
-        assert_eq!(zn_zn.to_string(), "Z3xZ3");
+        assert_eq!(zn_zn.to_string(), "Z3 x Z3");
     }
 }

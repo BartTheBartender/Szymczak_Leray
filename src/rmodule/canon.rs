@@ -89,6 +89,14 @@ impl<R: SuperRing> CanonModule<R> {
         self.torsion_coeff
     }
 
+    /**
+    returns a module isomorphic to self,
+    but with *different* coefficient uuids
+    */
+    pub fn duplicate(&self) -> Self {
+        Self::new(self.torsion_coeff.coeffs().collect())
+    }
+
     /* # module stuff */
 
     pub fn versor(&self, key: &Coeff<R>) -> <Self as Module<R>>::Element {
