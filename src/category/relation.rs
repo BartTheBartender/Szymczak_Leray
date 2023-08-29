@@ -435,6 +435,7 @@ mod test {
         let (helper_indices_normal, helper_indices_transposed, helper_capacity) =
             util::category_of_relations::helper_indices_and_capacity(&zn_zn_direct);
         let submodules = zn_zn_direct.submodules_goursat();
+        println!("{:?}", zn_zn_direct.module());
 
         let relations_on_zn: Vec<Relation<R>> = submodules
             .into_iter()

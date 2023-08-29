@@ -503,4 +503,23 @@ mod test {
             )
         );
     }
+
+    #[test]
+    fn sumproduct_bartek() {
+        use typenum::U3 as N;
+        type R = Fin<N>;
+
+        let zn_module: Arc<CanonModule<R>> = Arc::new(
+            CoeffTree::<R, ()>::all_torsion_coeffs(1)
+                .into_iter()
+                .map(|torsion_coeffs| CanonModule::new(torsion_coeffs))
+                .next()
+                .unwrap(),
+        );
+
+        let zn_zn = DirectModule::<R>::sumproduct(&Arc::clone(&zn_module), &Arc::clone(&zn_module))
+            .module();
+
+        assert_eq!(zn_zn.to_string(), "Z3xZ3");
+    }
 }
