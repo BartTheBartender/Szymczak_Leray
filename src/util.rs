@@ -131,8 +131,7 @@ pub mod category_of_relations {
         pub capacity: Int,
         pub indices_normal: Vec<Int>,
         pub indices_transposed: Vec<Int>,
-        pub torsion_coeffs_vec_normal: Vec<Int>,
-        pub torsion_coeffs_vec_transposed: Vec<Int>,
+        pub torsion_coeffs_vec: Vec<Int>,
         super_ring: PhantomData<R>,
     }
 
@@ -145,8 +144,7 @@ pub mod category_of_relations {
                 capacity: Self::capacity(&left, &right),
                 indices_normal: Self::indices(&right, &left),
                 indices_transposed: Self::indices(&left, &right),
-                torsion_coeffs_vec_normal: Self::torsion_coeffs_vec(&right, &left),
-                torsion_coeffs_vec_transposed: Self::torsion_coeffs_vec(&left, &right),
+                torsion_coeffs_vec: Self::torsion_coeffs_vec(&right, &left),
                 super_ring: PhantomData::<R>,
             }
         }
@@ -272,9 +270,6 @@ pub mod category_of_relations {
             assert!(!zn_modules.next().is_some());
 
             let torsion_coeffs_vec: Vec<Int> = HelperData::torsion_coeffs_vec(&zn, &znxzn);
-            assert_eq!(torsion_coeffs_vec, vec![3, 3, 3]);
-
-            let torsion_coeffs_vec: Vec<Int> = HelperData::torsion_coeffs_vec(&znxzn, &zn);
             assert_eq!(torsion_coeffs_vec, vec![3, 3, 3]);
         }
     }

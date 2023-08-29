@@ -2,7 +2,7 @@
 use crate::{
     category::{
         morphism::{Compose, EndoMorphism, Morphism},
-        AllMorphisms, Category, HomSet,
+        AllMorphisms, Category, Duplicate, HomSet,
     },
     rmodule::{
         canon::CanonModule, direct::DirectModule, map::CanonToCanon, ring::SuperRing,
@@ -174,10 +174,10 @@ impl<R: SuperRing>
 
         for element in submodule.image().into_iter() {
             let element: Vec<Int> = element
-                .coeffs()
-                .map(|y| y.get())
-                .zip(element.values().map(|x| x.get()))
-                .map(|(y, x)| x % y)
+                .into_values()
+                .map(|x| x.get())
+                .zip(helper_data.torsion_coeffs_vec.iter())
+                .map(|(x, y)| x % y)
                 .collect();
 
             let index_normal = element
@@ -214,9 +214,6 @@ impl<R: SuperRing> AllMorphisms<CanonModule<R>> for Relation<R> {
     fn hom_set(source: Arc<CanonModule<R>>, target: Arc<CanonModule<R>>) -> Vec<Relation<R>> {
         let direct = DirectModule::<R>::sumproduct(&source, &target);
 
-        let source = direct.left();
-        let target = direct.right();
-
         let helper_data = HelperData::<R>::new(&direct);
         direct
             .submodules_goursat()
@@ -235,7 +232,7 @@ impl<R: SuperRing> AllMorphisms<CanonModule<R>> for Relation<R> {
 #[cfg(test)]
 mod test {
     use crate::{
-        category::{relation::Relation, Category},
+        category::{morphism::Morphism, relation::Relation, Category, Duplicate},
         error::Error,
         rmodule::{
             canon::CanonModule,
@@ -248,7 +245,7 @@ mod test {
         Int,
     };
     use bitvec::prelude::*;
-    use std::sync::Arc;
+    use std::{collections::HashMap, sync::Arc};
 
     /*
         #[test]
@@ -340,7 +337,7 @@ mod test {
     */
 
     #[test]
-    fn zn_category_step_by_step() {
+    fn z3_category_step_by_step() {
         use typenum::U3 as N;
         type R = Fin<N>;
 
@@ -357,6 +354,66 @@ mod test {
             &Arc::new(zn_module.duplicate()),
         );
 
+        let submodules = direct.submodules_goursat();
+        let helper_data = HelperData::<R>::new(&direct);
+
+        let relations_on_zn: Vec<Relation<R>> = submodules
+            .into_iter()
+            .map(|submodule| {
+                Relation::<R>::from((direct.left(), direct.right(), submodule, &helper_data))
+            })
+            .collect();
+
+        let bottom = bitvec![1, 0, 0, 0, 0, 0, 0, 0, 0];
+        let zero_dagger = bitvec![1, 1, 1, 0, 0, 0, 0, 0, 0];
+        let zero = bitvec![1, 0, 0, 1, 0, 0, 1, 0, 0];
+        let one = bitvec![1, 0, 0, 0, 1, 0, 0, 0, 1];
+        let two = bitvec![1, 0, 0, 0, 0, 1, 0, 1, 0];
+        let top = bitvec![1, 1, 1, 1, 1, 1, 1, 1, 1];
+
+        assert!(relations_on_zn
+            .iter()
+            .find(|relation| relation.matrix_normal == bottom)
+            .is_some());
+        assert!(relations_on_zn
+            .iter()
+            .find(|relation| relation.matrix_normal == zero_dagger)
+            .is_some());
+        assert!(relations_on_zn
+            .iter()
+            .find(|relation| relation.matrix_normal == zero)
+            .is_some());
+        assert!(relations_on_zn
+            .iter()
+            .find(|relation| relation.matrix_normal == one)
+            .is_some());
+        assert!(relations_on_zn
+            .iter()
+            .find(|relation| relation.matrix_normal == two)
+            .is_some());
+        assert!(relations_on_zn
+            .iter()
+            .find(|relation| relation.matrix_normal == top)
+            .is_some());
+    }
+
+    #[test]
+    fn z4_category_just_length() {
+        use typenum::U4 as N;
+        type R = Fin<N>;
+
+        let zn_module: Arc<CanonModule<R>> = Arc::new(
+            CoeffTree::<R, ()>::all_torsion_coeffs(2)
+                .into_iter()
+                .map(|torsion_coeffs| CanonModule::new(torsion_coeffs))
+                .find(|zn_module| zn_module.cardinality() == 4 && zn_module.dimension() == 1)
+                .unwrap(),
+        );
+
+        let direct = DirectModule::<R>::sumproduct(
+            &Arc::clone(&zn_module),
+            &Arc::new(zn_module.duplicate()),
+        );
 
         let submodules = direct.submodules_goursat();
         let helper_data = HelperData::<R>::new(&direct);
@@ -367,6 +424,47 @@ mod test {
                 Relation::<R>::from((direct.left(), direct.right(), submodule, &helper_data))
             })
             .collect();
+
+        assert_eq!(relations_on_zn.len(), 15);
+    }
+
+    #[test]
+    fn z3_category_from_function() {
+        use typenum::U3 as N;
+        type R = Fin<N>;
+
+        let category = Category::<CanonModule<R>, Relation<R>>::new(1);
+
+        assert_eq!(category.hom_sets.len(), 1); // nie uwględnia modułu trywialnego, do poprawy w przyszłości
+
+        let hom_sets_fixed_source = category
+            .hom_sets
+            .into_values()
+            .find(|hom_set_fixed_source| {
+                hom_set_fixed_source
+                    .clone()
+                    .into_values()
+                    .find(|relations| {
+                        relations
+                            .iter()
+                            .find(|relation| relation.source().cardinality() != 1)
+                            .is_some()
+                    })
+                    .is_some()
+            })
+            .expect("there is a relation with non-trivial source");
+
+        let relations_on_zn: Vec<Relation<R>> = hom_sets_fixed_source
+            .into_values()
+            .find(|relations| {
+                relations
+                    .iter()
+                    .find(|relation| relation.target().cardinality() != 1)
+                    .is_some()
+            })
+            .expect("there is a relation with non-trivial target");
+
+        assert_eq!(relations_on_zn.len(), 6);
 
         let bottom = bitvec![1, 0, 0, 0, 0, 0, 0, 0, 0];
         let zero_dagger = bitvec![1, 1, 1, 0, 0, 0, 0, 0, 0];

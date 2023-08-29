@@ -1,5 +1,5 @@
 use crate::{
-    category::AllObjects,
+    category::{AllObjects, Duplicate},
     matrix::Matrix,
     rmodule::{
         direct::DirectModule,
@@ -89,14 +89,6 @@ impl<R: SuperRing> CanonModule<R> {
         self.torsion_coeff
     }
 
-    /**
-    returns a module isomorphic to self,
-    but with *different* coefficient uuids
-    */
-    pub fn duplicate(&self) -> Self {
-        Self::new(self.torsion_coeff.coeffs().collect())
-    }
-
     /* # module stuff */
 
     pub fn versor(&self, key: &Coeff<R>) -> <Self as Module<R>>::Element {
@@ -139,6 +131,12 @@ impl<R: SuperRing> CanonModule<R> {
             1 => quotients_of_cyclic_module(self),
             _n => DirectModule::from(self).quotients_goursat().collect(),
         }
+    }
+}
+
+impl<R: SuperRing> Duplicate for CanonModule<R> {
+    fn duplicate(&self) -> Self {
+        Self::new(self.torsion_coeff.coeffs().collect())
     }
 }
 

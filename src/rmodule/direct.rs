@@ -1,5 +1,8 @@
 use crate::{
-    category::morphism::{AbelianMorphism, Compose, Morphism, PreAbelianMorphism},
+    category::{
+        morphism::{AbelianMorphism, Compose, Morphism, PreAbelianMorphism},
+        Duplicate,
+    },
     matrix::Matrix,
     rmodule::{canon::CanonModule, map::CanonToCanon, ring::SuperRing, Module},
 };
@@ -39,10 +42,6 @@ impl<R: SuperRing> DirectModule<R> {
             Arc::unwrap_or_clone(self.right()).submodules()
         )
         .flat_map(|(left_sub, right_sub)| {
-            println!(
-                "entering submodules with:\n   lft: {:?}\n   rht: {:?}",
-                left_sub, right_sub
-            );
             let smol = Self::sumproduct(&left_sub.source(), &right_sub.source());
             Arc::unwrap_or_clone(right_sub.source())
                 .submodules()

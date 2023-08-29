@@ -17,7 +17,7 @@ use crate::{
 };
 use std::{
     collections::HashMap,
-    fmt::{self, Display},
+    fmt::{self, Debug, Display},
     hash::Hash,
     sync::Arc,
 };
@@ -36,34 +36,43 @@ pub trait AllMorphisms<Object: AllObjects>: Sized {
     fn hom_set(source: Arc<Object>, target: Arc<Object>) -> Vec<Self>;
 }
 
+pub trait Duplicate {
+    /**
+    returns a module isomorphic to self,
+    but with *different* coefficient uuids
+    */
+    fn duplicate(&self) -> Self;
+}
+
 impl<
-        Object: Eq + PartialEq + Hash + Clone + AllObjects,
-        M: Morphism<Object, Object> + AllMorphisms<Object>,
+        Object: Eq + PartialEq + Hash + Clone + AllObjects + Duplicate + Display,
+        M: Morphism<Object, Object> + AllMorphisms<Object> + Display,
     > Category<Object, M>
 {
     pub fn new(maximal_dimension: Int) -> Self {
-        let all_objects: Vec<Arc<Object>> = AllObjects::all_objects(maximal_dimension)
-            .into_iter()
-            .map(|object| Arc::new(object))
+        let all_objects: Vec<Object> = AllObjects::all_objects(maximal_dimension);
+
+        let all_sources: Vec<Arc<Object>> = all_objects
+            .iter()
+            .map(|object| Arc::new(object.clone()))
             .collect();
 
-        let hom_sets = all_objects
-            .clone()
-            .into_iter()
-            .map(|source: Arc<Object>| {
-                (
-                    (*source).clone(),
-                    all_objects
-                        .clone()
-                        .into_iter()
-                        .map(|target: Arc<Object>| {
-                            (
-                                (*target).clone(),
-                                M::hom_set(Arc::clone(&source), Arc::clone(&target)),
-                            )
-                        })
-                        .collect::<HashMap<Object, Vec<M>>>(),
-                )
+        let all_targets: Vec<Arc<Object>> = all_objects
+            .iter()
+            .map(|object| Arc::new(object.duplicate()))
+            .collect();
+
+        let hom_sets = all_sources
+            .iter()
+            .map(|source: &Arc<Object>| {
+                let hom_sets_fixed_source: HashMap<Object, Vec<M>> = all_targets
+                    .iter()
+                    .map(|target: &Arc<Object>| {
+                        let hom_set = M::hom_set(Arc::clone(source), Arc::clone(target));
+                        (target.as_ref().clone(), hom_set)
+                    })
+                    .collect::<HashMap<Object, Vec<M>>>();
+                (source.as_ref().clone(), hom_sets_fixed_source)
             })
             .collect::<HomSet<Object, M>>();
 
