@@ -8,7 +8,8 @@ use crate::{
         canon::CanonModule, direct::DirectModule, map::CanonToCanon, ring::SuperRing,
         torsion::CoeffTree, Module,
     },
-    util, Int,
+    util::category_of_relations::HelperData,
+    Int,
 };
 
 use bitvec::prelude::*;
@@ -140,59 +141,48 @@ impl<R: SuperRing> Compose<CanonModule<R>, CanonModule<R>, CanonModule<R>, Relat
 }
 
 impl<R: SuperRing>
-    TryFrom<(
+    From<(
         Arc<CanonModule<R>>,
         Arc<CanonModule<R>>,
         CanonToCanon<R>,
-        &Vec<Int>,
-        &Vec<Int>,
-        &Int,
+        &HelperData<R>,
     )> for Relation<R>
 {
-    type Error = &'static str;
     /**
     the morphism should be mono in order for this conversion to work
     although the implementation neglects to check this
 
     the morphism should be a submodule of the given module
     */
-    fn try_from(
-        raw_data: (
+    fn from(
+        input: (
             Arc<CanonModule<R>>,
             Arc<CanonModule<R>>,
             CanonToCanon<R>,
-            &Vec<Int>,
-            &Vec<Int>,
-            &Int,
+            &HelperData<R>,
         ),
-    ) -> Result<Self, Self::Error> {
-        let (
-            source,
-            target,
-            submodule,
-            helper_indices_normal,
-            helper_indices_transposed,
-            helper_capacity,
-        ) = raw_data;
+    ) -> Self {
+        let (source, target, submodule, helper_data) = input;
 
-        let mut matrix_normal = BitVec::with_capacity(*helper_capacity as usize);
-        let mut matrix_transposed = BitVec::with_capacity(*helper_capacity as usize);
+        let mut matrix_normal = BitVec::with_capacity(helper_data.capacity as usize);
+        let mut matrix_transposed = BitVec::with_capacity(helper_data.capacity as usize);
 
         unsafe {
-            matrix_normal.set_len(*helper_capacity as usize);
-            matrix_transposed.set_len(*helper_capacity as usize);
+            matrix_normal.set_len(helper_data.capacity as usize);
+            matrix_transposed.set_len(helper_data.capacity as usize);
         }
 
-        println!("{:?}", submodule);
-
         for element in submodule.image().into_iter() {
-            let element_as_vec: Vec<Int> = element.into_values().map(|x| x.get()).collect();
-            println!("element: \t{:?}", element_as_vec); //dupa debugging
+            let element: Vec<Int> = element
+                .coeffs()
+                .map(|y| y.get())
+                .zip(element.values().map(|x| x.get()))
+                .map(|(y, x)| x % y)
+                .collect();
 
-            /*
             let index_normal = element
                 .iter()
-                .zip(helper_indices_normal.iter())
+                .zip(helper_data.indices_normal.iter())
                 .map(|(x, y)| x * y)
                 .sum::<Int>();
             // unsafe {
@@ -200,23 +190,21 @@ impl<R: SuperRing>
             //}
 
             let index_transposed = element
-                .coeffs()
-                .map(|x| x.into())
-                .zip(helper_indices_transposed.iter())
+                .iter()
+                .zip(helper_data.indices_transposed.iter())
                 .map(|(x, y)| x * y)
                 .sum::<Int>();
             //unsafe{
             matrix_transposed.set(index_transposed as usize, true);
             //
-            */
         }
 
-        Ok(Relation::<R> {
+        Relation::<R> {
             source,
             target,
             matrix_normal,
             matrix_transposed,
-        })
+        }
     }
 }
 
@@ -225,24 +213,20 @@ impl<R: SuperRing + std::hash::Hash> EndoMorphism<CanonModule<R>> for Relation<R
 impl<R: SuperRing> AllMorphisms<CanonModule<R>> for Relation<R> {
     fn hom_set(source: Arc<CanonModule<R>>, target: Arc<CanonModule<R>>) -> Vec<Relation<R>> {
         let direct = DirectModule::<R>::sumproduct(&source, &target);
-        let (helper_indices_normal, helper_indices_transposed, helper_capacity) =
-            util::category_of_relations::helper_indices_and_capacity(&direct);
 
         let source = direct.left();
         let target = direct.right();
 
+        let helper_data = HelperData::<R>::new(&direct);
         direct
             .submodules_goursat()
-            .filter_map(|submodule| {
-                Relation::<R>::try_from((
+            .map(|submodule| {
+                Relation::<R>::from((
                     Arc::clone(&source),
                     Arc::clone(&target),
                     submodule,
-                    &helper_indices_normal,
-                    &helper_indices_transposed,
-                    &helper_capacity,
+                    &helper_data,
                 ))
-                .ok()
             })
             .collect::<Vec<Relation<R>>>()
     }
@@ -260,7 +244,8 @@ mod test {
             ring::{Fin, Ring, Set},
             torsion::CoeffTree,
         },
-        util, Int,
+        util::category_of_relations::HelperData,
+        Int,
     };
     use bitvec::prelude::*;
     use std::sync::Arc;
@@ -353,68 +338,6 @@ mod test {
             assert_eq!(error, Err(Error::SourceTargetMismatch));
         }
     */
-    #[test]
-    fn relation_from_direct() {
-        use typenum::U2 as N;
-        type R = Fin<N>;
-
-        let mut tc = CoeffTree::<R, ()>::all_torsion_coeffs(3);
-
-        let torsion_coeffs_zn = tc.next().unwrap();
-
-        //assert_eq!(torsion_coeffs_zn.len(), 1);
-
-        let zn_module_arc = Arc::new(CanonModule::<R>::new(torsion_coeffs_zn));
-        //assert_eq!(zn_module_arc.cardinality(), 2);
-
-        let direct = DirectModule::<R>::sumproduct(&zn_module_arc, &zn_module_arc);
-        let submodules: Vec<CanonToCanon<R>> = direct.submodules_goursat().collect();
-        let direct = DirectModule::<R>::sumproduct(&zn_module_arc, &zn_module_arc);
-        let (helper_indices_normal, helper_indices_transposed, helper_capacity) =
-            util::category_of_relations::helper_indices_and_capacity(&direct);
-
-        let submodules_elements: Vec<_> = submodules
-            .into_iter()
-            .map(|submodule| submodule.image())
-            .collect();
-
-        assert_eq!(submodules_elements.len(), 5);
-        assert_eq!(helper_capacity, 4);
-
-        for submodule_elements in submodules_elements {
-            let mut matrix_normal = BitVec::<usize, Lsb0>::with_capacity(helper_capacity as usize);
-            let mut matrix_transposed =
-                BitVec::<usize, Lsb0>::with_capacity(helper_capacity as usize);
-
-            unsafe {
-                matrix_normal.set_len(helper_capacity as usize);
-                matrix_transposed.set_len(helper_capacity as usize);
-            }
-
-            assert_eq!(matrix_normal.len(), helper_capacity as usize);
-            assert_eq!(matrix_transposed.len(), helper_capacity as usize);
-
-            for element in submodule_elements {
-                let index_normal = element
-                    .coeffs()
-                    .map(|x| x.get())
-                    .zip(helper_indices_normal.iter())
-                    .map(|(x, y)| x * y)
-                    .sum::<Int>();
-                assert!(index_normal < helper_capacity);
-                matrix_normal.set(index_normal as usize, true);
-
-                let index_transposed = element
-                    .coeffs()
-                    .map(|x| x.get())
-                    .zip(helper_indices_transposed.iter())
-                    .map(|(x, y)| x * y)
-                    .sum::<Int>();
-                assert!(index_transposed < helper_capacity);
-                matrix_transposed.set(index_transposed as usize, true);
-            }
-        }
-    }
 
     #[test]
     fn zn_category_step_by_step() {
@@ -429,41 +352,52 @@ mod test {
                 .unwrap(),
         );
 
-        let zn_zn_direct = DirectModule::<R>::sumproduct(
+        let direct = DirectModule::<R>::sumproduct(
             &Arc::clone(&zn_module),
             &Arc::new(zn_module.duplicate()),
         );
 
-        let (helper_indices_normal, helper_indices_transposed, helper_capacity) =
-            util::category_of_relations::helper_indices_and_capacity(&zn_zn_direct);
-        let submodules = zn_zn_direct.submodules_goursat();
-        println!("{:?}", zn_zn_direct.module());
 
-        for submodule in zn_zn_direct.submodules_goursat() {
-            dbg!(submodule);
-        }
-
-        assert_eq!(zn_zn_direct.submodules_goursat().count(), 6); //TUTAJ JEST PROBLEM!!!
+        let submodules = direct.submodules_goursat();
+        let helper_data = HelperData::<R>::new(&direct);
 
         let relations_on_zn: Vec<Relation<R>> = submodules
             .into_iter()
-            .filter_map(|submodule| {
-                Relation::<R>::try_from((
-                    Arc::clone(&zn_module),
-                    Arc::clone(&zn_module),
-                    submodule,
-                    &helper_indices_normal,
-                    &helper_indices_transposed,
-                    &helper_capacity,
-                ))
-                .ok()
+            .map(|submodule| {
+                Relation::<R>::from((direct.left(), direct.right(), submodule, &helper_data))
             })
             .collect();
 
-        //assert_eq!(relations_on_zn.len(), 5);
+        let bottom = bitvec![1, 0, 0, 0, 0, 0, 0, 0, 0];
+        let zero_dagger = bitvec![1, 1, 1, 0, 0, 0, 0, 0, 0];
+        let zero = bitvec![1, 0, 0, 1, 0, 0, 1, 0, 0];
+        let one = bitvec![1, 0, 0, 0, 1, 0, 0, 0, 1];
+        let two = bitvec![1, 0, 0, 0, 0, 1, 0, 1, 0];
+        let top = bitvec![1, 1, 1, 1, 1, 1, 1, 1, 1];
 
-        for relation in relations_on_zn {
-            println!("{}", relation)
-        }
+        assert!(relations_on_zn
+            .iter()
+            .find(|relation| relation.matrix_normal == bottom)
+            .is_some());
+        assert!(relations_on_zn
+            .iter()
+            .find(|relation| relation.matrix_normal == zero_dagger)
+            .is_some());
+        assert!(relations_on_zn
+            .iter()
+            .find(|relation| relation.matrix_normal == zero)
+            .is_some());
+        assert!(relations_on_zn
+            .iter()
+            .find(|relation| relation.matrix_normal == one)
+            .is_some());
+        assert!(relations_on_zn
+            .iter()
+            .find(|relation| relation.matrix_normal == two)
+            .is_some());
+        assert!(relations_on_zn
+            .iter()
+            .find(|relation| relation.matrix_normal == top)
+            .is_some());
     }
 }
