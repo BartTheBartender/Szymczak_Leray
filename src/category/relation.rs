@@ -277,6 +277,8 @@ mod test {
         assert_eq!(relations.len(), 0);
         assert_eq!(zero.source(), one.source());
         assert_eq!(one.source(), top.target());
+
+        assert_ne!(zero.matrix_normal, zero.matrix_transposed);
         assert_eq!(zero.matrix_normal, zero_dagger.matrix_transposed);
 
         for relation in relations.iter() {
