@@ -285,28 +285,47 @@ impl<Object: Eq + Display, M: Morphism<Object, Object>, E: EndoMorphism<Object> 
     }
 }
 
-/*
 #[cfg(test)]
 mod test {
     use super::*;
+    use crate::{CanonModule, Fin, Relation};
     use typenum::{U11, U13, U2, U3, U5, U7};
 
-    #[allow(unused_imports)]
-    use crate::{
-        category::{relation::Relation, Category, HomSet},
-        rmodule::canon::CanonModule,
-    };
-    // use bitvec::prelude::*;
-    // use std::{collections::HashMap, sync::Arc};
-
     #[test]
-    fn zp_category_length() {
-        let primes = [U2, U3, U5, U7, U11, U13];
-        for prime in primes {
-            let category = Category::new(1);
-            let szymczak_category = SzymczakCategory::szymczak_functor(&category);
-            assert_eq!(szymczak_category.szymczak_classes.len(), prime.into())
-        }
+    fn szymczak_isomorphic() {
+        type R = Fin<U5>;
+
+        let category = Category::<CanonModule<R>, Relation<R>>::new(1);
+        let szymczak_category = SzymczakCategory::szymczak_functor(&category);
+
+        //już nie działa
+        //assert_eq!(szymczak_category.szymczak_classes.len(), 5);
+
+        let mut szymczak_class: Vec<Relation<R>> = szymczak_category
+            .szymczak_classes
+            .iter()
+            .find(|szymczak_class| {
+                let szymczak_class_fixed_object = szymczak_class
+                    .values()
+                    .next()
+                    .expect("there are endos in szymczak_class");
+                szymczak_class_fixed_object.len() == 2
+            })
+            .expect("there should be wrong szymczak class")
+            .values()
+            .next()
+            .expect("this szymczak class is one-dimensional")
+            .to_vec();
+
+        let left = szymczak_class.pop().expect("there are two");
+        let right = szymczak_class.pop().expect("there are two");
+
+        let are_szymczak_isomorphic: bool = SzymczakCategory::are_szymczak_isomorphic(
+            (&left, &(left.cycle())),
+            (&right, &(right.cycle())),
+            &category.hom_sets,
+        );
+
+        assert!(!are_szymczak_isomorphic);
     }
 }
-*/

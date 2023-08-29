@@ -103,9 +103,12 @@ use crate::{
     rmodule::{canon::CanonModule, map::CanonToCanon, ring::Fin},
     szymczak_category::SzymczakCategory,
 };
-use typenum::U2;
 
+//parameters for the code
+use typenum::U2 as N;
+pub const MAX_DIMENSION: Int = 2;
 pub type Int = u16;
-pub const RECURSION_PARAMETER_SZYMCZAK_FUNCTOR: usize = 100; //idk xD
+pub const RECURSION_PARAMETER_SZYMCZAK_FUNCTOR: usize = 20;
 
+type R = Fin<N>;
 fn main() {}
