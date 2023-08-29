@@ -211,12 +211,12 @@ pub mod category_of_relations {
         };
         use std::sync::Arc;
 
-        #[test]
-        fn helper_capacities_trivially_equal() {
-            use typenum::U2 as N;
-            type R = Fin<N>;
+        use typenum::U3 as N;
+        type R = Fin<N>;
 
-            let canon_modules: Vec<CanonModule<R>> = CoeffTree::<R, ()>::all_torsion_coeffs(2)
+        #[test]
+        fn capacities_trivially_equal() {
+            let canon_modules: Vec<CanonModule<R>> = CoeffTree::<R, ()>::all_torsion_coeffs(3)
                 .into_iter()
                 .map(|torsion_coeffs| CanonModule::new(torsion_coeffs))
                 .collect();
@@ -231,24 +231,51 @@ pub mod category_of_relations {
             });
         }
 
-        /*
         #[test]
-        fn helper_data() {
-            use typenum::U6 as N;
-            type R = Fin<N>;
-
-            let canon_modules: Vec<CanonModule<R>> = CoeffTree::<R, ()>::all_torsion_coeffs(1)
+        fn capacity() {
+            let zn: CanonModule<R> = CoeffTree::<R, ()>::all_torsion_coeffs(1)
                 .into_iter()
                 .map(|torsion_coeffs| CanonModule::new(torsion_coeffs))
-                .collect();
+                .next()
+                .unwrap();
 
-            for canon_module in canon_modules.iter() {
-                println!("{:?}", canon_module);
-            }
-
-            let output = canon_modules.iter().map(|source| {canon_module.iter().map(|target| canon_module.iter().map(|target| DirectModule::<R>::sumproduct(source, target.duplicate())
-            println!("{:?}", output);
+            assert_eq!(HelperData::capacity(&zn, &zn), 9);
         }
-        */
+
+        #[test]
+        fn indices() {
+            let mut zn_modules = CoeffTree::<R, ()>::all_torsion_coeffs(2)
+                .into_iter()
+                .map(|torsion_coeffs| CanonModule::new(torsion_coeffs));
+
+            let zn: CanonModule<R> = zn_modules.next().expect("there are exactly two modules");
+            let znxzn: CanonModule<R> = zn_modules.next().expect("there are exactly two modules");
+
+            assert!(!zn_modules.next().is_some());
+
+            let indices: Vec<Int> = HelperData::indices(&zn, &znxzn);
+            assert_eq!(indices, vec![1, 3, 9]);
+
+            let indices: Vec<Int> = HelperData::indices(&znxzn, &zn);
+            assert_eq!(indices, vec![1, 3, 9]);
+        }
+
+        #[test]
+        fn torsion_coeffs_vec() {
+            let mut zn_modules = CoeffTree::<R, ()>::all_torsion_coeffs(2)
+                .into_iter()
+                .map(|torsion_coeffs| CanonModule::new(torsion_coeffs));
+
+            let zn: CanonModule<R> = zn_modules.next().expect("there are exactly two modules");
+            let znxzn: CanonModule<R> = zn_modules.next().expect("there are exactly two modules");
+
+            assert!(!zn_modules.next().is_some());
+
+            let torsion_coeffs_vec: Vec<Int> = HelperData::torsion_coeffs_vec(&zn, &znxzn);
+            assert_eq!(torsion_coeffs_vec, vec![3, 3, 3]);
+
+            let torsion_coeffs_vec: Vec<Int> = HelperData::torsion_coeffs_vec(&znxzn, &zn);
+            assert_eq!(torsion_coeffs_vec, vec![3, 3, 3]);
+        }
     }
 }
