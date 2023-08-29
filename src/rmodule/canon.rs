@@ -313,6 +313,39 @@ mod test {
     }
 
     #[test]
+    fn elements() {
+        type R = Fin<U12>;
+        let a = CanonModule::new(CoeffTree::<R, ()>::from_iter([R::new(1)]));
+        assert_eq!(
+            a.all_elements()
+                .map(|element| element.into_values().collect::<Vec<_>>())
+                .collect::<Vec<_>>(),
+            vec![vec![R::new(0)]]
+        );
+
+        let a = CanonModule::new(CoeffTree::<R, ()>::from_iter([R::new(3)]));
+        assert_eq!(
+            a.all_elements()
+                .map(|element| element.into_values().collect::<Vec<_>>())
+                .collect::<Vec<_>>(),
+            vec![vec![R::new(0)], vec![R::new(1)], vec![R::new(2)]]
+        );
+
+        let a = CanonModule::new(CoeffTree::<R, ()>::from_iter([R::new(2), R::new(2)]));
+        assert_eq!(
+            a.all_elements()
+                .map(|element| element.into_values().collect::<Vec<_>>())
+                .collect::<Vec<_>>(),
+            vec![
+                vec![R::new(0), R::new(0)],
+                vec![R::new(0), R::new(1)],
+                vec![R::new(1), R::new(0)],
+                vec![R::new(1), R::new(1)]
+            ]
+        );
+    }
+
+    #[test]
     fn module_division() {
         type R = Fin<U12>;
         assert_eq!(
@@ -529,6 +562,83 @@ mod test {
                     R::new(2)
                 ]))),
                 Arc::clone(&z2xz4_arc),
+                Matrix::from_buffer([R::new(1), R::new(0), R::new(0), R::new(1)], 2, 2),
+            )),
+            "full submodule"
+        );
+
+        assert_eq!(submodules.next(), None);
+    }
+
+    #[test]
+    #[allow(non_snake_case)] // module names look this way
+    fn submodules_of_Z3xZ3() {
+        type R = Fin<U3>;
+        let z3xz3 = CanonModule::new(CoeffTree::<R, ()>::from_iter([R::new(3), R::new(3)]));
+        let mut submodules = z3xz3.submodules().into_iter();
+        let z3xz3_arc = Arc::new(CanonModule::new(CoeffTree::<R, ()>::from_iter([
+            R::new(3),
+            R::new(3),
+        ])));
+
+        assert_eq!(
+            submodules.next(),
+            Some(CanonToCanon::new(
+                Arc::new(CanonModule::new(CoeffTree::<R, ()>::from_iter([R::new(1)]))),
+                Arc::clone(&z3xz3_arc),
+                Matrix::from_buffer([R::new(0), R::new(0)], 1, 2),
+            )),
+            "trivial submodule"
+        );
+
+        assert_eq!(
+            submodules.next(),
+            Some(CanonToCanon::new(
+                Arc::new(CanonModule::new(CoeffTree::<R, ()>::from_iter([R::new(3)]))),
+                Arc::clone(&z3xz3_arc),
+                Matrix::from_buffer([R::new(0), R::new(1)], 1, 2),
+            )),
+            "left Z3"
+        );
+
+        assert_eq!(
+            submodules.next(),
+            Some(CanonToCanon::new(
+                Arc::new(CanonModule::new(CoeffTree::<R, ()>::from_iter([R::new(3)]))),
+                Arc::clone(&z3xz3_arc),
+                Matrix::from_buffer([R::new(1), R::new(0)], 1, 2),
+            )),
+            "right Z3"
+        );
+
+        assert_eq!(
+            submodules.next(),
+            Some(CanonToCanon::new(
+                Arc::new(CanonModule::new(CoeffTree::<R, ()>::from_iter([R::new(3)]))),
+                Arc::clone(&z3xz3_arc),
+                Matrix::from_buffer([R::new(1), R::new(1)], 1, 2),
+            )),
+            "middle Z3"
+        );
+
+        assert_eq!(
+            submodules.next(),
+            Some(CanonToCanon::new(
+                Arc::new(CanonModule::new(CoeffTree::<R, ()>::from_iter([R::new(3)]))),
+                Arc::clone(&z3xz3_arc),
+                Matrix::from_buffer([R::new(2), R::new(1)], 1, 2),
+            )),
+            "skew Z3"
+        );
+
+        assert_eq!(
+            submodules.next(),
+            Some(CanonToCanon::new(
+                Arc::new(CanonModule::new(CoeffTree::<R, ()>::from_iter([
+                    R::new(3),
+                    R::new(3)
+                ]))),
+                Arc::clone(&z3xz3_arc),
                 Matrix::from_buffer([R::new(1), R::new(0), R::new(0), R::new(1)], 2, 2),
             )),
             "full submodule"

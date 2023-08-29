@@ -439,6 +439,10 @@ mod test {
         let submodules = zn_zn_direct.submodules_goursat();
         println!("{:?}", zn_zn_direct.module());
 
+        for submodule in zn_zn_direct.submodules_goursat() {
+            dbg!(submodule);
+        }
+
         assert_eq!(zn_zn_direct.submodules_goursat().count(), 6); //TUTAJ JEST PROBLEM!!!
 
         let relations_on_zn: Vec<Relation<R>> = submodules

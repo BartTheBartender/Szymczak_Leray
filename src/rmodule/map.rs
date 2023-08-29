@@ -7,7 +7,7 @@ use crate::{
         torsion::CoeffTree,
         Module,
     },
-    util::iterator::Dedup,
+    util::iterator::{product, Dedup},
 };
 use itertools::Itertools;
 use std::{
@@ -85,6 +85,35 @@ impl<R: SuperRing> CanonToCanon<R> {
             .collect();
         im.clear_duplicates();
         im
+    }
+
+    pub fn hom(
+        source: Arc<CanonModule<R>>,
+        target: Arc<CanonModule<R>>,
+    ) -> impl Iterator<Item = Self> {
+        let dim = source.dimension();
+        let source_coeffs = source.torsion_coeffs().collect::<Vec<_>>();
+        product(
+            target.all_elements().collect::<Vec<_>>().into_iter(),
+            dim.try_into().unwrap(),
+        )
+        .filter(move |cols| {
+            cols.iter()
+                .zip(source_coeffs.clone())
+                .all(|(col, source_coeff)| {
+                    col.coeffs().zip(col.values()).all(|(target_coeff, value)| {
+                        value.is_zero() || ((*value * source_coeff) % target_coeff).is_zero()
+                    })
+                })
+        })
+        .map(move |cols| {
+            Matrix::from_cols(
+                cols.into_iter()
+                    .map(|col| col.into_values().collect::<Vec<_>>()),
+                dim.try_into().unwrap(),
+            )
+        })
+        .map(move |matrix| Self::new(Arc::clone(&source), Arc::clone(&target), matrix))
     }
 }
 
@@ -253,6 +282,89 @@ mod test {
     use typenum::U36;
 
     type R = Fin<U36>;
+
+    #[test]
+    fn homs() {
+        let z2 = Arc::new(CanonModule::new(CoeffTree::<R, ()>::from_iter([R::new(2)])));
+        let z3 = Arc::new(CanonModule::new(CoeffTree::<R, ()>::from_iter([R::new(3)])));
+        let z4 = Arc::new(CanonModule::new(CoeffTree::<R, ()>::from_iter([R::new(4)])));
+
+        let mut hom_z2_z3 = CanonToCanon::hom(Arc::clone(&z2), Arc::clone(&z3));
+        assert_eq!(
+            hom_z2_z3.next(),
+            Some(CanonToCanon::new(
+                Arc::clone(&z2),
+                Arc::clone(&z3),
+                Matrix::from_buffer([R::new(0)], 1, 1),
+            ))
+        );
+        assert_eq!(hom_z2_z3.next(), None,);
+
+        let mut hom_z2_z4 = CanonToCanon::hom(Arc::clone(&z2), Arc::clone(&z4));
+        assert_eq!(
+            hom_z2_z4.next(),
+            Some(CanonToCanon::new(
+                Arc::clone(&z2),
+                Arc::clone(&z4),
+                Matrix::from_buffer([R::new(0)], 1, 1),
+            ))
+        );
+        assert_eq!(
+            hom_z2_z4.next(),
+            Some(CanonToCanon::new(
+                Arc::clone(&z2),
+                Arc::clone(&z4),
+                Matrix::from_buffer([R::new(2)], 1, 1),
+            ))
+        );
+        assert_eq!(hom_z2_z4.next(), None,);
+
+        let mut hom_z4_z2 = CanonToCanon::hom(Arc::clone(&z4), Arc::clone(&z2));
+        assert_eq!(
+            hom_z4_z2.next(),
+            Some(CanonToCanon::new(
+                Arc::clone(&z4),
+                Arc::clone(&z2),
+                Matrix::from_buffer([R::new(0)], 1, 1),
+            ))
+        );
+        assert_eq!(
+            hom_z4_z2.next(),
+            Some(CanonToCanon::new(
+                Arc::clone(&z4),
+                Arc::clone(&z2),
+                Matrix::from_buffer([R::new(1)], 1, 1),
+            ))
+        );
+        assert_eq!(hom_z4_z2.next(), None,);
+
+        let mut hom_z3_z3 = CanonToCanon::hom(Arc::clone(&z3), Arc::clone(&z3));
+        assert_eq!(
+            hom_z3_z3.next(),
+            Some(CanonToCanon::new(
+                Arc::clone(&z3),
+                Arc::clone(&z3),
+                Matrix::from_buffer([R::new(0)], 1, 1),
+            ))
+        );
+        assert_eq!(
+            hom_z3_z3.next(),
+            Some(CanonToCanon::new(
+                Arc::clone(&z3),
+                Arc::clone(&z3),
+                Matrix::from_buffer([R::new(1)], 1, 1),
+            ))
+        );
+        assert_eq!(
+            hom_z3_z3.next(),
+            Some(CanonToCanon::new(
+                Arc::clone(&z3),
+                Arc::clone(&z3),
+                Matrix::from_buffer([R::new(2)], 1, 1),
+            ))
+        );
+        assert_eq!(hom_z3_z3.next(), None,);
+    }
 
     #[test]
     fn kernel_zero() {
