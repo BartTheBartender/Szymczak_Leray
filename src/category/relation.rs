@@ -186,7 +186,7 @@ impl<R: SuperRing>
         println!("{:?}", submodule);
 
         for element in submodule.image().into_iter() {
-            let element_as_vec: Vec<Int> = element.coeffs().map(|x| x.get()).collect();
+            let element_as_vec: Vec<Int> = element.into_values().map(|x| x.get()).collect();
             println!("element: \t{:?}", element_as_vec); //dupa debugging
 
             /*
