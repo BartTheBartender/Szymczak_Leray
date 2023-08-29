@@ -429,13 +429,17 @@ mod test {
                 .unwrap(),
         );
 
-        let zn_zn_direct =
-            DirectModule::<R>::sumproduct(&Arc::clone(&zn_module), &Arc::clone(&zn_module));
+        let zn_zn_direct = DirectModule::<R>::sumproduct(
+            &Arc::clone(&zn_module),
+            &Arc::new(zn_module.duplicate()),
+        );
 
         let (helper_indices_normal, helper_indices_transposed, helper_capacity) =
             util::category_of_relations::helper_indices_and_capacity(&zn_zn_direct);
         let submodules = zn_zn_direct.submodules_goursat();
         println!("{:?}", zn_zn_direct.module());
+
+        assert_eq!(zn_zn_direct.submodules_goursat().count(), 6); //TUTAJ JEST PROBLEM!!!
 
         let relations_on_zn: Vec<Relation<R>> = submodules
             .into_iter()

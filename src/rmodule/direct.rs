@@ -505,7 +505,7 @@ mod test {
     }
 
     #[test]
-    fn sumproduct_bartek() {
+    fn sumproduct_and_duplicate() {
         use typenum::U3 as N;
         type R = Fin<N>;
 
