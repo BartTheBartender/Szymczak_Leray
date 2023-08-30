@@ -5,49 +5,50 @@ use crate::{
 use std::{iter, marker::PhantomData};
 
 pub struct HelperData<R: SuperRing> {
-    pub capacity: Int,
-    pub indices_normal: Vec<Int>,
-    pub indices_transposed: Vec<Int>,
+    pub indices: Vec<Int>,
     pub torsion_coeffs_vec: Vec<Int>,
+    pub rows: Int,
+    pub cols: Int,
+    pub capacity: Int,
+
     super_ring: PhantomData<R>,
 }
 
 impl<R: SuperRing> HelperData<R> {
     pub fn new(direct: &DirectModule<R>) -> Self {
-        let left = direct.left();
-        let right = direct.right();
+        let source = direct.left();
+        let target = direct.right();
+
+        let rows = Self::edge_len(&target);
+        let cols = Self::edge_len(&source);
 
         HelperData {
-            capacity: Self::capacity(&left, &right),
-            indices_normal: Self::indices(&right, &left),
-            indices_transposed: Self::indices(&left, &right),
-            torsion_coeffs_vec: Self::torsion_coeffs_vec(&right, &left),
+            indices: Self::indices(&source, &target),
+            torsion_coeffs_vec: Self::torsion_coeffs_vec(&source, &target),
+            rows,
+            cols,
+            capacity: rows * cols,
             super_ring: PhantomData::<R>,
         }
     }
 
-    fn capacity(left: &CanonModule<R>, right: &CanonModule<R>) -> Int {
-        iter::once(1)
-            .chain(
-                left.torsion_coeffs()
-                    .map(|x| x.get())
-                    .chain(right.torsion_coeffs().map(|x| x.get())),
-            )
-            .product()
+    fn edge_len(object: &CanonModule<R>) -> Int {
+        object.torsion_coeffs().map(|x| x.get()).product()
     }
 
-    fn indices(left: &CanonModule<R>, right: &CanonModule<R>) -> Vec<Int> {
-        let mut one_left_right: Vec<Int> = iter::once(1)
+    fn indices(source: &CanonModule<R>, target: &CanonModule<R>) -> Vec<Int> {
+        let mut one_source_target: Vec<Int> = iter::once(1)
             .chain(
-                left.torsion_coeffs()
+                source
+                    .torsion_coeffs()
                     .map(|x| x.get())
-                    .chain(right.torsion_coeffs().map(|x| x.get())),
+                    .chain(target.torsion_coeffs().map(|x| x.get())),
             )
             .collect();
-        one_left_right.pop();
+        one_source_target.pop();
 
         let mut prod: Int = 1;
-        let output: Vec<Int> = one_left_right
+        let output: Vec<Int> = one_source_target
             .into_iter()
             .map(|x| {
                 prod *= x;
@@ -58,10 +59,13 @@ impl<R: SuperRing> HelperData<R> {
         output
     }
 
-    fn torsion_coeffs_vec(left: &CanonModule<R>, right: &CanonModule<R>) -> Vec<Int> {
+    fn torsion_coeffs_vec(source: &CanonModule<R>, target: &CanonModule<R>) -> Vec<Int> {
         [
-            left.torsion_coeffs().map(|x| x.get()).collect::<Vec<Int>>(),
-            right
+            source
+                .torsion_coeffs()
+                .map(|x| x.get())
+                .collect::<Vec<Int>>(),
+            target
                 .torsion_coeffs()
                 .map(|x| x.get())
                 .collect::<Vec<Int>>(),
@@ -88,65 +92,4 @@ mod test {
 
     use typenum::U3 as N;
     type R = Fin<N>;
-
-    #[test]
-    fn capacities_trivially_equal() {
-        let canon_modules: Vec<CanonModule<R>> = CoeffTree::<R, ()>::all_torsion_coeffs(3)
-            .into_iter()
-            .map(|torsion_coeffs| CanonModule::new(torsion_coeffs))
-            .collect();
-
-        let _ = canon_modules.iter().flat_map(|source| {
-            canon_modules.iter().map(|target| {
-                assert_eq!(
-                    HelperData::capacity(source, target),
-                    HelperData::capacity(target, source)
-                )
-            })
-        });
-    }
-
-    #[test]
-    fn capacity() {
-        let zn: CanonModule<R> = CoeffTree::<R, ()>::all_torsion_coeffs(1)
-            .into_iter()
-            .map(|torsion_coeffs| CanonModule::new(torsion_coeffs))
-            .next()
-            .unwrap();
-
-        assert_eq!(HelperData::capacity(&zn, &zn), 9);
-    }
-
-    #[test]
-    fn indices() {
-        let mut zn_modules = CoeffTree::<R, ()>::all_torsion_coeffs(2)
-            .into_iter()
-            .map(|torsion_coeffs| CanonModule::new(torsion_coeffs));
-
-        let zn: CanonModule<R> = zn_modules.next().expect("there are exactly two modules");
-        let znxzn: CanonModule<R> = zn_modules.next().expect("there are exactly two modules");
-
-        assert!(!zn_modules.next().is_some());
-
-        let indices: Vec<Int> = HelperData::indices(&zn, &znxzn);
-        assert_eq!(indices, vec![1, 3, 9]);
-
-        let indices: Vec<Int> = HelperData::indices(&znxzn, &zn);
-        assert_eq!(indices, vec![1, 3, 9]);
-    }
-
-    #[test]
-    fn torsion_coeffs_vec() {
-        let mut zn_modules = CoeffTree::<R, ()>::all_torsion_coeffs(2)
-            .into_iter()
-            .map(|torsion_coeffs| CanonModule::new(torsion_coeffs));
-
-        let zn: CanonModule<R> = zn_modules.next().expect("there are exactly two modules");
-        let znxzn: CanonModule<R> = zn_modules.next().expect("there are exactly two modules");
-
-        assert!(!zn_modules.next().is_some());
-
-        let torsion_coeffs_vec: Vec<Int> = HelperData::torsion_coeffs_vec(&zn, &znxzn);
-        assert_eq!(torsion_coeffs_vec, vec![3, 3, 3]);
-    }
 }

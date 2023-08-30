@@ -110,9 +110,4 @@ pub type Int = u16;
 pub const RECURSION_PARAMETER_SZYMCZAK_FUNCTOR: usize = 20;
 
 type R = Fin<N>;
-fn main() {
-    let category = Category::<CanonModule<R>, Relation<R>>::new(1);
-    let szymczak_category: SzymczakCategory<CanonModule<R>, Relation<R>, Relation<R>> =
-        SzymczakCategory::szymczak_functor(&category);
-    print!("{}", szymczak_category);
-}
+fn main() {}

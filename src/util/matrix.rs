@@ -8,7 +8,7 @@ use std::{
     ops::{Add, Mul, Neg, Rem},
 };
 
-#[derive(Clone, PartialEq, Eq)]
+#[derive(Clone, PartialEq, Eq, Hash)]
 pub struct Matrix<T> {
     cols: u8,
     rows: u8,

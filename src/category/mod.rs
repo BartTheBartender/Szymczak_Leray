@@ -45,8 +45,8 @@ pub trait Duplicate {
 }
 
 impl<
-        Object: Eq + PartialEq + Hash + Clone + AllObjects + Duplicate + Display,
-        M: Morphism<Object, Object> + AllMorphisms<Object> + Display,
+        Object: Eq + PartialEq + Hash + Clone + AllObjects + Duplicate,
+        M: Morphism<Object, Object> + AllMorphisms<Object>,
     > Category<Object, M>
 {
     pub fn new(maximal_dimension: Int) -> Self {
