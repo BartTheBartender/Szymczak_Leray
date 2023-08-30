@@ -1,6 +1,5 @@
 use crate::{
     category::{AllObjects, Duplicate},
-    matrix::Matrix,
     rmodule::{
         direct::DirectModule,
         map::CanonToCanon,
@@ -8,6 +7,7 @@ use crate::{
         torsion::{Coeff, CoeffTree},
         Module,
     },
+    util::matrix::Matrix,
     Int,
 };
 use itertools::Itertools;

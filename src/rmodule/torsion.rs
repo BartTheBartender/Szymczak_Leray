@@ -1,7 +1,6 @@
 use crate::{
-    matrix::Matrix,
     rmodule::ring::{Ring, Zahl},
-    util::iterator::product,
+    util::{iterator::product, matrix::Matrix},
 };
 use derive_where::derive_where;
 use nanoid::nanoid;

@@ -92,7 +92,6 @@
 
 mod category;
 mod error;
-mod matrix;
 mod rmodule;
 mod szymczak_category;
 mod util;

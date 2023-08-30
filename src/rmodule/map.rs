@@ -1,13 +1,15 @@
 use crate::{
     category::morphism::{Compose, Morphism, PreAbelianMorphism},
-    matrix::Matrix,
     rmodule::{
         canon::{zn_dividedby_rxzm, CanonModule},
         ring::SuperRing,
         torsion::CoeffTree,
         Module,
     },
-    util::iterator::{product, Dedup},
+    util::{
+        iterator::{product, Dedup},
+        matrix::Matrix,
+    },
 };
 use itertools::Itertools;
 use std::{

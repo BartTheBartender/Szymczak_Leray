@@ -3,8 +3,8 @@ use crate::{
         morphism::{AbelianMorphism, Compose, Morphism, PreAbelianMorphism},
         Duplicate,
     },
-    matrix::Matrix,
     rmodule::{canon::CanonModule, map::CanonToCanon, ring::SuperRing, Module},
+    util::matrix::Matrix,
 };
 use itertools::iproduct;
 use std::{collections::BTreeSet, sync::Arc};
