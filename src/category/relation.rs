@@ -166,7 +166,6 @@ mod test {
     use std::{collections::HashMap, sync::Arc};
 
     #[test]
-    #[ignore]
     fn relation_composition_z5() {
         use typenum::U5 as N;
         type R = Fin<N>;
@@ -200,15 +199,59 @@ mod test {
         assert_eq!(zero.source(), one.source());
         assert_eq!(one.source(), top.target());
 
-        //36
-        //assert_eq!(bottom.compose_unchecked(&bottom), bottom);
-        //assert_eq!(bottom.compose_unchecked(&zero_dagger), zero_dagger);
-        //assert_eq!(bottom.compose_unchecked(&zero), bottom);
-        //assert_eq!(bottom.compose_unchecked(&one), bottom);
-        //assert_eq!(bottom.compose_unchecked(&two), bottom);
-        //assert_eq!(bottom.compose_unchecked(&three), bottom);
-        //assert_eq!(bottom.compose_unchecked(&four), bottom);
-        // assert_eq!(bottom.compose_unchecked(&top), zero_dagger);
+        //36 = 8 + 7 + 6 + 5 + 4 + 3 + 2 + 1
+
+        //8
+        assert_eq!(bottom.compose_unchecked(&bottom), bottom);
+        assert_eq!(bottom.compose_unchecked(&zero_dagger), zero_dagger);
+        assert_eq!(bottom.compose_unchecked(&zero), bottom);
+        assert_eq!(bottom.compose_unchecked(&one), bottom);
+        assert_eq!(bottom.compose_unchecked(&two), bottom);
+        assert_eq!(bottom.compose_unchecked(&three), bottom);
+        assert_eq!(bottom.compose_unchecked(&four), bottom);
+        assert_eq!(bottom.compose_unchecked(&top), zero_dagger);
+
+        //7
+        assert_eq!(zero_dagger.compose_unchecked(&zero_dagger), zero_dagger);
+        assert_eq!(zero_dagger.compose_unchecked(&zero), bottom);
+        assert_eq!(zero_dagger.compose_unchecked(&one), zero_dagger);
+        assert_eq!(zero_dagger.compose_unchecked(&two), zero_dagger);
+        assert_eq!(zero_dagger.compose_unchecked(&three), zero_dagger);
+        assert_eq!(zero_dagger.compose_unchecked(&four), zero_dagger);
+        assert_eq!(zero_dagger.compose_unchecked(&top), zero_dagger);
+
+        //6
+        assert_eq!(zero.compose_unchecked(&zero), zero);
+        assert_eq!(zero.compose_unchecked(&one), zero);
+        assert_eq!(zero.compose_unchecked(&two), zero);
+        assert_eq!(zero.compose_unchecked(&three), zero);
+        assert_eq!(zero.compose_unchecked(&four), zero);
+        assert_eq!(zero.compose_unchecked(&top), top);
+
+        //5
+        assert_eq!(one.compose_unchecked(&one), one);
+        assert_eq!(one.compose_unchecked(&two), two);
+        assert_eq!(one.compose_unchecked(&three), three);
+        assert_eq!(one.compose_unchecked(&four), four);
+        assert_eq!(one.compose_unchecked(&top), top);
+
+        //4
+        assert_eq!(two.compose_unchecked(&two), four);
+        assert_eq!(two.compose_unchecked(&three), one);
+        assert_eq!(two.compose_unchecked(&four), three);
+        assert_eq!(two.compose_unchecked(&top), top);
+
+        //3
+        assert_eq!(three.compose_unchecked(&three), four);
+        assert_eq!(three.compose_unchecked(&four), two);
+        assert_eq!(three.compose_unchecked(&top), top);
+
+        //2
+        assert_eq!(four.compose_unchecked(&four), one);
+        assert_eq!(four.compose_unchecked(&top), top);
+
+        //1
+        assert_eq!(top.compose_unchecked(&top), top);
     }
 
     #[test]
@@ -240,39 +283,43 @@ mod test {
             })
             .collect();
 
-        let bottom = bitvec![1, 0, 0, 0, 0, 0, 0, 0, 0];
-        let zero_dagger = bitvec![1, 1, 1, 0, 0, 0, 0, 0, 0];
-        let zero = bitvec![1, 0, 0, 1, 0, 0, 1, 0, 0];
-        let one = bitvec![1, 0, 0, 0, 1, 0, 0, 0, 1];
-        let two = bitvec![1, 0, 0, 0, 0, 1, 0, 1, 0];
-        let top = bitvec![1, 1, 1, 1, 1, 1, 1, 1, 1];
+        let bottom = vec![1, 0, 0, 0, 0, 0, 0, 0, 0];
+        let zero_dagger = vec![1, 0, 0, 1, 0, 0, 1, 0, 0];
+        let zero = vec![1, 1, 1, 0, 0, 0, 0, 0, 0];
+        let one = vec![1, 0, 0, 0, 1, 0, 0, 0, 1];
+        let two = vec![1, 0, 0, 0, 0, 1, 0, 1, 0];
+        let top = vec![1, 1, 1, 1, 1, 1, 1, 1, 1];
 
-        /*
         assert!(relations_on_zn
             .iter()
-            .find(|relation| relation.matrix_normal == bottom)
+            .find(|relation| relation
+                .matrix
+                .buffer()
+                .iter()
+                .map(|x| x.get())
+                .collect::<Vec<Int>>()
+                == bottom)
+            .is_some());
+        /*assert!(relations_on_zn
+            .iter()
+            .find(|relation| relation.matrix.buffer() == zero_dagger)
             .is_some());
         assert!(relations_on_zn
             .iter()
-            .find(|relation| relation.matrix_normal == zero_dagger)
+            .find(|relation| relation.matrix.buffer() == zero)
             .is_some());
         assert!(relations_on_zn
             .iter()
-            .find(|relation| relation.matrix_normal == zero)
+            .find(|relation| relation.matrix.buffer() == one)
             .is_some());
         assert!(relations_on_zn
             .iter()
-            .find(|relation| relation.matrix_normal == one)
+            .find(|relation| relation.matrix.buffer() == two)
             .is_some());
         assert!(relations_on_zn
             .iter()
-            .find(|relation| relation.matrix_normal == two)
-            .is_some());
-        assert!(relations_on_zn
-            .iter()
-            .find(|relation| relation.matrix_normal == top)
-            .is_some());
-        */
+            .find(|relation| relation.matrix.buffer() == top)
+            .is_some());*/
     }
 
     #[test]
