@@ -16,19 +16,14 @@ pub struct HelperData<R: SuperRing> {
 
 impl<R: SuperRing> HelperData<R> {
     pub fn new(direct: &DirectModule<R>) -> Self {
-        let source = direct.left();
-        let target = direct.right();
-
-        let rows = Self::edge_len(&target);
-        let cols = Self::edge_len(&source);
+        let left = direct.left();
+        let right = direct.right();
 
         HelperData {
-            indices: Self::indices(&source, &target),
-            torsion_coeffs_vec: Self::torsion_coeffs_vec(&source, &target),
-            rows,
-            cols,
-            capacity: rows * cols,
-            super_ring: PhantomData::<R>,
+            capacity: Self::capacity(&left, &right),
+            indices_normal: Self::indices(&right, &left),
+            indices_transposed: Self::indices(&left, &right),
+            torsion_coeffs_vec: Self::torsion_coeffs_vec(&right, &left),
         }
     }
 
