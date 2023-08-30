@@ -89,7 +89,36 @@ impl<R: SuperRing>
             &HelperData<R>,
         ),
     ) -> Self {
-        todo!()
+        type Bool = Fin<typenum::U2>; //tymczasowo
+        let (source, target, submodule, helper_data) = input;
+
+        let mut buffer: Vec<Bool> = vec![Bool::zero(); helper_data.capacity.into()]; //to
+
+        let elements = submodule.image().into_iter().map(|element| {
+            helper_data
+                .torsion_coeffs_vec
+                .iter()
+                .zip(element.into_values())
+                .map(|(tc, x)| x.get() % tc)
+                .collect::<Vec<Int>>()
+        });
+
+        let _ = elements.map(|element| {
+            let buffer_index: Int = helper_data
+                .indices
+                .iter()
+                .zip(element.into_iter())
+                .map(|(index, x)| x * index)
+                .sum::<Int>();
+
+            buffer[buffer_index as usize] = Bool::one();
+        });
+
+        Relation {
+            source,
+            target,
+            matrix: Matrix::from_buffer(buffer, helper_data.cols as u8, helper_data.rows as u8),
+        }
     }
 }
 
