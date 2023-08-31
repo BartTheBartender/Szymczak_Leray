@@ -7,9 +7,12 @@
 #![feature(trait_alias)]
 #![feature(associated_type_bounds)]
 #![feature(arc_unwrap_or_clone)]
+#![feature(lint_reasons)]
+#![feature(lazy_type_alias)]
+#![feature(slice_group_by)]
 // visual separator
-#![allow(incomplete_features)]
-#![allow(dead_code)] // REMOVE THIS LATER
+#![allow(incomplete_features, reason = "we need nightly features")]
+#![allow(dead_code, reason = "to be removed later")] // REMOVE THIS LATER
 /* clippy begin */
 #![warn(
     // regular groups
@@ -87,30 +90,31 @@
     clippy::unneeded_field_pattern,
     clippy::unseparated_literal_suffix,
 )]
-#![allow(clippy::match_bool)]
+#![allow(clippy::match_bool, reason = "i find it more readable")]
 /* clippy end */
 
-mod category;
-mod error;
-mod rmodule;
-mod szymczak_category;
-mod util;
+// mod category;
+// mod error;
+// mod matrix;
+mod ralg;
+// mod rmodule;
+// mod szymczak_category;
+// mod util;
 
-#[allow(unused_imports)]
-use crate::{
-    category::{relation::Relation, Category},
-    rmodule::{canon::CanonModule, map::CanonToCanon, ring::Fin, torsion::CoeffTree},
-    szymczak_category::SzymczakCategory,
-};
-use std::time::{Duration, Instant};
+// - - -
 
-//parameters for the code
-use typenum::U3 as N;
-pub const MAX_DIMENSION: Int = 2;
-pub type Int = u16;
+// parameters for the code
+// pub type Int = u16;
+// pub const RECURSION_PARAMETER_SZYMCZAK_FUNCTOR: usize = 100; //idk xD
+// use typenum::U2;
+// use typenum::U3 as N;
+// pub const MAX_DIMENSION: Int = 2;
+// pub type Int = u16;
+// use std::time::{Duration, Instant};
+// type R = Fin<N>;
 
-type R = Fin<N>;
-fn main() {
+const fn main() {
+    /*
     let category_time = Instant::now();
     let category = Category::<CanonModule<R>, Relation<R>>::new(MAX_DIMENSION);
     println!("category generated after {:?}", category_time.elapsed());
@@ -120,4 +124,5 @@ fn main() {
         "szymczak classes generated after {:?}",
         szymczak_classes_time.elapsed()
     );
+    */
 }
