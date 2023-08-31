@@ -99,15 +99,20 @@ mod util;
 #[allow(unused_imports)]
 use crate::{
     category::{relation::Relation, Category},
-    rmodule::{canon::CanonModule, map::CanonToCanon, ring::Fin},
+    rmodule::{canon::CanonModule, map::CanonToCanon, ring::Fin, torsion::CoeffTree},
     szymczak_category::SzymczakCategory,
 };
 
 //parameters for the code
-use typenum::U5 as N;
-pub const MAX_DIMENSION: Int = 2;
+use typenum::U3 as N;
+pub const MAX_DIMENSION: Int = 3;
 pub type Int = u16;
 pub const RECURSION_PARAMETER_SZYMCZAK_FUNCTOR: usize = 20;
 
 type R = Fin<N>;
-fn main() {}
+fn main() {
+    /*
+    let category = Category::<CanonModule<R>, Relation<R>>::new(MAX_DIMENSION);
+    let szymczak_category = SzymczakCategory::szymczak_functor(&category);
+    */
+}

@@ -20,7 +20,7 @@ use bitvec::prelude::*;
 use rayon::prelude::*;
 use std::{
     collections::{HashMap, HashSet},
-    fmt::{self, Debug},
+    fmt::{self, Debug, Display},
     sync::Arc,
 };
 use typenum;
@@ -33,6 +33,15 @@ pub struct Relation<R: SuperRing> {
 }
 
 impl<R: SuperRing> Debug for Relation<R> {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        write!(
+            f,
+            "s:{:?}, t:{:?}, {:?}",
+            self.source, self.target, self.matrix
+        )
+    }
+}
+impl<R: SuperRing> Display for Relation<R> {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         write!(
             f,
@@ -163,7 +172,10 @@ mod test {
         Int,
     };
     use bitvec::prelude::*;
-    use std::{collections::HashMap, sync::Arc};
+    use std::{
+        collections::{HashMap, HashSet},
+        sync::Arc,
+    };
 
     #[test]
     fn relation_composition_z5() {
@@ -255,10 +267,11 @@ mod test {
     }
 
     #[test]
-    #[ignore]
     fn z3_category_step_by_step() {
-        use typenum::U3 as N;
+        use crate::util::matrix::Matrix;
+        use typenum::{Unsigned, U3 as N};
         type R = Fin<N>;
+        type Bool = Fin<typenum::U2>;
 
         let zn_module: Arc<CanonModule<R>> = Arc::new(
             CoeffTree::<R, ()>::all_torsion_coeffs(1)
@@ -276,54 +289,49 @@ mod test {
         let submodules = direct.submodules_goursat();
         let helper_data = HelperData::<R>::new(&direct);
 
-        let relations_on_zn: Vec<Relation<R>> = submodules
+        let relations_zn_out: Vec<Relation<R>> = submodules
             .into_iter()
             .map(|submodule| {
                 Relation::<R>::from((direct.left(), direct.right(), submodule, &helper_data))
             })
             .collect();
 
-        let bottom = vec![1, 0, 0, 0, 0, 0, 0, 0, 0];
-        let zero_dagger = vec![1, 0, 0, 1, 0, 0, 1, 0, 0];
-        let zero = vec![1, 1, 1, 0, 0, 0, 0, 0, 0];
-        let one = vec![1, 0, 0, 0, 1, 0, 0, 0, 1];
-        let two = vec![1, 0, 0, 0, 0, 1, 0, 1, 0];
-        let top = vec![1, 1, 1, 1, 1, 1, 1, 1, 1];
+        assert_eq!(relations_zn_out.len(), 6);
 
-        assert!(relations_on_zn
-            .iter()
-            .find(|relation| relation
-                .matrix
-                .buffer()
+        let matrices_zn_out: Vec<Matrix<Bool>> = relations_zn_out
+            .into_iter()
+            .map(|relation| relation.matrix)
+            .collect();
+
+        let bottom: Vec<Int> = vec![1, 0, 0, 0, 0, 0, 0, 0, 0];
+        let zero_dagger: Vec<Int> = vec![1, 0, 0, 1, 0, 0, 1, 0, 0];
+        let zero: Vec<Int> = vec![1, 1, 1, 0, 0, 0, 0, 0, 0];
+        let one: Vec<Int> = vec![1, 0, 0, 0, 1, 0, 0, 0, 1];
+        let two: Vec<Int> = vec![1, 0, 0, 0, 0, 1, 0, 1, 0];
+        let top: Vec<Int> = vec![1, 1, 1, 1, 1, 1, 1, 1, 1];
+
+        let matrices_zn_raw = vec![bottom, zero, zero_dagger, one, two, top];
+
+        let matrices_zn_ok = matrices_zn_raw
+            .into_iter()
+            .map(|raw_buffer| {
+                raw_buffer
+                    .into_iter()
+                    .map(|bool| Bool::new(bool))
+                    .collect::<Vec<Bool>>()
+            })
+            .map(|buffer| Matrix::from_buffer(buffer, 3, 3))
+            .collect::<Vec<Matrix<Bool>>>();
+
+        let _ = matrices_zn_ok.iter().map(|ok_matrix| {
+            assert!(matrices_zn_out
                 .iter()
-                .map(|x| x.get())
-                .collect::<Vec<Int>>()
-                == bottom)
-            .is_some());
-        /*assert!(relations_on_zn
-            .iter()
-            .find(|relation| relation.matrix.buffer() == zero_dagger)
-            .is_some());
-        assert!(relations_on_zn
-            .iter()
-            .find(|relation| relation.matrix.buffer() == zero)
-            .is_some());
-        assert!(relations_on_zn
-            .iter()
-            .find(|relation| relation.matrix.buffer() == one)
-            .is_some());
-        assert!(relations_on_zn
-            .iter()
-            .find(|relation| relation.matrix.buffer() == two)
-            .is_some());
-        assert!(relations_on_zn
-            .iter()
-            .find(|relation| relation.matrix.buffer() == top)
-            .is_some());*/
+                .find(|out_matrix| *out_matrix == ok_matrix)
+                .is_some())
+        });
     }
 
     #[test]
-    #[ignore]
     fn z4_category_just_length() {
         use typenum::U4 as N;
         type R = Fin<N>;
@@ -355,14 +363,15 @@ mod test {
     }
 
     #[test]
-    #[ignore]
     fn z3_category_from_function() {
+        use crate::util::matrix::Matrix;
         use typenum::U3 as N;
+        type Bool = Fin<typenum::U2>;
         type R = Fin<N>;
 
         let category = Category::<CanonModule<R>, Relation<R>>::new(1);
 
-        assert_eq!(category.hom_sets.len(), 1); // nie uwględnia modułu trywialnego, do poprawy w przyszłości
+        assert_eq!(category.hom_sets.len(), 2);
 
         let hom_sets_fixed_source = category
             .hom_sets
@@ -381,7 +390,7 @@ mod test {
             })
             .expect("there is a relation with non-trivial source");
 
-        let relations_on_zn: Vec<Relation<R>> = hom_sets_fixed_source
+        let relations_zn_out: Vec<Relation<R>> = hom_sets_fixed_source
             .into_values()
             .find(|relations| {
                 relations
@@ -391,15 +400,39 @@ mod test {
             })
             .expect("there is a relation with non-trivial target");
 
-        assert_eq!(relations_on_zn.len(), 6);
+        assert_eq!(relations_zn_out.len(), 6);
 
-        let bottom = bitvec![1, 0, 0, 0, 0, 0, 0, 0, 0];
-        let zero_dagger = bitvec![1, 1, 1, 0, 0, 0, 0, 0, 0];
-        let zero = bitvec![1, 0, 0, 1, 0, 0, 1, 0, 0];
-        let one = bitvec![1, 0, 0, 0, 1, 0, 0, 0, 1];
-        let two = bitvec![1, 0, 0, 0, 0, 1, 0, 1, 0];
-        let top = bitvec![1, 1, 1, 1, 1, 1, 1, 1, 1];
+        let matrices_zn_out: Vec<Matrix<Bool>> = relations_zn_out
+            .into_iter()
+            .map(|relation| relation.matrix)
+            .collect();
 
+        let bottom: Vec<Int> = vec![1, 0, 0, 0, 0, 0, 0, 0, 0];
+        let zero_dagger: Vec<Int> = vec![1, 0, 0, 1, 0, 0, 1, 0, 0];
+        let zero: Vec<Int> = vec![1, 1, 1, 0, 0, 0, 0, 0, 0];
+        let one: Vec<Int> = vec![1, 0, 0, 0, 1, 0, 0, 0, 1];
+        let two: Vec<Int> = vec![1, 0, 0, 0, 0, 1, 0, 1, 0];
+        let top: Vec<Int> = vec![1, 1, 1, 1, 1, 1, 1, 1, 1];
+
+        let matrices_zn_raw = vec![bottom, zero, zero_dagger, one, two, top];
+
+        let matrices_zn_ok = matrices_zn_raw
+            .into_iter()
+            .map(|raw_buffer| {
+                raw_buffer
+                    .into_iter()
+                    .map(|bool| Bool::new(bool))
+                    .collect::<Vec<Bool>>()
+            })
+            .map(|buffer| Matrix::from_buffer(buffer, 3, 3))
+            .collect::<Vec<Matrix<Bool>>>();
+
+        let _ = matrices_zn_ok.iter().map(|ok_matrix| {
+            assert!(matrices_zn_out
+                .iter()
+                .find(|out_matrix| *out_matrix == ok_matrix)
+                .is_some())
+        });
         /*
         assert!(relations_on_zn
             .iter()

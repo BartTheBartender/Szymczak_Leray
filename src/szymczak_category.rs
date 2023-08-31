@@ -76,8 +76,6 @@ impl<
         }
     }
 
-    //----------------------------------------------------------------------
-
     fn raw_szymczak_functor(
         mut endomorphisms: EndoMorphisms<E>,
         hom_sets: &HomSet<Object, M>,
@@ -288,6 +286,24 @@ impl<Object: Eq + Display, M: Morphism<Object, Object>, E: EndoMorphism<Object> 
 #[cfg(test)]
 mod test {
     use super::*;
-    use crate::{CanonModule, Fin, Relation};
-    use typenum::{U11, U13, U2, U3, U5, U7};
+    use crate::{
+        category::{relation::Relation, Category},
+        rmodule::{canon::CanonModule, ring::Fin},
+        SzymczakCategory,
+    };
+
+    #[test]
+    fn szymczak_classes_for_zp() {
+        use typenum::{Unsigned, U2 as P};
+        type R = Fin<P>;
+        let p = P::to_usize();
+
+        let category = Category::<CanonModule<R>, Relation<R>>::new(1);
+        println!("{}\n---", category);
+        let szymczak_category = SzymczakCategory::szymczak_functor(&category);
+
+        println!("{}", szymczak_category);
+
+        // assert_eq!(szymczak_category.szymczak_classes.len(), p);
+    }
 }

@@ -138,9 +138,6 @@ where
     pub fn cols(&self) -> impl Iterator<Item = Vec<T>> + '_ {
         (0..self.cols).map(|col| self.col(col).copied().collect())
     }
-    pub fn buffer(&self) -> Vec<T> {
-        self.buffer.clone()
-    }
 }
 
 impl<T> Matrix<T>

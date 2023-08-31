@@ -11,7 +11,7 @@ use crate::{
     Int,
 };
 use itertools::Itertools;
-use std::{fmt, ops::Rem, sync::Arc};
+use std::{fmt, iter, ops::Rem, sync::Arc};
 
 /* # canonical module */
 
@@ -235,10 +235,17 @@ pub fn quotients_of_cyclic_module<R: SuperRing>(module: CanonModule<R>) -> Vec<C
 
 impl<R: SuperRing> AllObjects for CanonModule<R> {
     fn all_objects(maximal_dimension: Int) -> Vec<Self> {
-        CoeffTree::<R, ()>::all_torsion_coeffs(maximal_dimension)
-            .into_iter()
-            .map(CanonModule::<R>::new)
-            .collect::<Vec<Self>>()
+        match maximal_dimension {
+            0 => iter::once(CanonModule::new(CoeffTree::<R, ()>::from_iter([R::new(1)])))
+                .collect::<Vec<Self>>(),
+            positive => iter::once(CanonModule::new(CoeffTree::<R, ()>::from_iter([R::new(1)])))
+                .chain(
+                    CoeffTree::<R, ()>::all_torsion_coeffs(positive)
+                        .into_iter()
+                        .map(CanonModule::<R>::new),
+                )
+                .collect::<Vec<Self>>(),
+        }
     }
 }
 
@@ -643,5 +650,33 @@ mod test {
         );
 
         assert_eq!(submodules.next(), None);
+    }
+
+    #[test]
+    fn zero_dimensional_module() {
+        type R = Fin<U3>;
+        let modules = CanonModule::<R>::all_objects(0);
+
+        assert_eq!(modules.len(), 1);
+        assert_eq!(modules[0].to_string(), "Z1");
+    }
+
+    #[test]
+    fn z1_one_dimension_ambiguity() {
+        type R = Fin<typenum::U1>;
+        let modules = CanonModule::<R>::all_objects(1);
+
+        assert_eq!(modules.len(), 1);
+        assert_eq!(modules[0].to_string(), "Z1");
+    }
+
+    #[test]
+    fn one_dimensional_module() {
+        type R = Fin<U3>;
+        let modules = CanonModule::<R>::all_objects(1);
+
+        assert_eq!(modules.len(), 2);
+        assert_eq!(modules[0].to_string(), "Z1");
+        assert_eq!(modules[1].to_string(), "Z3");
     }
 }
