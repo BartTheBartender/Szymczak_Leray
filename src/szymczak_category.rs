@@ -293,6 +293,81 @@ mod test {
     };
 
     #[test]
+    fn szymczak_isomorphism_reflexive() {
+        use typenum::{Unsigned, U4 as N};
+        type R = Fin<N>;
+
+        let category = Category::<CanonModule<R>, Relation<R>>::new(1);
+
+        let hom_set_zn_zn: Vec<Relation<R>> = category
+            .clone()
+            .hom_sets
+            .into_iter()
+            .find(|(source, _)| source.cardinality() > 1)
+            .expect("there is a hom_set with non-trivial source")
+            .1
+            .into_iter()
+            .find(|(target, _)| target.cardinality() > 1)
+            .expect("there is a hom_set with non-trivial target")
+            .1;
+
+        for index in (0..hom_set_zn_zn.len()) {
+            let endo = &hom_set_zn_zn[index];
+
+            let endo_with_cycle = (endo, &endo.cycle());
+
+            assert!(SzymczakCategory::are_szymczak_isomorphic(
+                endo_with_cycle,
+                endo_with_cycle,
+                &category.hom_sets
+            ));
+        }
+    }
+
+    #[test]
+    fn szymczak_isomorphism_symmetric() {
+        use typenum::{Unsigned, U2 as N};
+        type R = Fin<N>;
+
+        let category = Category::<CanonModule<R>, Relation<R>>::new(1);
+
+        let hom_set_zn_zn: Vec<Relation<R>> = category
+            .clone()
+            .hom_sets
+            .into_iter()
+            .find(|(source, _)| source.cardinality() > 1)
+            .expect("there is a hom_set with non-trivial source")
+            .1
+            .into_iter()
+            .find(|(target, _)| target.cardinality() > 1)
+            .expect("there is a hom_set with non-trivial target")
+            .1;
+
+        for index_0 in 0..hom_set_zn_zn.len() {
+            let endo_0 = &hom_set_zn_zn[index_0];
+            let endo_with_cycle_0 = (endo_0, &endo_0.cycle());
+
+            for index_1 in 0..hom_set_zn_zn.len() {
+                let endo_1 = &hom_set_zn_zn[index_0];
+                let endo_with_cycle_1 = (endo_1, &endo_1.cycle());
+
+                if SzymczakCategory::are_szymczak_isomorphic(
+                    endo_with_cycle_0,
+                    endo_with_cycle_1,
+                    &category.hom_sets,
+                ) {
+                    assert!(SzymczakCategory::are_szymczak_isomorphic(
+                        endo_with_cycle_1,
+                        endo_with_cycle_0,
+                        &category.hom_sets,
+                    ));
+                }
+            }
+        }
+    }
+
+    #[test]
+    #[ignore]
     fn szymczak_classes_for_zp() {
         use typenum::{Unsigned, U2 as P};
         type R = Fin<P>;
@@ -304,6 +379,6 @@ mod test {
 
         println!("{}", szymczak_category);
 
-        // assert_eq!(szymczak_category.szymczak_classes.len(), p);
+        assert_eq!(szymczak_category.szymczak_classes.len(), p);
     }
 }
