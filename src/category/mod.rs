@@ -24,6 +24,7 @@ use std::{
 
 pub type HomSet<Object, M> = HashMap<Object, HashMap<Object, Vec<M>>>;
 
+#[derive(Clone)]
 pub struct Category<Object: Eq, M: Morphism<Object, Object>> {
     pub hom_sets: HomSet<Object, M>,
 }
@@ -46,7 +47,7 @@ pub trait Duplicate {
 
 impl<
         Object: Eq + PartialEq + Hash + Clone + AllObjects + Duplicate,
-        M: Morphism<Object, Object> + AllMorphisms<Object>,
+        M: Morphism<Object, Object> + AllMorphisms<Object> + Clone,
     > Category<Object, M>
 {
     pub fn new(maximal_dimension: Int) -> Self {
@@ -77,6 +78,16 @@ impl<
             .collect::<HomSet<Object, M>>();
 
         Category { hom_sets }
+    }
+
+    //why cant i use iterator?
+    pub fn objects(self) -> Vec<Object> {
+        self.hom_sets.into_keys().collect::<Vec<Object>>()
+    }
+
+    //why cant i use iterators?
+    pub fn morphisms(self) -> Vec<M> {
+        todo!()
     }
 }
 
