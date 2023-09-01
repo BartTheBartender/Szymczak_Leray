@@ -12,10 +12,10 @@ use std::{collections::BTreeSet, sync::Arc};
 #[allow(clippy::module_name_repetitions)]
 #[derive(Debug)]
 pub struct DirectModule<R: SuperRing> {
-    left_inclusion: CanonToCanon<R>,
-    right_inclusion: CanonToCanon<R>,
-    left_projection: CanonToCanon<R>,
-    right_projection: CanonToCanon<R>,
+    pub left_inclusion: CanonToCanon<R>,
+    pub right_inclusion: CanonToCanon<R>,
+    pub left_projection: CanonToCanon<R>,
+    pub right_projection: CanonToCanon<R>,
 }
 
 impl<R: SuperRing> DirectModule<R> {

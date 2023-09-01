@@ -63,6 +63,10 @@ impl<T> Matrix<T> {
         self.buffer.get(usize::from(col + self.cols * row))
     }
 
+    pub fn set(&mut self, col: u8, row: u8, value: T) {
+        self.buffer[usize::from(col + self.cols + row)] = value;
+    }
+
     /* # iters */
 
     pub fn iter(&self) -> impl Iterator<Item = &T> {

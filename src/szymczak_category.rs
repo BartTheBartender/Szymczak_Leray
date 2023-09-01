@@ -432,7 +432,6 @@ mod test {
     }
 
     #[test]
-    #[ignore]
     fn szymczak_isomorphism_different_base_objects() {
         use typenum::{Unsigned, U2 as P};
         type R = Fin<P>;
@@ -480,7 +479,6 @@ mod test {
     }
 
     #[test]
-    #[ignore]
     fn is_identity() {
         use typenum::{Unsigned, U2 as P};
         type R = Fin<P>;
@@ -556,7 +554,7 @@ mod test {
     #[test]
     #[ignore]
     fn szymczak_classes_for_zp() {
-        use typenum::{Unsigned, U2 as P};
+        use typenum::{Unsigned, U7 as P};
         type R = Fin<P>;
         let p = P::to_usize();
 

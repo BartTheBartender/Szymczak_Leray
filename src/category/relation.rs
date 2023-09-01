@@ -8,7 +8,7 @@ use crate::{
         canon::CanonModule,
         direct::DirectModule,
         map::CanonToCanon,
-        ring::{Fin, SuperRing},
+        ring::{Fin, Set, SuperRing},
         torsion::CoeffTree,
         Module,
     },
@@ -21,9 +21,10 @@ use rayon::prelude::*;
 use std::{
     collections::{HashMap, HashSet},
     fmt::{self, Debug, Display},
+    iter,
     sync::Arc,
 };
-use typenum;
+use typenum::Unsigned;
 
 #[derive(Clone, Hash, PartialEq, Eq)]
 pub struct Relation<R: SuperRing> {
@@ -76,56 +77,99 @@ impl<R: SuperRing> Compose<CanonModule<R>, CanonModule<R>, CanonModule<R>, Relat
     }
 }
 
-impl<R: SuperRing>
-    From<(
-        Arc<CanonModule<R>>,
-        Arc<CanonModule<R>>,
-        CanonToCanon<R>,
-        &HelperData<R>,
-    )> for Relation<R>
-{
+impl<R: SuperRing> From<(&DirectModule<R>, CanonToCanon<R>)> for Relation<R> {
     /**
     the morphism should be mono in order for this conversion to work
     although the implementation neglects to check this
 
     the morphism should be a submodule of the given module
     */
-    fn from(
-        input: (
-            Arc<CanonModule<R>>,
-            Arc<CanonModule<R>>,
-            CanonToCanon<R>,
-            &HelperData<R>,
-        ),
-    ) -> Self {
-        let (source, target, submodule, helper_data) = input;
+    fn from(input: (&DirectModule<R>, CanonToCanon<R>)) -> Self {
+        let (direct, submodule) = input;
+        let n: Int = <R as Set>::Card::to_usize() as Int;
 
-        let mut buffer: Vec<bool> = vec![false; helper_data.capacity.into()]; //to
+        let mut prod = 1;
+        let mut prod_ret = 1;
+        let source_index_shift: Vec<Int> = direct
+            .left()
+            .torsion_coeffs()
+            .map(|x| {
+                prod_ret = prod;
+                prod *= x.get();
+                prod_ret
+            })
+            .collect();
+        let cols = prod;
 
-        let elements = submodule.image().into_iter().map(|element| {
-            helper_data
-                .torsion_coeffs_vec
+        let source_tc: Vec<Int> = direct
+            .left()
+            .torsion_coeffs()
+            .into_iter()
+            .map(|tc| tc.get())
+            .collect();
+
+        let mut prod = 1;
+        let mut prod_ret = 1;
+        let target_index_shift: Vec<Int> = direct
+            .right()
+            .torsion_coeffs()
+            .map(|x| {
+                prod_ret = prod;
+                prod *= x.get();
+                prod_ret
+            })
+            .collect();
+        let rows = prod;
+
+        let target_tc: Vec<Int> = direct
+            .right()
+            .torsion_coeffs()
+            .into_iter()
+            .map(|tc| tc.get())
+            .collect();
+
+        let mut buffer = vec![false; (rows * cols) as usize];
+
+        for element in submodule.image().into_iter() {
+            let source_element: Vec<Int> = direct
+                .left_projection
+                .evaluate_unchecked(&element)
+                .into_values()
+                .map(|x| x.get() % n)
+                .zip(source_tc.iter())
+                .map(|(x, tc)| if *tc != 1 { x % tc } else { x })
+                .collect();
+
+            let source_index: Int = source_element
                 .iter()
-                .zip(element.into_values())
-                .map(|(tc, x)| x.get() % tc)
-                .collect::<Vec<Int>>()
-        });
-
-        for element in elements.into_iter() {
-            let buffer_index: Int = helper_data
-                .indices
-                .iter()
-                .zip(element.into_iter())
-                .map(|(index, x)| x * index)
+                .zip(source_index_shift.iter())
+                .map(|(el, sh)| el * sh)
                 .sum::<Int>();
 
-            buffer[buffer_index as usize] = true;
+            let target_element: Vec<Int> = direct
+                .right_projection
+                .evaluate_unchecked(&element)
+                .into_values()
+                .map(|x| x.get() % n)
+                .zip(target_tc.iter())
+                .map(|(x, tc)| if *tc != 1 { x % tc } else { x })
+                .collect();
+
+            let target_index: Int = target_element
+                .iter()
+                .zip(target_index_shift.iter())
+                .map(|(el, sh)| el * sh)
+                .sum::<Int>();
+
+            let index = usize::from(source_index + cols * target_index);
+
+            buffer[index] = true;
         }
 
         Relation {
-            source,
-            target,
-            matrix: Matrix::from_buffer(buffer, helper_data.cols as u8, helper_data.rows as u8),
+            source: direct.left(),
+            target: direct.right(),
+            matrix: Matrix::from_buffer(buffer, cols as u8, rows as u8),
         }
     }
 }
@@ -136,23 +180,16 @@ impl<R: SuperRing> AllMorphisms<CanonModule<R>> for Relation<R> {
     fn hom_set(source: Arc<CanonModule<R>>, target: Arc<CanonModule<R>>) -> Vec<Relation<R>> {
         let direct = DirectModule::<R>::sumproduct(&source, &target);
 
-        let helper_data = HelperData::<R>::new(&direct);
         direct
             .submodules_goursat()
-            .map(|submodule| {
-                Relation::<R>::from((
-                    Arc::clone(&source),
-                    Arc::clone(&target),
-                    submodule,
-                    &helper_data,
-                ))
-            })
+            .map(|submodule| Relation::<R>::from((&direct, submodule)))
             .collect::<Vec<Relation<R>>>()
     }
 }
 
 #[cfg(test)]
 mod test {
+    use super::*;
     use crate::{
         category::{
             morphism::{Compose, Morphism},
@@ -365,9 +402,7 @@ mod test {
 
         let relations_zn_out: Vec<Relation<R>> = submodules
             .into_iter()
-            .map(|submodule| {
-                Relation::<R>::from((direct.left(), direct.right(), submodule, &helper_data))
-            })
+            .map(|submodule| Relation::<R>::from((&direct, submodule)))
             .collect();
 
         assert_eq!(relations_zn_out.len(), 6);
@@ -434,9 +469,7 @@ mod test {
 
         let relations_on_zn: Vec<Relation<R>> = submodules
             .into_iter()
-            .map(|submodule| {
-                Relation::<R>::from((direct.left(), direct.right(), submodule, &helper_data))
-            })
+            .map(|submodule| Relation::<R>::from((&direct, submodule)))
             .collect();
 
         assert_eq!(relations_on_zn.len(), 15);
@@ -574,38 +607,85 @@ mod test {
 
         let direct = DirectModule::<R>::sumproduct(&z1, &z2);
 
-        let helper_data = HelperData::new(&direct);
-
-        assert_eq!(helper_data.capacity, 2);
-        assert_eq!(helper_data.rows, 2);
-        assert_eq!(helper_data.cols, 1);
-        assert_eq!(helper_data.torsion_coeffs_vec, vec![1, 2]);
-        // assert_eq!(helper_data.indices, vec![1, 1]);
-
         assert_eq!(direct.submodules_goursat().count(), 2);
 
         for submodule in direct.submodules_goursat() {
-            let elements = submodule.image().into_iter().map(|element| {
-                helper_data
-                    .torsion_coeffs_vec
-                    .iter()
-                    .zip(element.into_values())
-                    .map(|(tc, x)| x.get() % tc)
-                    .collect::<Vec<Int>>()
-            });
+            let mut prod = 1;
+            let mut prod_ret = 1;
+            let source_index_shift: Vec<Int> = direct
+                .left()
+                .torsion_coeffs()
+                .map(|x| {
+                    prod_ret = prod;
+                    prod *= x.get();
+                    prod_ret
+                })
+                .collect();
+            let cols = prod;
 
-            for element in elements.into_iter() {
-                let buffer_index: Int = helper_data
-                    .indices
+            let source_tc: Vec<Int> = direct
+                .left()
+                .torsion_coeffs()
+                .into_iter()
+                .map(|tc| tc.get())
+                .collect();
+
+            let mut prod = 1;
+            let mut prod_ret = 1;
+            let target_index_shift: Vec<Int> = direct
+                .right()
+                .torsion_coeffs()
+                .map(|x| {
+                    prod_ret = prod;
+                    prod *= x.get();
+                    prod_ret
+                })
+                .collect();
+            let rows = prod;
+
+            let target_tc: Vec<Int> = direct
+                .right()
+                .torsion_coeffs()
+                .into_iter()
+                .map(|tc| tc.get())
+                .collect();
+
+            let mut buffer = vec![false; (rows * cols) as usize];
+
+            for element in submodule.image().into_iter() {
+                let source_element: Vec<Int> = direct
+                    .left_projection
+                    .evaluate_unchecked(&element)
+                    .into_values()
+                    .map(|x| x.get() % n)
+                    .zip(source_tc.iter())
+                    .map(|(x, tc)| if *tc != 1 { x % tc } else { x })
+                    .collect();
+
+                let source_index: Int = source_element
                     .iter()
-                    .zip(element.iter())
-                    .map(|(index, x)| x * index)
+                    .zip(source_index_shift.iter())
+                    .map(|(el, sh)| el * sh)
                     .sum::<Int>();
 
-                println!(
-                    "submodule: {:?}, element: {:?}, buffer_index: {}",
-                    submodule, element, buffer_index
-                );
+                let target_element: Vec<Int> = direct
+                    .right_projection
+                    .evaluate_unchecked(&element)
+                    .into_values()
+                    .map(|x| x.get() % n)
+                    .zip(target_tc.iter())
+                    .map(|(x, tc)| if *tc != 1 { x % tc } else { x })
+                    .collect();
+
+                let target_index: Int = target_element
+                    .iter()
+                    .zip(target_index_shift.iter())
+                    .map(|(el, sh)| el * sh)
+                    .sum::<Int>();
+
+                let index = usize::from(source_index + cols * target_index);
+
+                buffer[index] = true;
             }
         }
     }
