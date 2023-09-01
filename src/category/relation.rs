@@ -29,7 +29,7 @@ use typenum;
 pub struct Relation<R: SuperRing> {
     pub source: Arc<CanonModule<R>>,
     pub target: Arc<CanonModule<R>>,
-    pub matrix: Matrix<Fin<typenum::U2>>,
+    pub matrix: Matrix<bool>,
 }
 
 impl<R: SuperRing> Debug for Relation<R> {
@@ -71,7 +71,7 @@ impl<R: SuperRing> Compose<CanonModule<R>, CanonModule<R>, CanonModule<R>, Relat
         Relation {
             source: Arc::clone(&self.source),
             target: Arc::clone(&other.target),
-            matrix: self.matrix.compose_unchecked(&other.matrix),
+            matrix: self.matrix.compose_unchecked_bool(&other.matrix),
         }
     }
 }
@@ -98,10 +98,9 @@ impl<R: SuperRing>
             &HelperData<R>,
         ),
     ) -> Self {
-        type Bool = Fin<typenum::U2>; //tymczasowo
         let (source, target, submodule, helper_data) = input;
 
-        let mut buffer: Vec<Bool> = vec![Bool::zero(); helper_data.capacity.into()]; //to
+        let mut buffer: Vec<bool> = vec![false; helper_data.capacity.into()]; //to
 
         let elements = submodule.image().into_iter().map(|element| {
             helper_data
@@ -112,7 +111,7 @@ impl<R: SuperRing>
                 .collect::<Vec<Int>>()
         });
 
-        let _ = elements.map(|element| {
+        for element in elements.into_iter() {
             let buffer_index: Int = helper_data
                 .indices
                 .iter()
@@ -120,8 +119,8 @@ impl<R: SuperRing>
                 .map(|(index, x)| x * index)
                 .sum::<Int>();
 
-            buffer[buffer_index as usize] = Bool::one();
-        });
+            buffer[buffer_index as usize] = true;
+        }
 
         Relation {
             source,
@@ -167,6 +166,7 @@ mod test {
             map::CanonToCanon,
             ring::{Fin, Ring, Set},
             torsion::CoeffTree,
+            Module,
         },
         util::category_of_relations::HelperData,
         Int,
@@ -183,7 +183,7 @@ mod test {
         type R = Fin<N>;
         let category = Category::<CanonModule<R>, Relation<R>>::new(1);
 
-        let mut relations: Vec<Relation<R>> = category
+        let relations: Vec<Relation<R>> = category
             .hom_sets
             .iter()
             .filter(|(source, _)| source.cardinality() > 1)
@@ -197,25 +197,99 @@ mod test {
             .expect("there is non-trivial target")
             .to_vec();
 
-        assert_eq!(relations.len(), 8);
-        let top = relations.pop().expect("there are exactly eight relations");
-        let four = relations.pop().expect("there are exactly eight relations");
-        let three = relations.pop().expect("there are exactly eight relations");
-        let two = relations.pop().expect("there are exactly eight relations");
-        let one = relations.pop().expect("there are exactly eight relations");
-        let zero = relations.pop().expect("there are exactly eight relations");
-        let zero_dagger = relations.pop().expect("there are exactly eight relations");
-        let bottom = relations.pop().expect("there are exactly eight relations");
+        let bottom_ok_raw = vec![
+            1, 0, 0, 0, 0, /**/ 0, 0, 0, 0, 0, /**/ 0, 0, 0, 0, 0, /**/ 0, 0, 0, 0,
+            0, /**/ 0, 0, 0, 0, 0,
+        ];
+        let zero_ok_raw = vec![
+            1, 1, 1, 1, 1, /**/ 0, 0, 0, 0, 0, /**/ 0, 0, 0, 0, 0, /**/ 0, 0, 0, 0,
+            0, /**/ 0, 0, 0, 0, 0,
+        ];
+        let zero_dagger_ok_raw = vec![
+            1, 0, 0, 0, 0, /**/ 1, 0, 0, 0, 0, /**/ 1, 0, 0, 0, 0, /**/ 1, 0, 0, 0,
+            0, /**/ 1, 0, 0, 0, 0,
+        ];
+        let one_ok_raw = vec![
+            1, 0, 0, 0, 0, /**/ 0, 1, 0, 0, 0, /**/ 0, 0, 1, 0, 0, /**/ 0, 0, 0, 1,
+            0, /**/ 0, 0, 0, 0, 1,
+        ];
+        let two_ok_raw = vec![
+            1, 0, 0, 0, 0, /**/ 0, 0, 1, 0, 0, /**/ 0, 0, 0, 0, 1, /**/ 0, 1, 0, 0,
+            0, /**/ 0, 0, 0, 1, 0,
+        ];
+        let three_ok_raw = vec![
+            1, 0, 0, 0, 0, /**/ 0, 0, 0, 1, 0, /**/ 0, 1, 0, 0, 0, /**/ 0, 0, 0, 0,
+            1, /**/ 0, 0, 1, 0, 0,
+        ];
+        let four_ok_raw = vec![
+            1, 0, 0, 0, 0, /**/ 0, 0, 0, 0, 1, /**/ 0, 0, 0, 1, 0, /**/ 0, 0, 1, 0,
+            0, /**/ 0, 1, 0, 0, 0,
+        ];
+        let top_ok_raw = vec![
+            1, 1, 1, 1, 1, /**/ 1, 1, 1, 1, 1, /**/ 1, 1, 1, 1, 1, /**/ 1, 1, 1, 1,
+            1, /**/ 1, 1, 1, 1, 1,
+        ];
 
-        assert_eq!(relations.len(), 0);
-        assert_eq!(zero.source(), one.source());
-        assert_eq!(one.source(), top.target());
+        let bottom_ok: Vec<bool> = bottom_ok_raw.into_iter().map(|entry| entry == 1).collect();
+        let zero_ok: Vec<bool> = zero_ok_raw.into_iter().map(|entry| entry == 1).collect();
+        let zero_dagger_ok: Vec<bool> = zero_dagger_ok_raw
+            .into_iter()
+            .map(|entry| entry == 1)
+            .collect();
+        let one_ok: Vec<bool> = one_ok_raw.into_iter().map(|entry| entry == 1).collect();
+        let two_ok: Vec<bool> = two_ok_raw.into_iter().map(|entry| entry == 1).collect();
+        let three_ok: Vec<bool> = three_ok_raw.into_iter().map(|entry| entry == 1).collect();
+        let four_ok: Vec<bool> = four_ok_raw.into_iter().map(|entry| entry == 1).collect();
+        let top_ok: Vec<bool> = top_ok_raw.into_iter().map(|entry| entry == 1).collect();
+
+        let bottom: Relation<R> = relations
+            .iter()
+            .find(|relation| relation.matrix.buffer() == bottom_ok)
+            .expect("there are exactly eight relations")
+            .clone();
+        let zero: Relation<R> = relations
+            .iter()
+            .find(|relation| relation.matrix.buffer() == zero_ok)
+            .expect("there are exactly eight relations")
+            .clone();
+        let zero_dagger: Relation<R> = relations
+            .iter()
+            .find(|relation| relation.matrix.buffer() == zero_dagger_ok)
+            .expect("there are exactly eight relations")
+            .clone();
+        let one: Relation<R> = relations
+            .iter()
+            .find(|relation| relation.matrix.buffer() == one_ok)
+            .expect("there are exactly eight relations")
+            .clone();
+        let two: Relation<R> = relations
+            .iter()
+            .find(|relation| relation.matrix.buffer() == two_ok)
+            .expect("there are exactly eight relations")
+            .clone();
+        let three: Relation<R> = relations
+            .iter()
+            .find(|relation| relation.matrix.buffer() == three_ok)
+            .expect("there are exactly eight relations")
+            .clone();
+        let four: Relation<R> = relations
+            .iter()
+            .find(|relation| relation.matrix.buffer() == four_ok)
+            .expect("there are exactly eight relations")
+            .clone();
+        let top: Relation<R> = relations
+            .iter()
+            .find(|relation| relation.matrix.buffer() == top_ok)
+            .expect("there are exactly eight relations")
+            .clone();
 
         //36 = 8 + 7 + 6 + 5 + 4 + 3 + 2 + 1
 
         //8
         assert_eq!(bottom.compose_unchecked(&bottom), bottom);
+        //
         assert_eq!(bottom.compose_unchecked(&zero_dagger), zero_dagger);
+        //
         assert_eq!(bottom.compose_unchecked(&zero), bottom);
         assert_eq!(bottom.compose_unchecked(&one), bottom);
         assert_eq!(bottom.compose_unchecked(&two), bottom);
@@ -267,11 +341,11 @@ mod test {
     }
 
     #[test]
-    fn z3_category_step_by_step() {
+    fn category_step_by_step() {
         use crate::util::matrix::Matrix;
         use typenum::{Unsigned, U3 as N};
+        let n: Int = N::to_usize() as Int;
         type R = Fin<N>;
-        type Bool = Fin<typenum::U2>;
 
         let zn_module: Arc<CanonModule<R>> = Arc::new(
             CoeffTree::<R, ()>::all_torsion_coeffs(1)
@@ -298,7 +372,7 @@ mod test {
 
         assert_eq!(relations_zn_out.len(), 6);
 
-        let matrices_zn_out: Vec<Matrix<Bool>> = relations_zn_out
+        let matrices_zn_out: Vec<Matrix<bool>> = relations_zn_out
             .into_iter()
             .map(|relation| relation.matrix)
             .collect();
@@ -317,18 +391,24 @@ mod test {
             .map(|raw_buffer| {
                 raw_buffer
                     .into_iter()
-                    .map(|bool| Bool::new(bool))
-                    .collect::<Vec<Bool>>()
+                    .map(|bool| bool == 1)
+                    .collect::<Vec<bool>>()
             })
             .map(|buffer| Matrix::from_buffer(buffer, 3, 3))
-            .collect::<Vec<Matrix<Bool>>>();
+            .collect::<Vec<Matrix<bool>>>();
 
-        let _ = matrices_zn_ok.iter().map(|ok_matrix| {
+        for matrix_ok in matrices_zn_ok.iter() {
             assert!(matrices_zn_out
                 .iter()
-                .find(|out_matrix| *out_matrix == ok_matrix)
-                .is_some())
-        });
+                .find(|matrix_out| *matrix_out == matrix_ok)
+                .is_some());
+        }
+        for matrix_out in matrices_zn_out.iter() {
+            assert!(matrices_zn_ok
+                .iter()
+                .find(|matrix_ok| *matrix_ok == matrix_out)
+                .is_some());
+        }
     }
 
     #[test]
@@ -359,14 +439,13 @@ mod test {
             })
             .collect();
 
-        //assert_eq!(relations_on_zn.len(), 15);
+        assert_eq!(relations_on_zn.len(), 15);
     }
 
     #[test]
     fn z3_category_from_function() {
         use crate::util::matrix::Matrix;
         use typenum::U3 as N;
-        type Bool = Fin<typenum::U2>;
         type R = Fin<N>;
 
         let category = Category::<CanonModule<R>, Relation<R>>::new(1);
@@ -402,7 +481,7 @@ mod test {
 
         assert_eq!(relations_zn_out.len(), 6);
 
-        let matrices_zn_out: Vec<Matrix<Bool>> = relations_zn_out
+        let matrices_zn_out: Vec<Matrix<bool>> = relations_zn_out
             .into_iter()
             .map(|relation| relation.matrix)
             .collect();
@@ -421,43 +500,113 @@ mod test {
             .map(|raw_buffer| {
                 raw_buffer
                     .into_iter()
-                    .map(|bool| Bool::new(bool))
-                    .collect::<Vec<Bool>>()
+                    .map(|bool| bool == 1)
+                    .collect::<Vec<bool>>()
             })
             .map(|buffer| Matrix::from_buffer(buffer, 3, 3))
-            .collect::<Vec<Matrix<Bool>>>();
+            .collect::<Vec<Matrix<bool>>>();
 
-        let _ = matrices_zn_ok.iter().map(|ok_matrix| {
+        for matrix_ok in matrices_zn_ok.iter() {
             assert!(matrices_zn_out
                 .iter()
-                .find(|out_matrix| *out_matrix == ok_matrix)
-                .is_some())
-        });
-        /*
-        assert!(relations_on_zn
-            .iter()
-            .find(|relation| relation.matrix_normal == bottom)
-            .is_some());
-        assert!(relations_on_zn
-            .iter()
-            .find(|relation| relation.matrix_normal == zero_dagger)
-            .is_some());
-        assert!(relations_on_zn
-            .iter()
-            .find(|relation| relation.matrix_normal == zero)
-            .is_some());
-        assert!(relations_on_zn
-            .iter()
-            .find(|relation| relation.matrix_normal == one)
-            .is_some());
-        assert!(relations_on_zn
-            .iter()
-            .find(|relation| relation.matrix_normal == two)
-            .is_some());
-        assert!(relations_on_zn
-            .iter()
-            .find(|relation| relation.matrix_normal == top)
-            .is_some());
-        */
+                .find(|matrix_out| *matrix_out == matrix_ok)
+                .is_some());
+        }
+        for matrix_out in matrices_zn_out.iter() {
+            assert!(matrices_zn_ok
+                .iter()
+                .find(|matrix_ok| *matrix_ok == matrix_out)
+                .is_some());
+        }
+    }
+
+    #[test]
+    fn no_duplicates() {
+        use typenum::{Unsigned, U5 as N};
+        type R = Fin<N>;
+
+        let category = Category::<CanonModule<R>, Relation<R>>::new(1);
+
+        let hom_set_zn_zn: Vec<Relation<R>> = category
+            .clone()
+            .hom_sets
+            .into_iter()
+            .find(|(source, _)| source.cardinality() > 1)
+            .expect("there is a hom_set with non-trivial source")
+            .1
+            .into_iter()
+            .find(|(target, _)| target.cardinality() > 1)
+            .expect("there is a hom_set with non-trivial target")
+            .1;
+
+        let mut hom_set_zn_zn_no_dupes = hom_set_zn_zn.clone();
+        hom_set_zn_zn_no_dupes.dedup();
+
+        assert_eq!(hom_set_zn_zn, hom_set_zn_zn_no_dupes);
+    }
+
+    #[test]
+    fn z1_to_z2_relations() {
+        use crate::{
+            category::{AllMorphisms, AllObjects},
+            util::matrix::Matrix,
+        };
+        use typenum::{Unsigned, U2 as N};
+        let n: Int = N::to_usize() as Int;
+        type R = Fin<N>;
+
+        let zn_modules = CanonModule::<R>::all_objects(1);
+
+        let z1 = Arc::new(
+            zn_modules
+                .iter()
+                .find(|module| module.to_string() == "Z1")
+                .unwrap()
+                .clone(),
+        );
+        let z2 = Arc::new(
+            zn_modules
+                .iter()
+                .find(|module| module.to_string() == "Z2")
+                .unwrap()
+                .clone(),
+        );
+
+        let direct = DirectModule::<R>::sumproduct(&z1, &z2);
+
+        let helper_data = HelperData::new(&direct);
+
+        assert_eq!(helper_data.capacity, 2);
+        assert_eq!(helper_data.rows, 2);
+        assert_eq!(helper_data.cols, 1);
+        assert_eq!(helper_data.torsion_coeffs_vec, vec![1, 2]);
+        // assert_eq!(helper_data.indices, vec![1, 1]);
+
+        assert_eq!(direct.submodules_goursat().count(), 2);
+
+        for submodule in direct.submodules_goursat() {
+            let elements = submodule.image().into_iter().map(|element| {
+                helper_data
+                    .torsion_coeffs_vec
+                    .iter()
+                    .zip(element.into_values())
+                    .map(|(tc, x)| x.get() % tc)
+                    .collect::<Vec<Int>>()
+            });
+
+            for element in elements.into_iter() {
+                let buffer_index: Int = helper_data
+                    .indices
+                    .iter()
+                    .zip(element.iter())
+                    .map(|(index, x)| x * index)
+                    .sum::<Int>();
+
+                println!(
+                    "submodule: {:?}, element: {:?}, buffer_index: {}",
+                    submodule, element, buffer_index
+                );
+            }
+        }
     }
 }

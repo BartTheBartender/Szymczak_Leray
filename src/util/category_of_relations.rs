@@ -4,6 +4,7 @@ use crate::{
 };
 use std::{iter, marker::PhantomData};
 
+#[derive(Debug)]
 pub struct HelperData<R: SuperRing> {
     pub indices: Vec<Int>,
     pub torsion_coeffs_vec: Vec<Int>,

@@ -199,10 +199,10 @@ impl<
         raw_szymczak_class.into_keys().collect::<Vec<E>>()
     }
 
-    fn sort_by_object(raw_szymczak_class_without_cycles: Vec<E>) -> SzymczakClass<Object, E> {
+    fn sort_by_object(raw_szymczak_class_without_cycle: Vec<E>) -> SzymczakClass<Object, E> {
         let mut szymczak_class = SzymczakClass::<Object, E>::new();
 
-        for endomorphism in raw_szymczak_class_without_cycles.into_iter() {
+        for endomorphism in raw_szymczak_class_without_cycle.into_iter() {
             szymczak_class
                 .entry(endomorphism.source().as_ref().clone()) //this clone is needed to be stored as a key for the hashmap
                 .or_default()
@@ -213,12 +213,12 @@ impl<
     }
 
     fn are_szymczak_isomorphic(
-        left_endomorphism_with_cycles: (&E, &Vec<E>),
-        right_endomorphism_with_cycles: (&E, &Vec<E>),
+        left_endomorphism_with_cycle: (&E, &Vec<E>),
+        right_endomorphism_with_cycle: (&E, &Vec<E>),
         hom_sets: &HomSet<Object, M>,
     ) -> bool {
-        let (l, l_cycles) = left_endomorphism_with_cycles;
-        let (r, r_cycles) = right_endomorphism_with_cycles;
+        let (l, l_cycle) = left_endomorphism_with_cycle;
+        let (r, r_cycle) = right_endomorphism_with_cycle;
 
         let morphisms_l_to_r: &Vec<M> = hom_sets
             .get(l.target().as_ref())
@@ -236,8 +236,8 @@ impl<
             for r_to_l in morphisms_r_to_l.iter() {
                 if l_to_r.compose_unchecked(r) == l.compose_unchecked(l_to_r)
                     && r_to_l.compose_unchecked(l) == r.compose_unchecked(r_to_l)
-                    && Self::is_identity(&E::from(l_to_r.compose_unchecked(r_to_l)), l_cycles)
-                    && Self::is_identity(&E::from(r_to_l.compose_unchecked(l_to_r)), r_cycles)
+                    && Self::is_identity(&E::from(l_to_r.compose_unchecked(r_to_l)), l_cycle)
+                    && Self::is_identity(&E::from(r_to_l.compose_unchecked(l_to_r)), r_cycle)
                 {
                     return true;
                 }
@@ -293,8 +293,8 @@ mod test {
     };
 
     #[test]
-    fn szymczak_isomorphism_reflexive() {
-        use typenum::{Unsigned, U4 as N};
+    fn szymczak_isomorphism_is_equivalence() {
+        use typenum::{Unsigned, U5 as N};
         type R = Fin<N>;
 
         let category = Category::<CanonModule<R>, Relation<R>>::new(1);
@@ -311,7 +311,8 @@ mod test {
             .expect("there is a hom_set with non-trivial target")
             .1;
 
-        for index in (0..hom_set_zn_zn.len()) {
+        //reflexive
+        for index in 0..hom_set_zn_zn.len() {
             let endo = &hom_set_zn_zn[index];
 
             let endo_with_cycle = (endo, &endo.cycle());
@@ -322,33 +323,14 @@ mod test {
                 &category.hom_sets
             ));
         }
-    }
 
-    #[test]
-    fn szymczak_isomorphism_symmetric() {
-        use typenum::{Unsigned, U2 as N};
-        type R = Fin<N>;
-
-        let category = Category::<CanonModule<R>, Relation<R>>::new(1);
-
-        let hom_set_zn_zn: Vec<Relation<R>> = category
-            .clone()
-            .hom_sets
-            .into_iter()
-            .find(|(source, _)| source.cardinality() > 1)
-            .expect("there is a hom_set with non-trivial source")
-            .1
-            .into_iter()
-            .find(|(target, _)| target.cardinality() > 1)
-            .expect("there is a hom_set with non-trivial target")
-            .1;
-
+        //symmetric
         for index_0 in 0..hom_set_zn_zn.len() {
             let endo_0 = &hom_set_zn_zn[index_0];
             let endo_with_cycle_0 = (endo_0, &endo_0.cycle());
 
             for index_1 in 0..hom_set_zn_zn.len() {
-                let endo_1 = &hom_set_zn_zn[index_0];
+                let endo_1 = &hom_set_zn_zn[index_1];
                 let endo_with_cycle_1 = (endo_1, &endo_1.cycle());
 
                 if SzymczakCategory::are_szymczak_isomorphic(
@@ -364,6 +346,211 @@ mod test {
                 }
             }
         }
+
+        //transitive
+        for index_0 in 0..hom_set_zn_zn.len() {
+            let endo_0 = &hom_set_zn_zn[index_0];
+            let endo_with_cycle_0 = (endo_0, &endo_0.cycle());
+
+            for index_1 in 0..hom_set_zn_zn.len() {
+                let endo_1 = &hom_set_zn_zn[index_1];
+                let endo_with_cycle_1 = (endo_1, &endo_1.cycle());
+                for index_2 in 0..hom_set_zn_zn.len() {
+                    let endo_2 = &hom_set_zn_zn[index_2];
+                    let endo_with_cycle_2 = (endo_2, &endo_2.cycle());
+
+                    if SzymczakCategory::are_szymczak_isomorphic(
+                        endo_with_cycle_0,
+                        endo_with_cycle_1,
+                        &category.hom_sets,
+                    ) && SzymczakCategory::are_szymczak_isomorphic(
+                        endo_with_cycle_1,
+                        endo_with_cycle_2,
+                        &category.hom_sets,
+                    ) {
+                        assert!(SzymczakCategory::are_szymczak_isomorphic(
+                            endo_with_cycle_0,
+                            endo_with_cycle_2,
+                            &category.hom_sets,
+                        ));
+                    }
+                }
+            }
+        }
+    }
+
+    #[test]
+    fn szymczak_isomorphism_isnt_identically_true_nor_false() {
+        use typenum::{Unsigned, U5 as N};
+
+        type R = Fin<N>;
+
+        let category = Category::<CanonModule<R>, Relation<R>>::new(1);
+
+        let hom_set_zn_zn: Vec<Relation<R>> = category
+            .clone()
+            .hom_sets
+            .into_iter()
+            .find(|(source, _)| source.cardinality() > 1)
+            .expect("there is a hom_set with non-trivial source")
+            .1
+            .into_iter()
+            .find(|(target, _)| target.cardinality() > 1)
+            .expect("there is a hom_set with non-trivial target")
+            .1;
+
+        assert_eq!(hom_set_zn_zn.len(), 8);
+
+        for morphism in hom_set_zn_zn.iter() {
+            assert_eq!(morphism.source(), morphism.target());
+        }
+
+        let mut is_sometimes_true: bool = false;
+        let mut is_sometimes_false: bool = false;
+
+        for endo_0 in hom_set_zn_zn.iter() {
+            let endo_with_cycle_0 = (endo_0, &endo_0.cycle());
+            for endo_1 in hom_set_zn_zn.iter() {
+                let endo_with_cycle_1 = (endo_1, &endo_1.cycle());
+
+                if endo_0 != endo_1 {
+                    if SzymczakCategory::are_szymczak_isomorphic(
+                        endo_with_cycle_0,
+                        endo_with_cycle_1,
+                        &category.hom_sets,
+                    ) {
+                        is_sometimes_true = true;
+                    } else {
+                        is_sometimes_false = true;
+                    }
+                }
+            }
+        }
+
+        assert!(is_sometimes_false);
+        assert!(is_sometimes_true);
+    }
+
+    #[test]
+    #[ignore]
+    fn szymczak_isomorphism_different_base_objects() {
+        use typenum::{Unsigned, U2 as P};
+        type R = Fin<P>;
+        let p = P::to_usize();
+
+        let category = Category::<CanonModule<R>, Relation<R>>::new(1);
+
+        let all_objects = category.clone().objects();
+        assert_eq!(all_objects.len(), 2);
+
+        let z1 = all_objects
+            .iter()
+            .find(|object| object.cardinality() == 1)
+            .expect("there is z1 module")
+            .clone();
+        let z2 = all_objects
+            .iter()
+            .find(|object| object.cardinality() == p)
+            .expect("there is z2 module")
+            .clone();
+
+        assert_eq!(z2.to_string(), "Z2");
+        assert_eq!(z1.to_string(), "Z1");
+
+        let mut z1_to_z1 = category.hom_set(&z1, &z1);
+        let z2_to_z2 = category.hom_set(&z2, &z2);
+
+        let top_z1 = z1_to_z1.pop().expect("there is only top relation on z1");
+        let top_z2 = z2_to_z2
+            .iter()
+            .find(|endo| endo.matrix.buffer() == vec![true, true, true, true])
+            .expect("there is the top relation on z2");
+
+        assert_eq!(top_z1.matrix.buffer(), vec![true]);
+        assert_eq!(top_z2.matrix.buffer(), vec![true, true, true, true]);
+
+        let top_z1_with_cycle = (&top_z1, &top_z1.cycle());
+        let top_z2_with_cycle = (top_z2, &top_z2.cycle());
+
+        assert!(SzymczakCategory::are_szymczak_isomorphic(
+            top_z1_with_cycle,
+            top_z2_with_cycle,
+            &category.hom_sets
+        ));
+    }
+
+    #[test]
+    #[ignore]
+    fn is_identity() {
+        use typenum::{Unsigned, U2 as P};
+        type R = Fin<P>;
+        let p = P::to_usize();
+
+        let category = Category::<CanonModule<R>, Relation<R>>::new(1);
+
+        let all_objects = category.clone().objects();
+        assert_eq!(all_objects.len(), 2);
+
+        let z1 = all_objects
+            .iter()
+            .find(|object| object.cardinality() == 1)
+            .expect("there is z1 module")
+            .clone();
+        let z2 = all_objects
+            .iter()
+            .find(|object| object.cardinality() == p)
+            .expect("there is z2 module")
+            .clone();
+
+        assert_eq!(z2.to_string(), "Z2");
+        assert_eq!(z1.to_string(), "Z1");
+
+        let mut z1_to_z1 = category.hom_set(&z1, &z1);
+        let z2_to_z2 = category.hom_set(&z2, &z2);
+
+        let top_z1 = z1_to_z1.pop().expect("there is only top relation on z1");
+        let top_z2 = z2_to_z2
+            .iter()
+            .find(|endo| endo.matrix.buffer() == vec![true, true, true, true])
+            .expect("there is the top relation on z2");
+
+        let top_z1_cycle = top_z1.cycle();
+        let top_z2_cycle = top_z2.cycle();
+
+        let morphisms_top_z1_to_top_z2 =
+            category.hom_set(top_z1.target().as_ref(), top_z2.source().as_ref());
+        let morphisms_top_z2_to_top_z1 =
+            category.hom_set(top_z2.target().as_ref(), top_z1.source().as_ref());
+
+        let mut are_szymczak_isomorphic: bool = false;
+        let mut are_there_morphisms: bool = false;
+
+        for top_z1_to_top_z2 in morphisms_top_z1_to_top_z2.iter() {
+            for top_z2_to_top_z1 in morphisms_top_z2_to_top_z1.iter() {
+                println!("{}\n{}\n---", top_z1_to_top_z2, top_z2_to_top_z1);
+
+                if top_z1.compose_unchecked(&top_z1_to_top_z2)
+                    == top_z1_to_top_z2.compose_unchecked(&top_z2)
+                    && top_z2.compose_unchecked(&top_z2_to_top_z1)
+                        == top_z2_to_top_z1.compose_unchecked(&top_z1)
+                {
+                    are_there_morphisms = true;
+
+                    if SzymczakCategory::is_identity(
+                        &top_z1_to_top_z2.compose_unchecked(&top_z2_to_top_z1),
+                        &top_z1_cycle,
+                    ) && SzymczakCategory::is_identity(
+                        &top_z2_to_top_z1.compose_unchecked(&top_z1_to_top_z2),
+                        &top_z2_cycle,
+                    ) {
+                        are_szymczak_isomorphic = true;
+                    }
+                }
+            }
+        }
+
+        assert!(are_there_morphisms);
+        assert!(are_szymczak_isomorphic);
     }
 
     #[test]

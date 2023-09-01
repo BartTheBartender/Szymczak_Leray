@@ -5,7 +5,7 @@ use std::{
     cmp::min,
     collections::BTreeSet,
     fmt,
-    ops::{Add, Mul, Neg, Rem},
+    ops::{Add, BitAnd, BitOr, Mul, Neg, Rem},
 };
 
 #[derive(Clone, PartialEq, Eq, Hash)]
@@ -138,6 +138,10 @@ where
     pub fn cols(&self) -> impl Iterator<Item = Vec<T>> + '_ {
         (0..self.cols).map(|col| self.col(col).copied().collect())
     }
+
+    pub fn buffer(&self) -> Vec<T> {
+        self.buffer.clone()
+    }
 }
 
 impl<T> Matrix<T>
@@ -157,6 +161,31 @@ where
                             .zip(self.col(col))
                             .map(|(r, c)| *r * *c)
                             .reduce(|acc, nxt| acc + nxt)
+                            .expect("matrices are not empty")
+                    })
+                })
+                .collect(),
+        }
+    }
+}
+
+impl<T> Matrix<T>
+where
+    T: Copy + BitOr<T, Output = T> + BitAnd<T, Output = T>,
+{
+    // this assumes that self.rows == other.cols
+    pub fn compose_unchecked_bool(&self, other: &Self) -> Self {
+        Self {
+            cols: self.cols,
+            rows: other.rows,
+            buffer: (0..other.rows)
+                .flat_map(|row| {
+                    (0..self.cols).map(move |col| {
+                        other
+                            .row(row)
+                            .zip(self.col(col))
+                            .map(|(r, c)| *r & *c)
+                            .reduce(|acc, nxt| acc | nxt)
                             .expect("matrices are not empty")
                     })
                 })

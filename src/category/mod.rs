@@ -89,6 +89,15 @@ impl<
     pub fn morphisms(self) -> Vec<M> {
         todo!()
     }
+
+    pub fn hom_set(&self, source: &Object, target: &Object) -> Vec<M> {
+        self.hom_sets
+            .get(source)
+            .expect("source should be an object in the category")
+            .get(target)
+            .expect("target should be an object in the category")
+            .to_vec()
+    }
 }
 
 impl<Object: Eq + Display, M: Morphism<Object, Object> + Display> fmt::Display
