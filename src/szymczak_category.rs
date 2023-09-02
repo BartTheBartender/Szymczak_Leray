@@ -103,8 +103,6 @@ impl<
         endomorphisms: EndoMorphisms<E>,
         hom_sets: &HomSet<Object, M>,
     ) -> RawSzymczakClasses<E> {
-        let mut raw_szymczak_classes = RawSzymczakClasses::<E>::new();
-
         let endomorphisms_with_cycles: EndoMorphismsWithCycles<E> = endomorphisms
             .into_iter()
             .map(|endomorphism| {
@@ -113,29 +111,33 @@ impl<
             })
             .collect();
 
-        for (endomorphism, cycle) in endomorphisms_with_cycles.into_iter() {
-            let maybe_raw_szymczak_class: Option<&mut RawSzymczakClass<E>> =
-                raw_szymczak_classes.iter_mut().find(|raw_szymczak_class| {
-                    Self::are_szymczak_isomorphic(
-                        (&endomorphism, &cycle),
-                        raw_szymczak_class
-                            .iter()
-                            .next()
-                            .expect("szymczak classes are never empty"),
-                        hom_sets,
-                    )
-                });
+        let raw_szymczak_classes = RawSzymczakClasses::<E>::new();
 
-            if let Some(raw_szymczak_class) = maybe_raw_szymczak_class {
-                raw_szymczak_class.insert(endomorphism, cycle);
-            } else {
-                let mut new_raw_szymczak_class = RawSzymczakClass::<E>::new();
-                new_raw_szymczak_class.insert(endomorphism, cycle);
-                raw_szymczak_classes.push(new_raw_szymczak_class);
-            }
-        }
+        endomorphisms_with_cycles.into_iter().fold(
+            raw_szymczak_classes,
+            |mut raw_szymczak_classes, (endomorphism, cycle)| {
+                let maybe_raw_szymczak_class: Option<&mut RawSzymczakClass<E>> =
+                    raw_szymczak_classes.iter_mut().find(|raw_szymczak_class| {
+                        Self::are_szymczak_isomorphic(
+                            (&endomorphism, &cycle),
+                            raw_szymczak_class
+                                .iter()
+                                .next()
+                                .expect("szymczak classes are never empty"),
+                            hom_sets,
+                        )
+                    });
+                if let Some(raw_szymczak_class) = maybe_raw_szymczak_class {
+                    raw_szymczak_class.insert(endomorphism, cycle);
+                } else {
+                    let mut new_raw_szymczak_class = RawSzymczakClass::<E>::new();
+                    new_raw_szymczak_class.insert(endomorphism, cycle);
+                    raw_szymczak_classes.push(new_raw_szymczak_class);
+                }
 
-        raw_szymczak_classes
+                raw_szymczak_classes
+            },
+        )
     }
 
     fn merge_raw_szymczak_classes(
@@ -552,18 +554,129 @@ mod test {
     }
 
     #[test]
-    #[ignore]
     fn szymczak_classes_for_zp() {
         use typenum::{Unsigned, U7 as P};
         type R = Fin<P>;
         let p = P::to_usize();
 
         let category = Category::<CanonModule<R>, Relation<R>>::new(1);
-        println!("{}\n---", category);
+        // println!("{}\n---", category);
         let szymczak_category = SzymczakCategory::szymczak_functor(&category);
 
-        println!("{}", szymczak_category);
+        //println!("{}", szymczak_category);
 
         assert_eq!(szymczak_category.szymczak_classes.len(), p);
+    }
+
+    #[test]
+    fn cycles_generation_for_zp() {
+        use typenum::{Unsigned, U11 as P};
+        type R = Fin<P>;
+        let p = P::to_usize();
+
+        let category = Category::<CanonModule<R>, Relation<R>>::new(1);
+
+        let endomorphisms: EndoMorphisms<Relation<R>> = category
+            .hom_sets
+            .iter()
+            .flat_map(|(source, hom_sets_fixed_source)| {
+                hom_sets_fixed_source
+                    .iter()
+                    .filter(move |(target, _)| *target == source)
+                    .flat_map(|(_, morphisms)| {
+                        morphisms
+                            .iter()
+                            .map(|morphism| Relation::<R>::from(morphism.clone()))
+                    })
+            })
+            .collect();
+        let endomorphisms_len = endomorphisms.len();
+        let mut count = 0;
+        let endomorphisms_with_cycles: EndoMorphismsWithCycles<Relation<R>> = endomorphisms
+            .into_iter()
+            .map(|endomorphism| {
+                println!("{}", count);
+                count += 1;
+                let cycle: Vec<Relation<R>> = endomorphism.cycle();
+                (endomorphism, cycle)
+            })
+            .collect();
+
+        let endomorphisms_with_cycles_len = endomorphisms_with_cycles.len();
+
+        assert_eq!(p + 4, endomorphisms_len); //udowodnione naukowo
+        assert_eq!(endomorphisms_with_cycles_len, endomorphisms_len);
+    }
+
+    #[test]
+    fn raw_szymczak_functor_for_zp() {
+        use typenum::{Unsigned, U11 as P};
+        type R = Fin<P>;
+        let p = P::to_usize();
+
+        let category = Category::<CanonModule<R>, Relation<R>>::new(1);
+
+        let endomorphisms: EndoMorphisms<Relation<R>> = category
+            .hom_sets
+            .iter()
+            .flat_map(|(source, hom_sets_fixed_source)| {
+                hom_sets_fixed_source
+                    .iter()
+                    .filter(move |(target, _)| *target == source)
+                    .flat_map(|(_, morphisms)| {
+                        morphisms
+                            .iter()
+                            .map(|morphism| Relation::<R>::from(morphism.clone()))
+                    })
+            })
+            .collect();
+        let endomorphisms_len = endomorphisms.len();
+
+        let endomorphisms_with_cycles: EndoMorphismsWithCycles<Relation<R>> = endomorphisms
+            .into_iter()
+            .map(|endomorphism| {
+                let cycle: Vec<Relation<R>> = endomorphism.cycle();
+                (endomorphism, cycle)
+            })
+            .collect();
+
+        let endomorphisms_with_cycles_len = endomorphisms_with_cycles.len();
+
+        let mut count_out = 0;
+
+        let raw_szymczak_classes = RawSzymczakClasses::<Relation<R>>::new();
+
+        let raw_szymczak_classes = endomorphisms_with_cycles.into_iter().fold(
+            raw_szymczak_classes,
+            |mut raw_szymczak_classes, (endomorphism, cycle)| {
+                count_out += 1;
+                let maybe_raw_szymczak_class: Option<&mut RawSzymczakClass<Relation<R>>> =
+                    raw_szymczak_classes.iter_mut().find(|raw_szymczak_class| {
+                        SzymczakCategory::are_szymczak_isomorphic(
+                            (&endomorphism, &cycle),
+                            raw_szymczak_class
+                                .iter()
+                                .next()
+                                .expect("szymczak classes are never empty"),
+                            &category.hom_sets,
+                        )
+                    });
+                if let Some(raw_szymczak_class) = maybe_raw_szymczak_class {
+                    raw_szymczak_class.insert(endomorphism, cycle);
+                    println!("inserted into a szymczak class");
+                } else {
+                    let mut new_raw_szymczak_class = RawSzymczakClass::<Relation<R>>::new();
+                    new_raw_szymczak_class.insert(endomorphism, cycle);
+                    raw_szymczak_classes.push(new_raw_szymczak_class);
+                    println!("created a new szymczak class");
+                }
+
+                raw_szymczak_classes
+            },
+        );
+
+        assert_eq!(endomorphisms_with_cycles_len, endomorphisms_len);
+        assert_eq!(endomorphisms_with_cycles_len, count_out);
+        assert_eq!(raw_szymczak_classes.len(), p);
     }
 }
