@@ -22,6 +22,13 @@ impl<T: fmt::Debug> fmt::Debug for Matrix<T> {
 }
 
 impl<T> Matrix<T> {
+    pub fn num_of_rows(&self) -> u8 {
+        self.rows
+    }
+    pub fn num_of_cols(&self) -> u8 {
+        self.cols
+    }
+
     pub fn from_buffer<I>(buffer: I, cols: u8, rows: u8) -> Self
     where
         I: IntoIterator<Item = T>,
@@ -59,7 +66,7 @@ impl<T> Matrix<T> {
         }
     }
 
-    fn get(&self, col: u8, row: u8) -> Option<&T> {
+    pub fn get(&self, col: u8, row: u8) -> Option<&T> {
         self.buffer.get(usize::from(col + self.cols * row))
     }
 

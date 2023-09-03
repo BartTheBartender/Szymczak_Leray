@@ -102,17 +102,23 @@ use crate::{
     rmodule::{canon::CanonModule, map::CanonToCanon, ring::Fin, torsion::CoeffTree},
     szymczak_category::SzymczakCategory,
 };
+use std::time::{Duration, Instant};
 
 //parameters for the code
 use typenum::U3 as N;
-pub const MAX_DIMENSION: Int = 3;
+pub const MAX_DIMENSION: Int = 2;
 pub type Int = u16;
 pub const RECURSION_PARAMETER_SZYMCZAK_FUNCTOR: usize = 20;
 
 type R = Fin<N>;
 fn main() {
-    /*
+    let category_time = Instant::now();
     let category = Category::<CanonModule<R>, Relation<R>>::new(MAX_DIMENSION);
+    println!("category generated after {:?}", category_time.elapsed());
+    let szymczak_classes_time = Instant::now();
     let szymczak_category = SzymczakCategory::szymczak_functor(&category);
-    */
+    println!(
+        "szymczak classes generated after {:?}",
+        szymczak_classes_time.elapsed()
+    );
 }

@@ -35,20 +35,49 @@ pub struct Relation<R: SuperRing> {
 
 impl<R: SuperRing> Debug for Relation<R> {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        let mut matrix_out = String::new();
+
+        for ind_col in 0..self.matrix.num_of_cols() {
+            for ind_row in 0..self.matrix.num_of_rows() {
+                match self
+                    .matrix
+                    .get(ind_col, ind_row)
+                    .expect("the indices are in proper bounds")
+                {
+                    true => matrix_out.push('1'),
+                    false => matrix_out.push('0'),
+                }
+            }
+            matrix_out.push('\n');
+        }
         write!(
             f,
-            "s:{:?}, t:{:?}, {:?}",
-            self.source, self.target, self.matrix
+            "s:{:?}, t:{:?}, Mtx({}x{}):\n{}",
+            self.source,
+            self.target,
+            self.matrix.num_of_rows(),
+            self.matrix.num_of_cols(),
+            matrix_out
         )
     }
 }
 impl<R: SuperRing> Display for Relation<R> {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-        write!(
-            f,
-            "s:{:?}, t:{:?}, {:?}",
-            self.source, self.target, self.matrix
-        )
+        let mut matrix_out = String::new();
+
+        for ind_col in 0..self.matrix.num_of_cols() {
+            for ind_row in 0..self.matrix.num_of_rows() {
+                match self
+                    .matrix
+                    .get(ind_col, ind_row)
+                    .expect("the indices are in proper bounds")
+                {
+                    true => matrix_out.push('1'),
+                    false => matrix_out.push('0'),
+                }
+            }
+        }
+        write!(f, "{}", matrix_out)
     }
 }
 
@@ -478,7 +507,8 @@ mod test {
     #[test]
     fn z3_category_from_function() {
         use crate::util::matrix::Matrix;
-        use typenum::U3 as N;
+        use typenum::{Unsigned, U3 as N};
+        let n = N::to_usize();
         type R = Fin<N>;
 
         let category = Category::<CanonModule<R>, Relation<R>>::new(1);
@@ -555,7 +585,7 @@ mod test {
 
     #[test]
     fn no_duplicates() {
-        use typenum::{Unsigned, U5 as N};
+        use typenum::{Unsigned, U7 as N};
         type R = Fin<N>;
 
         let category = Category::<CanonModule<R>, Relation<R>>::new(1);

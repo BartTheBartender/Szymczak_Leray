@@ -525,4 +525,31 @@ mod test {
 
         assert_eq!(zn_zn.to_string(), "Z3 x Z3");
     }
+
+    #[test]
+    #[should_panic]
+    fn z7_issue() {
+        use typenum::{Unsigned, U7 as N};
+        let n = N::to_usize();
+        type R = Fin<N>;
+
+        let zn = CoeffTree::<R, ()>::all_torsion_coeffs(1)
+            .map(|tc| CanonModule::<R>::new(tc))
+            .find(|module| module.cardinality() == n)
+            .expect("there is a zn module here");
+
+        let direct =
+            DirectModule::<R>::sumproduct(&Arc::new(zn.clone()), &Arc::new(zn.duplicate()));
+
+        assert!(direct
+            .submodules_goursat()
+            .find(|canon_to_canon| canon_to_canon.to_string()
+                == "Mtx(1x2)[Z7(1), Z7(1)] : Z7 -> Z7xZ7")
+            .is_some());
+        assert!(direct
+            .submodules_goursat()
+            .find(|canon_to_canon| canon_to_canon.to_string()
+                == "Mtx(1x2)[Z7(4), Z7(4)] : Z7 -> Z7xZ7")
+            .is_some());
+    }
 }

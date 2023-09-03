@@ -32,6 +32,11 @@ impl<R: SuperRing> fmt::Debug for CanonToCanon<R> {
         write!(f, "{:?} : {:?} -> {:?}", self.map, self.source, self.target)
     }
 }
+impl<R: SuperRing> fmt::Display for CanonToCanon<R> {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        write!(f, "{:?}", self)
+    }
+}
 
 impl<R: SuperRing> CanonToCanon<R> {
     pub fn new(

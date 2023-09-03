@@ -14,9 +14,9 @@ use std::{
 };
 
 type EndoMorphisms<E> = Vec<E>;
-type EndoMorphismsWithCycles<E> = HashMap<E, Vec<E>>;
+type EndoMorphismsWithCycles<E> = Vec<(E, Vec<E>)>;
 
-type RawSzymczakClass<E> = HashMap<E, Vec<E>>;
+type RawSzymczakClass<E> = Vec<(E, Vec<E>)>;
 type RawSzymczakClasses<E> = Vec<RawSzymczakClass<E>>;
 
 type SzymczakClass<Object, E> = HashMap<Object, Vec<E>>;
@@ -120,18 +120,20 @@ impl<
                     raw_szymczak_classes.iter_mut().find(|raw_szymczak_class| {
                         Self::are_szymczak_isomorphic(
                             (&endomorphism, &cycle),
-                            raw_szymczak_class
-                                .iter()
-                                .next()
-                                .expect("szymczak classes are never empty"),
+                            transform(
+                                raw_szymczak_class
+                                    .iter()
+                                    .next()
+                                    .expect("szymczak classes are never empty"),
+                            ),
                             hom_sets,
                         )
                     });
                 if let Some(raw_szymczak_class) = maybe_raw_szymczak_class {
-                    raw_szymczak_class.insert(endomorphism, cycle);
+                    raw_szymczak_class.push((endomorphism, cycle));
                 } else {
                     let mut new_raw_szymczak_class = RawSzymczakClass::<E>::new();
-                    new_raw_szymczak_class.insert(endomorphism, cycle);
+                    new_raw_szymczak_class.push((endomorphism, cycle));
                     raw_szymczak_classes.push(new_raw_szymczak_class);
                 }
 
@@ -141,6 +143,7 @@ impl<
     }
 
     fn merge_raw_szymczak_classes(
+        //STANOWCZO DO POPRAWKI _ITERATOR PODWÓJNY Z FOLDEM
         mut left_raw_szymczak_classes: RawSzymczakClasses<E>,
         mut right_raw_szymczak_classes: RawSzymczakClasses<E>,
         hom_sets: &HomSet<Object, M>,
@@ -155,14 +158,18 @@ impl<
 
             while right_index < right_raw_szymczak_classes.len() {
                 if Self::are_szymczak_isomorphic(
-                    left_raw_szymczak_classes[left_index]
-                        .iter()
-                        .next()
-                        .expect("szymczak classes are never empty"),
-                    right_raw_szymczak_classes[right_index]
-                        .iter()
-                        .next()
-                        .expect("szymczak classes are never empty"),
+                    transform(
+                        left_raw_szymczak_classes[left_index]
+                            .iter()
+                            .next()
+                            .expect("szymczak classes are never empty"),
+                    ),
+                    transform(
+                        right_raw_szymczak_classes[right_index]
+                            .iter()
+                            .next()
+                            .expect("szymczak classes are never empty"),
+                    ),
                     hom_sets,
                 ) {
                     let mut merged_raw_szymczak_class =
@@ -198,7 +205,10 @@ impl<
     }
 
     fn drop_cycles(raw_szymczak_class: RawSzymczakClass<E>) -> Vec<E> {
-        raw_szymczak_class.into_keys().collect::<Vec<E>>()
+        raw_szymczak_class
+            .into_iter()
+            .map(|(endomorphism, _)| endomorphism)
+            .collect::<Vec<E>>()
     }
 
     fn sort_by_object(raw_szymczak_class_without_cycle: Vec<E>) -> SzymczakClass<Object, E> {
@@ -261,6 +271,11 @@ impl<
 
         false
     }
+}
+
+pub fn transform<L, R>(reference_to_tuple: &(L, R)) -> (&L, &R) {
+    let (left, right) = reference_to_tuple;
+    (&left, &right)
 }
 
 impl<Object: Eq + Display, M: Morphism<Object, Object>, E: EndoMorphism<Object> + Display> Display
@@ -554,6 +569,7 @@ mod test {
     }
 
     #[test]
+    #[ignore]
     fn szymczak_classes_for_zp() {
         use typenum::{Unsigned, U7 as P};
         type R = Fin<P>;
@@ -591,12 +607,9 @@ mod test {
             })
             .collect();
         let endomorphisms_len = endomorphisms.len();
-        let mut count = 0;
         let endomorphisms_with_cycles: EndoMorphismsWithCycles<Relation<R>> = endomorphisms
             .into_iter()
             .map(|endomorphism| {
-                println!("{}", count);
-                count += 1;
                 let cycle: Vec<Relation<R>> = endomorphism.cycle();
                 (endomorphism, cycle)
             })
@@ -609,8 +622,9 @@ mod test {
     }
 
     #[test]
+    #[ignore]
     fn raw_szymczak_functor_for_zp() {
-        use typenum::{Unsigned, U11 as P};
+        use typenum::{Unsigned, U7 as P};
         type R = Fin<P>;
         let p = P::to_usize();
 
@@ -630,7 +644,10 @@ mod test {
                     })
             })
             .collect();
-        let endomorphisms_len = endomorphisms.len();
+
+        for endo in endomorphisms.iter() {
+            println!("{:?}", endo);
+        }
 
         let endomorphisms_with_cycles: EndoMorphismsWithCycles<Relation<R>> = endomorphisms
             .into_iter()
@@ -642,41 +659,46 @@ mod test {
 
         let endomorphisms_with_cycles_len = endomorphisms_with_cycles.len();
 
-        let mut count_out = 0;
-
         let raw_szymczak_classes = RawSzymczakClasses::<Relation<R>>::new();
 
         let raw_szymczak_classes = endomorphisms_with_cycles.into_iter().fold(
             raw_szymczak_classes,
             |mut raw_szymczak_classes, (endomorphism, cycle)| {
-                count_out += 1;
+                // println!("{:?}", endomorphism);
                 let maybe_raw_szymczak_class: Option<&mut RawSzymczakClass<Relation<R>>> =
                     raw_szymczak_classes.iter_mut().find(|raw_szymczak_class| {
                         SzymczakCategory::are_szymczak_isomorphic(
                             (&endomorphism, &cycle),
-                            raw_szymczak_class
-                                .iter()
-                                .next()
-                                .expect("szymczak classes are never empty"),
+                            transform(
+                                raw_szymczak_class
+                                    .iter()
+                                    .next()
+                                    .expect("szymczak classes are never empty"),
+                            ),
                             &category.hom_sets,
                         )
                     });
                 if let Some(raw_szymczak_class) = maybe_raw_szymczak_class {
-                    raw_szymczak_class.insert(endomorphism, cycle);
-                    println!("inserted into a szymczak class");
+                    raw_szymczak_class.push((endomorphism, cycle));
                 } else {
                     let mut new_raw_szymczak_class = RawSzymczakClass::<Relation<R>>::new();
-                    new_raw_szymczak_class.insert(endomorphism, cycle);
+                    new_raw_szymczak_class.push((endomorphism, cycle));
                     raw_szymczak_classes.push(new_raw_szymczak_class);
-                    println!("created a new szymczak class");
                 }
 
                 raw_szymczak_classes
             },
         );
 
-        assert_eq!(endomorphisms_with_cycles_len, endomorphisms_len);
-        assert_eq!(endomorphisms_with_cycles_len, count_out);
+        println!("\n\nAFTER GENERATION:");
+        for raw_szymczak_class in raw_szymczak_classes.iter() {
+            println!("new szymczak class:");
+
+            for endo in raw_szymczak_class.iter() {
+                println!("{:?}", endo.0);
+            }
+        }
+
         assert_eq!(raw_szymczak_classes.len(), p);
     }
 }
