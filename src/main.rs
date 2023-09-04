@@ -108,7 +108,6 @@ use std::time::{Duration, Instant};
 use typenum::U3 as N;
 pub const MAX_DIMENSION: Int = 2;
 pub type Int = u16;
-pub const RECURSION_PARAMETER_SZYMCZAK_FUNCTOR: usize = 20;
 
 type R = Fin<N>;
 fn main() {
@@ -116,7 +115,7 @@ fn main() {
     let category = Category::<CanonModule<R>, Relation<R>>::new(MAX_DIMENSION);
     println!("category generated after {:?}", category_time.elapsed());
     let szymczak_classes_time = Instant::now();
-    let szymczak_category = SzymczakCategory::szymczak_functor(&category);
+    let szymczak_category = SzymczakCategory::szymczak_functor::<20>(&category);
     println!(
         "szymczak classes generated after {:?}",
         szymczak_classes_time.elapsed()

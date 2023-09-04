@@ -48,7 +48,7 @@ impl<R: SuperRing> Debug for Relation<R> {
                     false => matrix_out.push('0'),
                 }
             }
-            matrix_out.push('\n');
+            //  matrix_out.push('\n');
         }
         write!(
             f,

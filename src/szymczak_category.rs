@@ -1,14 +1,11 @@
-use crate::{
-    category::{
-        morphism::{Compose, EndoMorphism, Morphism},
-        Category, HomSet,
-    },
-    RECURSION_PARAMETER_SZYMCZAK_FUNCTOR,
+use crate::category::{
+    morphism::{Compose, EndoMorphism, Morphism},
+    Category, HomSet,
 };
 // use rayon;
 use std::{
     collections::HashMap,
-    fmt::{self, Display},
+    fmt::{self, Debug, Display},
     hash::Hash,
     marker::{PhantomData, Send, Sync},
 };
@@ -36,6 +33,7 @@ impl<
             + Sync
             + Clone,
         E: EndoMorphism<Object>
+            + Debug //to be removed in the future
             + Sync
             + Send
             + From<M>
@@ -44,7 +42,13 @@ impl<
 {
     //i dont really know if name of the function below is correct, but i find it cool (i woudl like to know your opinion as well). I dont know also how to parallelize it (i assume that we will have to use parallel Hash structures by rayon)
 
-    pub fn szymczak_functor(category: &Category<Object, M>) -> Self {
+    pub fn szymczak_functor<const RECURSION_PARAMETER: usize>(
+        category: &Category<Object, M>,
+    ) -> Self {
+        //step 0. If recursion parameter is less than 2, it will lead to the undefined behaviour
+        if RECURSION_PARAMETER < 2 {
+            panic!("RECURSION_PARAMETER cannot be smaller than 2");
+        }
         //step 1. Clone all the endomorphisms (we will need them to be owned)
 
         let endomorphisms: EndoMorphisms<E> = category
@@ -61,7 +65,10 @@ impl<
             .collect();
 
         //step 2. generate raw szymczak classes (by raw i mean they are unsorted by object and endomorphisms keep their cycles)
-        let raw_szymczak_classes = Self::raw_szymczak_functor(endomorphisms, &category.hom_sets);
+        let raw_szymczak_classes = Self::raw_szymczak_functor::<{ RECURSION_PARAMETER }>(
+            endomorphisms,
+            &category.hom_sets,
+        );
 
         //step 3. clean up the szymczak classes
         let szymczak_classes: SzymczakClasses<Object, E> = raw_szymczak_classes
@@ -76,17 +83,29 @@ impl<
         }
     }
 
-    fn raw_szymczak_functor(
+    fn raw_szymczak_functor<const RECURSION_PARAMETER: usize>(
         mut endomorphisms: EndoMorphisms<E>,
         hom_sets: &HomSet<Object, M>,
     ) -> RawSzymczakClasses<E> {
-        if endomorphisms.len() > RECURSION_PARAMETER_SZYMCZAK_FUNCTOR {
+        if endomorphisms.len() > RECURSION_PARAMETER {
             let left_endomorphisms = endomorphisms.split_off(endomorphisms.len() / 2);
             let right_endomorphisms = endomorphisms;
+            assert_ne!(left_endomorphisms.len(), 0);
+            assert_ne!(right_endomorphisms.len(), 0);
 
             let (left_raw_szymczak_classes, right_raw_szymczak_classes) = rayon::join(
-                || Self::raw_szymczak_functor(left_endomorphisms, hom_sets),
-                || Self::raw_szymczak_functor(right_endomorphisms, hom_sets),
+                || {
+                    Self::raw_szymczak_functor::<{ RECURSION_PARAMETER }>(
+                        left_endomorphisms,
+                        hom_sets,
+                    )
+                },
+                || {
+                    Self::raw_szymczak_functor::<{ RECURSION_PARAMETER }>(
+                        right_endomorphisms,
+                        hom_sets,
+                    )
+                },
             );
 
             Self::merge_raw_szymczak_classes(
@@ -111,10 +130,8 @@ impl<
             })
             .collect();
 
-        let raw_szymczak_classes = RawSzymczakClasses::<E>::new();
-
-        endomorphisms_with_cycles.into_iter().fold(
-            raw_szymczak_classes,
+        let raw_szymczak_classes = endomorphisms_with_cycles.into_iter().fold(
+            RawSzymczakClasses::<E>::new(),
             |mut raw_szymczak_classes, (endomorphism, cycle)| {
                 let maybe_raw_szymczak_class: Option<&mut RawSzymczakClass<E>> =
                     raw_szymczak_classes.iter_mut().find(|raw_szymczak_class| {
@@ -139,15 +156,21 @@ impl<
 
                 raw_szymczak_classes
             },
-        )
+        );
+
+        assert!(!raw_szymczak_classes
+            .iter()
+            .find(|raw_szymczak_class| raw_szymczak_class.len() == 0)
+            .is_some());
+        raw_szymczak_classes
     }
 
     fn merge_raw_szymczak_classes(
-        //STANOWCZO DO POPRAWKI _ITERATOR PODWÓJNY Z FOLDEM
         mut left_raw_szymczak_classes: RawSzymczakClasses<E>,
         mut right_raw_szymczak_classes: RawSzymczakClasses<E>,
         hom_sets: &HomSet<Object, M>,
     ) -> RawSzymczakClasses<E> {
+        /*
         let mut merged_raw_szymczak_classes = RawSzymczakClasses::<E>::new();
 
         let mut left_index = 0;
@@ -201,6 +224,54 @@ impl<
 
         merged_raw_szymczak_classes.extend(left_raw_szymczak_classes);
         merged_raw_szymczak_classes.extend(right_raw_szymczak_classes);
+        merged_raw_szymczak_classes
+        */
+
+        let mut merged_raw_szymczak_classes: RawSzymczakClasses<E> =
+            left_raw_szymczak_classes.iter_mut().fold(
+                RawSzymczakClasses::<E>::new(),
+                |mut merged_raw_szymczak_classes, left_raw_szymczak_class| {
+                    if let Some(right_raw_szymczak_class) = right_raw_szymczak_classes
+                        .iter_mut()
+                        .find(|right_raw_szymczak_class| {
+                            let left_endo_with_cycle = transform(
+                                left_raw_szymczak_class
+                                    .iter()
+                                    .next()
+                                    .expect("szymczak classes are never empty"),
+                            );
+                            let right_endo_with_cycle = transform(
+                                right_raw_szymczak_class
+                                    .iter()
+                                    .next()
+                                    .expect("szymczak classes are never empty"),
+                            );
+
+                            Self::are_szymczak_isomorphic(
+                                left_endo_with_cycle,
+                                right_endo_with_cycle,
+                                hom_sets,
+                            )
+                        })
+                    {
+                        let mut merged_raw_szymczak_class = RawSzymczakClass::<E>::new();
+                        merged_raw_szymczak_class.append(left_raw_szymczak_class);
+                        merged_raw_szymczak_class.append(right_raw_szymczak_class);
+                        merged_raw_szymczak_classes.push(merged_raw_szymczak_class);
+                    }
+
+                    right_raw_szymczak_classes
+                        .retain(|right_raw_szymczak_class| right_raw_szymczak_class.len() != 0);
+
+                    merged_raw_szymczak_classes
+                },
+            );
+        left_raw_szymczak_classes
+            .retain(|left_raw_szymczak_class| left_raw_szymczak_class.len() != 0);
+
+        merged_raw_szymczak_classes.append(&mut left_raw_szymczak_classes);
+        merged_raw_szymczak_classes.append(&mut right_raw_szymczak_classes);
+
         merged_raw_szymczak_classes
     }
 
@@ -577,7 +648,7 @@ mod test {
 
         let category = Category::<CanonModule<R>, Relation<R>>::new(1);
         // println!("{}\n---", category);
-        let szymczak_category = SzymczakCategory::szymczak_functor(&category);
+        let szymczak_category = SzymczakCategory::szymczak_functor::<20>(&category);
 
         //println!("{}", szymczak_category);
 
@@ -695,10 +766,25 @@ mod test {
             println!("new szymczak class:");
 
             for endo in raw_szymczak_class.iter() {
-                println!("{:?}", endo.0);
+                println!("endo:{:?}", endo.0);
             }
         }
 
         assert_eq!(raw_szymczak_classes.len(), p);
+    }
+
+    #[test]
+    fn merge_raw_szymczak_classes() {
+        use typenum::{Unsigned, U5 as P};
+        type R = Fin<P>;
+        let p = 5; //Unsigned::to_usize() is a non-const function
+        const RECURSION_PARAMETER: usize = 2; // i need to enforce call of the merge function this way
+
+        let category = Category::<CanonModule<R>, Relation<R>>::new(1);
+
+        let szymczak_category =
+            SzymczakCategory::szymczak_functor::<{ RECURSION_PARAMETER }>(&category);
+        assert_eq!(szymczak_category.szymczak_classes.len(), p);
+        println!("{}", szymczak_category);
     }
 }
