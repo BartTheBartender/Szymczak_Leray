@@ -248,9 +248,12 @@ impl<R: SuperRing> From<CanonModule<R>> for DirectModule<R> {
 #[cfg(test)]
 mod test {
     use super::*;
-    use crate::rmodule::{
-        ring::{Fin, Set},
-        torsion::CoeffTree,
+    use crate::{
+        category::AllObjects,
+        rmodule::{
+            ring::{Fin, Set},
+            torsion::CoeffTree,
+        },
     };
     use typenum::{U12, U4};
 
@@ -551,5 +554,26 @@ mod test {
             .find(|canon_to_canon| canon_to_canon.to_string()
                 == "Mtx(1x2)[Z7(4), Z7(4)] : Z7 -> Z7xZ7")
             .is_some());
+    }
+
+    #[test]
+    fn z2xz2_no_dupes() {
+        use typenum::{Unsigned, U2 as N};
+        let n = N::to_usize();
+        type R = Fin<N>;
+
+        let z2xz2 = CanonModule::<R>::all_objects(2)
+            .into_iter()
+            .find(|module| module.cardinality() == n * n)
+            .expect("there is a module of dimension two");
+
+        let z2xz2_sq =
+            DirectModule::<R>::sumproduct(&Arc::new(z2xz2.duplicate()), &Arc::new(z2xz2));
+
+        let submodules: Vec<CanonToCanon<R>> = z2xz2_sq.submodules_goursat().collect();
+
+        let mut submodules_no_dupes = submodules.clone();
+        submodules_no_dupes.dedup();
+        assert_eq!(submodules, submodules_no_dupes);
     }
 }

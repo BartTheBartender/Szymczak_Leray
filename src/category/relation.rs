@@ -719,4 +719,28 @@ mod test {
             }
         }
     }
+
+    #[test]
+    #[ignore]
+    fn category_high_dimension_no_dupes() {
+        use crate::{
+            category::{AllMorphisms, AllObjects},
+            util::matrix::Matrix,
+        };
+        use typenum::{Unsigned, U2 as N};
+        let n = N::to_usize();
+        type R = Fin<N>;
+
+        let z2xz2: CanonModule<R> = CanonModule::<R>::all_objects(2)
+            .into_iter()
+            .find(|module| module.cardinality() == n * n)
+            .expect("there is module of dim two");
+
+        let category = Category::<CanonModule<R>, Relation<R>>::new(2);
+
+        let hom_set_z2xz2 = category.hom_set(&z2xz2, &z2xz2);
+        let mut hom_set_z2xz2_no_dupes = hom_set_z2xz2.clone();
+        hom_set_z2xz2_no_dupes.dedup();
+        assert_eq!(hom_set_z2xz2, hom_set_z2xz2_no_dupes);
+    }
 }

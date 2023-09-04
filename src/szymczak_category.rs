@@ -777,14 +777,13 @@ mod test {
     fn merge_raw_szymczak_classes() {
         use typenum::{Unsigned, U5 as P};
         type R = Fin<P>;
-        let p = 5; //Unsigned::to_usize() is a non-const function
-        const RECURSION_PARAMETER: usize = 2; // i need to enforce call of the merge function this way
+        let p = P::to_usize();
+        const RECURSION_PARAMETER: usize = 2;
 
         let category = Category::<CanonModule<R>, Relation<R>>::new(1);
 
         let szymczak_category =
             SzymczakCategory::szymczak_functor::<{ RECURSION_PARAMETER }>(&category);
         assert_eq!(szymczak_category.szymczak_classes.len(), p);
-        println!("{}", szymczak_category);
     }
 }
