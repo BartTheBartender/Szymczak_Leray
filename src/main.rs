@@ -95,9 +95,8 @@
 
 // mod category;
 // mod error;
-// mod matrix;
 mod ralg;
-// mod rmodule;
+mod rmodule;
 // mod szymczak_category;
 // mod util;
 

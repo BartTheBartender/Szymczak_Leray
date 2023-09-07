@@ -1,5 +1,6 @@
 use crate::{
     category::morphism::{Compose, Morphism, PreAbelianMorphism},
+    matrix::Matrix,
     rmodule::{
         canon::{zn_dividedby_rxzm, CanonModule},
         ring::SuperRing,
@@ -149,7 +150,7 @@ impl<R: SuperRing> Compose<CanonModule<R>, CanonModule<R>, CanonModule<R>, Self>
     }
 }
 
-impl<R: SuperRing> PreAbelianMorphism<R, CanonModule<R>, CanonModule<R>> for CanonToCanon<R> {
+impl<R: SuperRing> PartialAbelianMorphism<R, CanonModule<R>, CanonModule<R>> for CanonToCanon<R> {
     fn is_zero(&self) -> bool {
         self.map.iter().all(R::is_zero)
     }

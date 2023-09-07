@@ -6,17 +6,16 @@ which can bo constructed from a natural number.
 we are excluding empty collections.
 */
 // possibly we might want to exchange u16 for own type used solely to index stuff
-pub trait Demesne: PartialEq + Eq + From<u16> + Into<u16> {
+pub trait Demesne: Sized + PartialEq + Eq {
     fn elements() -> impl Iterator<Item = Self> + Clone;
 }
 
 /* # additive structure */
 
-pub trait AdditiveMonoid: Demesne {
-    fn zero() -> Self;
-    fn add(self, other: Self) -> Self;
-    fn add_assign(&mut self, other: Self);
+pub trait AdditivePartialMonoid: Demesne {
+    fn try_add(self, other: Self) -> Option<Self>;
 
+    fn own_zero(&self) -> Self;
     fn is_zero(&self) -> bool;
     fn is_negable(&self) -> bool;
     fn try_neg(self) -> Option<Self>;
@@ -24,16 +23,24 @@ pub trait AdditiveMonoid: Demesne {
     fn negable_elements() -> impl Iterator<Item = Self> + Clone {
         Self::elements().filter_map(Self::try_neg)
     }
-
-    fn try_sub(self, other: Self) -> Option<Self> {
-        other.try_neg().map(|other_neg| self.add(other_neg))
-    }
 }
 
-pub trait AdditiveGroup: AdditiveMonoid {
+pub trait AdditiveMonoid: AdditivePartialMonoid {
+    fn zero() -> Self;
+    fn add(self, other: Self) -> Self;
+    fn add_assign(&mut self, other: Self);
+}
+
+pub trait AdditivePartialGroup: AdditivePartialMonoid {
     fn neg(self) -> Self;
     fn neg_inplace(&mut self);
 
+    fn try_sub(self, other: Self) -> Option<Self> {
+        self.try_add(other.neg())
+    }
+}
+
+pub trait AdditiveGroup: AdditiveMonoid + AdditivePartialGroup {
     fn sub(self, other: Self) -> Self {
         self.add(other.neg())
     }
@@ -45,11 +52,10 @@ pub trait AdditiveGroup: AdditiveMonoid {
 
 /* # multiplicative structure */
 
-pub trait MultiplicativeMonoid: Demesne {
-    fn one() -> Self;
-    fn mul(self, other: Self) -> Self;
-    fn mul_assign(&mut self, other: Self);
+pub trait MultiplicativePartialMonoid: Demesne {
+    fn try_mul(self, other: Self) -> Option<Self>;
 
+    fn own_one(&self) -> Self;
     fn is_one(&self) -> bool;
     fn is_invable(&self) -> bool;
     fn try_inv(self) -> Option<Self>;
@@ -57,10 +63,12 @@ pub trait MultiplicativeMonoid: Demesne {
     fn invable_elements() -> impl Iterator<Item = Self> + Clone {
         Self::elements().filter_map(Self::try_inv)
     }
+}
 
-    fn try_div(self, other: Self) -> Option<Self> {
-        other.try_inv().map(|other_inv| self.mul(other_inv))
-    }
+pub trait MultiplicativeMonoid: MultiplicativePartialMonoid {
+    fn one() -> Self;
+    fn mul(self, other: Self) -> Self;
+    fn mul_assign(&mut self, other: Self);
 }
 
 /* # rings */
@@ -70,9 +78,12 @@ pub trait Ring: AdditiveGroup + MultiplicativeMonoid {
     attempts to find an element x,
     such that self * x = r
     */
-    fn try_divisor(self, r: Self) -> impl Iterator<Item = Self> + Clone;
+    fn try_divide(self, r: Self) -> impl Iterator<Item = Self> + Clone;
     fn is_divisor(&self, r: Self) -> bool;
     fn divisors(self) -> impl Iterator<Item = Self> + Clone;
+
+    fn min_generator_of_ideal(self) -> Self;
+    fn try_min_generator_of_ideal_generated_by(r: Self, s: Self) -> Self;
 
     fn principal_ideal(self) -> impl Iterator<Item = Self> + Clone;
     fn ideal(r: Self, s: Self) -> impl Iterator<Item = Self> + Clone;
@@ -80,7 +91,7 @@ pub trait Ring: AdditiveGroup + MultiplicativeMonoid {
 
 // i would love to have this impl here,
 // but the feature `return_position_impl_trait_in_trait`
-// does not allow specialisation here.
+// does not allow specialisation.
 // i prefer returning impl Iterators to having this implementation,
 // that does not get used anywhere anyway.
 /*
@@ -90,12 +101,12 @@ impl<R> Ring for R
 where
     R: Copy + AdditiveGroup + MultiplicativeMonoid,
 {
-    default fn try_divisor(self, r: Self) -> Option<Self> {
+    default fn try_divide(self, r: Self) -> Option<Self> {
         Self::elements().find(|&x| self.mul(x) == r)
     }
 
     default fn is_divisor(&self, r: Self) -> bool {
-        self.try_divisor(r).is_some()
+        self.try_divide(r).is_some()
     }
 
     default fn divisors(self) -> impl Iterator<Item = Self> + Clone {

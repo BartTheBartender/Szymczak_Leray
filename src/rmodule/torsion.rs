@@ -1,7 +1,9 @@
+/*
 use crate::{
     rmodule::ring::{Ring, Zahl},
     util::{iterator::product, matrix::Matrix},
 };
+*/
 use derive_where::derive_where;
 use nanoid::nanoid;
 use std::{
@@ -10,36 +12,6 @@ use std::{
     ops::Rem,
     sync::Arc,
 };
-
-/* # factorisable trait */
-
-pub trait Factorisable: Ring + Rem<Output = Self> + Ord + std::fmt::Debug {
-    fn primes() -> Vec<Self>;
-
-    fn prime_power_decomposition(&self) -> Vec<Self> {
-        let mut decomposition = Vec::new();
-        let zero = Self::zero();
-        let one = Self::one();
-        for p in Self::primes() {
-            // find highest power of p that divides self
-            let mut n = one;
-
-            let mut seen_powers = BTreeSet::new();
-            while !seen_powers.contains(&(n * p)) && *self % (n * p) == zero {
-                seen_powers.insert(n * p);
-                n = n * p;
-            }
-            // append this higest power to the decomposition
-            if n != one {
-                decomposition.push(n);
-            }
-        }
-        if decomposition.is_empty() {
-            decomposition.push(*self);
-        }
-        decomposition
-    }
-}
 
 /* # coeff wrapper */
 
@@ -70,14 +42,14 @@ impl<T> PartialOrd for Coeff<T>
 where
     T: Clone + Eq + PartialOrd,
 {
-    // lexicographic order, reversed on both fields
+    /// lexicographic order, reversed on coeff
     fn partial_cmp(&self, other: &Self) -> Option<Ordering> {
         match (
             self.coeff.partial_cmp(&other.coeff),
             self.index.partial_cmp(&other.index),
         ) {
             (None, _) => None,
-            (Some(Ordering::Equal), ord) => Some(ord?.reverse()),
+            (Some(Ordering::Equal), ord) => ord,
             (Some(ord), _) => Some(ord.reverse()),
         }
     }
@@ -87,10 +59,11 @@ impl<T> Ord for Coeff<T>
 where
     T: Clone + Eq + Ord,
 {
-    // lexicographic order, reversed on both fields
+    /// lexicographic order, reversed on coeff
     fn cmp(&self, other: &Self) -> Ordering {
         match (self.coeff.cmp(&other.coeff), self.index.cmp(&other.index)) {
-            (Ordering::Equal, ord) | (ord, _) => ord.reverse(),
+            (Ordering::Equal, ord) => ord,
+            (ord, _) => ord.reverse(),
         }
     }
 }

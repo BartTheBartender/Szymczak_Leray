@@ -1,6 +1,7 @@
 pub mod morphism;
-pub mod relation;
+// pub mod relation;
 
+/*
 #[allow(unused_imports)]
 use crate::{
     category::{
@@ -127,3 +128,4 @@ impl<Object: Eq + Display, M: Morphism<Object, Object> + Display> fmt::Display
         write!(f, "{}", string)
     }
 }
+*/

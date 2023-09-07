@@ -1,7 +1,4 @@
-use crate::{
-    error::Error,
-    rmodule::{ring::Ring, Module},
-};
+use crate::ralg::ring::Ring;
 use gcd::Gcd;
 use std::{
     cmp::Eq,
@@ -95,7 +92,7 @@ pub trait EndoMorphism<Object: Eq>:
     }
 }
 
-pub trait PreAbelianMorphism<R: Ring, Source: Module<R> + Eq, Target: Module<R> + Eq>:
+pub trait PartialAbelianMorphism<R: Ring, Source: Module<R> + Eq, Target: Module<R> + Eq>:
     Morphism<Source, Target>
 {
     fn is_zero(&self) -> bool;
@@ -104,7 +101,7 @@ pub trait PreAbelianMorphism<R: Ring, Source: Module<R> + Eq, Target: Module<R> 
 }
 
 pub trait AbelianMorphism<R: Ring, Source: Module<R> + Eq, Target: Module<R> + Eq>:
-    Sized + PreAbelianMorphism<R, Source, Target>
+    Sized + PartialAbelianMorphism<R, Source, Target>
 {
     fn equaliser(self, other: Self) -> Self;
     fn coequaliser(self, other: Self) -> Self;
@@ -113,7 +110,7 @@ pub trait AbelianMorphism<R: Ring, Source: Module<R> + Eq, Target: Module<R> + E
 impl<R: Ring + Gcd, Source: Module<R> + Eq, Target: Module<R> + Eq, T>
     AbelianMorphism<R, Source, Target> for T
 where
-    T: PreAbelianMorphism<R, Source, Target>,
+    T: PartialAbelianMorphism<R, Source, Target>,
     T: Add<Output = T> + Neg<Output = T>,
 {
     fn equaliser(self, other: Self) -> Self {

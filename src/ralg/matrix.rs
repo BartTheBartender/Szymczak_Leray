@@ -258,7 +258,7 @@ impl<R: Copy + Ring> VecD2<R> {
     }
 }
 
-impl<R: Copy + BezoutRing + fmt::Debug> VecD2<R> {
+impl<R: Copy + BezoutRing + Into<u16>> VecD2<R> {
     /* # smithing */
 
     fn find_smallest_nonzero_entry(
@@ -300,13 +300,13 @@ impl<R: Copy + BezoutRing + fmt::Debug> VecD2<R> {
                         }
                         let (gcd, _, _) = R::gcd(x, minx);
                         if !minx.is_divisor(x) && let Some(muland) =
-                                gcd.try_divisor(minx).find(|div| !div.is_invable()) 
+                                gcd.try_divide(minx).find(|div| !div.is_invable()) 
                                 {
                             smith.mul_row_by(row, muland);
                             u.mul_row_by(row, muland);
                         } // else no need to multiply by unit
                         if let Some(muland) =
-                            gcd.try_divisor(x).find(|div| !div.is_one()).map(R::neg)
+                            gcd.try_divide(x).find(|div| !div.is_one()).map(R::neg)
                         {
                             smith.add_muled_row_to_row(minrow, row, muland);
                             u.add_muled_row_to_row(minrow, row, muland);
@@ -320,13 +320,13 @@ impl<R: Copy + BezoutRing + fmt::Debug> VecD2<R> {
                         }
                         let (gcd, _, _) = R::gcd(x, minx);
                         if !minx.is_divisor(x) && let Some(muland) =
-                                gcd.try_divisor(minx).find(|div| !div.is_invable())
+                                gcd.try_divide(minx).find(|div| !div.is_invable())
                                 {
                             smith.mul_col_by(col, muland);
                             v.mul_col_by(col, muland);
                         } // else no need to multiply by unit
                         if let Some(muland) =
-                            gcd.try_divisor(x).find(|div| !div.is_one()).map(R::neg)
+                            gcd.try_divide(x).find(|div| !div.is_one()).map(R::neg)
                         {
                             smith.add_muled_col_to_col(mincol, col, muland);
                             v.add_muled_col_to_col(mincol, col, muland);

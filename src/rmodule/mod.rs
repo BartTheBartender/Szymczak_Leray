@@ -1,42 +1,31 @@
-use crate::{error::Error, rmodule::ring::Ring};
+use crate::ralg::ring::{AdditivePartialGroup, Ring};
 
-pub mod canon;
-pub mod direct;
-pub mod map;
-pub mod ring;
-pub mod torsion;
+// pub mod canon;
+// pub mod direct;
+// pub mod map;
+// pub mod ring;
+// pub mod quotient;
+// pub mod torsion;
 
-pub trait Module<R: Ring> {
-    type Element;
+/*
+i would love this to be a group,
+but having each module be a different type
+is fucking hard to achieve within rust's type system.
+even if we assume that the ring is bezout
+and that the structural theorem holds,
+we would have to somehow encode every ideal as a separate type
+— which by itself is doable, i think —
+and the module would have to depend on a list of ideals,
+of possibly unknown at compile time lenght.
+*/
+pub trait Module<R: Ring>: AdditivePartialGroup {
+    fn mul(self, r: R) -> Self;
+    fn mul_assign(&mut self, r: R);
+}
 
-    fn zero(&self) -> Self::Element;
-    fn is_element(&self, v: &Self::Element) -> bool;
+pub trait ModuleObject<R: Ring> {
+    type Element: Module<R>;
 
-    fn add_unchecked(&self, v: &Self::Element, u: &Self::Element) -> Self::Element;
-    // fn increment_unchecked(&self, v: &mut Self::Element, u: &Self::Element);
-    fn mul_by_scalar_unchecked(&self, x: R, v: &Self::Element) -> Self::Element;
-
-    fn add(&self, v: &Self::Element, u: &Self::Element) -> Result<Self::Element, Error> {
-        match self.is_element(v) && self.is_element(u) {
-            true => Ok(self.add_unchecked(v, u)),
-            false => Err(Error::InvalidElement),
-        }
-    }
-
-    // fn increment(&self, v: &mut Self::Element, u: &Self::Element) -> Result<(), Error> {
-    //     match self.is_element(v) && self.is_element(u) {
-    //         true => {
-    //             self.increment_unchecked(v, u);
-    //             Ok(())
-    //         }
-    //         false => Err(Error::InvalidElement),
-    //     }
-    // }
-
-    fn mul_by_scalar(&self, x: R, v: &Self::Element) -> Result<Self::Element, Error> {
-        match self.is_element(v) {
-            true => Ok(self.mul_by_scalar_unchecked(x, v)),
-            false => Err(Error::InvalidElement),
-        }
-    }
+    fn own_elements(&self) -> impl Iterator<Item = Self::Element> + Clone;
+    fn is_element(&self, el: Self::Element) -> bool;
 }

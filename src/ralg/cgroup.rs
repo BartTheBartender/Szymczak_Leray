@@ -1,7 +1,7 @@
 use crate::ralg::{
     ring::{
-        AdditiveGroup, AdditiveMonoid, BezoutRing, Demesne, FactorialRing, MultiplicativeMonoid,
-        Ring,
+        AdditiveGroup, AdditiveMonoid, AdditivePartialGroup, AdditivePartialMonoid, BezoutRing, Demesne,
+        FactorialRing, MultiplicativeMonoid, MultiplicativePartialMonoid, Ring,
     },
     util::{extended_euclid, try_inverse},
 };
@@ -97,6 +97,28 @@ impl<Period: Radix> Demesne for C<Period> {
 
 /* ### additive structure */
 
+impl<Period: Radix> AdditivePartialMonoid for C<Period> {
+    fn try_add(self, other: Self) -> Option<Self> {
+        Some(self.add(other))
+    }
+
+    fn own_zero(&self) -> Self {
+        Self::zero()
+    }
+
+    fn is_zero(&self) -> bool {
+        self.raw == 0
+    }
+
+    fn is_negable(&self) -> bool {
+        true
+    }
+
+    fn try_neg(self) -> Option<Self> {
+        Some(self.neg())
+    }
+}
+
 impl<Period: Radix> AdditiveMonoid for C<Period> {
     fn zero() -> Self {
         Self::from(0)
@@ -125,21 +147,9 @@ impl<Period: Radix> AdditiveMonoid for C<Period> {
             .expect("u16 should be bigger than `Period`-1 squared")
             .rem_euclid(Period::U16);
     }
-
-    fn is_zero(&self) -> bool {
-        self.raw == 0
-    }
-
-    fn is_negable(&self) -> bool {
-        true
-    }
-
-    fn try_neg(self) -> Option<Self> {
-        Some(self.neg())
-    }
 }
 
-impl<Period: Radix> AdditiveGroup for C<Period> {
+impl<Period: Radix> AdditivePartialGroup for C<Period> {
     fn neg(self) -> Self {
         Self::from(Period::U16.saturating_sub(self.raw))
     }
@@ -151,7 +161,35 @@ impl<Period: Radix> AdditiveGroup for C<Period> {
     }
 }
 
+impl<Period: Radix> AdditiveGroup for C<Period> {}
+
 /* ### multiplicative structure */
+
+impl<Period: Radix> MultiplicativePartialMonoid for C<Period> {
+    fn try_mul(self, other: Self) -> Option<Self> {
+        Some(self.mul(other))
+    }
+
+    fn own_one(&self) -> Self {
+        Self::one()
+    }
+
+    fn is_one(&self) -> bool {
+        self.raw == 1
+    }
+
+    fn is_invable(&self) -> bool {
+        let (gcd, _x, _y) = extended_euclid(self.raw.into(), Period::I32);
+        gcd == 1_i32
+    }
+
+    #[allow(clippy::expect_used, reason = "structural properties")]
+    fn try_inv(self) -> Option<Self> {
+        try_inverse(self.raw.into(), Period::I32).map(|inv| {
+            Self::from(u16::try_from(inv).expect("modulo `Period` guarantees this will match"))
+        })
+    }
+}
 
 impl<Period: Radix> MultiplicativeMonoid for C<Period> {
     fn one() -> Self {
@@ -181,38 +219,30 @@ impl<Period: Radix> MultiplicativeMonoid for C<Period> {
             .expect("u16 should be bigger than `Period`-1 squared")
             .rem_euclid(Period::U16);
     }
-
-    fn is_one(&self) -> bool {
-        self.raw == 1
-    }
-
-    fn is_invable(&self) -> bool {
-        let (gcd, _x, _y) = extended_euclid(self.raw.into(), Period::I32);
-        gcd == 1_i32
-    }
-
-    #[allow(clippy::expect_used, reason = "structural properties")]
-    fn try_inv(self) -> Option<Self> {
-        try_inverse(self.raw.into(), Period::I32).map(|inv| {
-            Self::from(u16::try_from(inv).expect("modulo `Period` guarantees this will match"))
-        })
-    }
 }
 
 /* ### rings */
 
 impl<Period: Radix> Ring for C<Period> {
     // TODO all these functions are UNTESTED yet
-    fn try_divisor(self, r: Self) -> impl Iterator<Item = Self> + Clone {
+    fn try_divide(self, r: Self) -> impl Iterator<Item = Self> + Clone {
         Self::elements().filter(move |&x| self.mul(x) == r)
     }
 
     fn is_divisor(&self, r: Self) -> bool {
-        self.try_divisor(r).next().is_some()
+        self.try_divide(r).next().is_some()
     }
 
     fn divisors(self) -> impl Iterator<Item = Self> + Clone {
         Self::elements().filter(move |r| r.is_divisor(self))
+    }
+
+    fn min_generator_of_ideal(self) -> Self {
+        Self::gcd(self, Self::zero()).0
+    }
+
+    fn try_min_generator_of_ideal_generated_by(r: Self, s: Self) -> Self {
+        Self::gcd(r, s).0
     }
 
     fn principal_ideal(self) -> impl Iterator<Item = Self> + Clone {
