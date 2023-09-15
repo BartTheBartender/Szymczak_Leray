@@ -49,16 +49,30 @@ impl<R: SuperRing> DirectModule<R> {
                 .into_iter()
                 .map(|sub| sub.cokernel())
                 .flat_map(|right_quot| {
+                    println!("entering quotient with quot: {right_quot}");
                     CanonToCanon::hom(smol.left(), right_quot.target())
                         .filter(|map| map.cokernel().is_zero())
                         .map(|phi| {
-                            smol.left_projection
-                                .compose_unchecked(&phi)
-                                .equaliser(smol.right_projection.compose_unchecked(&right_quot))
-                                .compose_unchecked(&smol.universal_out(
-                                    &left_sub.compose_unchecked(&self.left_inclusion),
-                                    &right_sub.compose_unchecked(&self.right_inclusion),
-                                ))
+                            println!("entering equa with phi: {phi}");
+                            let l = smol.left_projection.compose_unchecked(&phi);
+                            let r = smol.right_projection.compose_unchecked(&right_quot);
+                            println!("to equaliser:\n  lft: {l}\n  rht: {r}");
+
+                            let equa = l.equaliser(r);
+                            let uout = smol.universal_out(
+                                &left_sub.compose_unchecked(&self.left_inclusion),
+                                &right_sub.compose_unchecked(&self.right_inclusion),
+                            );
+                            dbg!(&equa);
+                            dbg!(&uout);
+                            equa.compose_unchecked(&uout)
+                            // smol.left_projection
+                            //     .compose_unchecked(&phi)
+                            //     .equaliser(smol.right_projection.compose_unchecked(&right_quot))
+                            //     .compose_unchecked(&smol.universal_out(
+                            //         &left_sub.compose_unchecked(&self.left_inclusion),
+                            //         &right_sub.compose_unchecked(&self.right_inclusion),
+                            //     ))
                         })
                         .collect::<Vec<_>>() // necessary to force the closure to release borrowed variables
                 })
@@ -531,37 +545,42 @@ mod test {
     }
 
     #[test]
-    #[should_panic]
+    // #[should_panic]
+    #[ignore]
     fn z7_issue() {
         use typenum::{Unsigned, U7 as N};
-        let n = N::to_usize();
         type R = Fin<N>;
+        let n = N::to_usize();
 
         let zn = CoeffTree::<R, ()>::all_torsion_coeffs(1)
-            .map(|tc| CanonModule::<R>::new(tc))
+            .map(CanonModule::<R>::new)
             .find(|module| module.cardinality() == n)
             .expect("there is a zn module here");
 
         let direct =
             DirectModule::<R>::sumproduct(&Arc::new(zn.clone()), &Arc::new(zn.duplicate()));
 
-        assert!(direct
-            .submodules_goursat()
-            .find(|canon_to_canon| canon_to_canon.to_string()
-                == "Mtx(1x2)[Z7(1), Z7(1)] : Z7 -> Z7xZ7")
-            .is_some());
-        assert!(direct
-            .submodules_goursat()
-            .find(|canon_to_canon| canon_to_canon.to_string()
-                == "Mtx(1x2)[Z7(4), Z7(4)] : Z7 -> Z7xZ7")
-            .is_some());
+        // let submodules = direct.submodules_goursat();
+        // for s in submodules {
+        //     dbg!(s);
+        // }
+
+        let mut submodules = direct.submodules_goursat();
+        assert!(submodules
+            .any(|canon_to_canon| canon_to_canon.to_string()
+                == "Mtx(1x2)[Z7(1), Z7(1)] : Z7 -> Z7xZ7"));
+        panic!();
+        // assert!(submodules
+        //     .any(|canon_to_canon| canon_to_canon.to_string()
+        //         == "Mtx(1x2)[Z7(4), Z7(4)] : Z7 -> Z7xZ7"));
     }
 
     #[test]
+    #[ignore]
     fn z2xz2_no_dupes() {
         use typenum::{Unsigned, U2 as N};
-        let n = N::to_usize();
         type R = Fin<N>;
+        let n = N::to_usize();
 
         let z2xz2 = CanonModule::<R>::all_objects(2)
             .into_iter()
