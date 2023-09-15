@@ -1,6 +1,7 @@
 use crate::{
     category::object::{
         Concrete as ConcreteObject, Enumerable as EnumerableObject, Object as CatObject,
+        PartiallyEnumerable as PartiallyEnumerableObject,
     },
     ralg::{
         cgroup::{ideal::CIdeal, Radix, C},
@@ -19,11 +20,7 @@ use crate::{
     },
 };
 use itertools::Itertools;
-use std::{
-    collections::{BTreeSet, HashMap},
-    fmt,
-    sync::Arc,
-};
+use std::{collections::BTreeSet, fmt, sync::Arc};
 use typenum::{IsGreater, U1};
 
 /* # torsion coefficients object */
@@ -195,8 +192,17 @@ impl<R: Ring + Copy, I: Ideal<Parent = R> + Ord> Object<R, I> {
 
 /* ### populators */
 
-impl<R: FactorialRing, I: PrincipalIdeal<Parent = R> + Ord> Object<R, I> {
-    fn all_modules_of_dimension(dimension: usize) -> impl Iterator<Item = Self> + Clone {
+impl<R: Ring + Into<u16>, I: PrincipalIdeal<Parent = R> + Ord> Object<R, I> {
+    pub fn torsion_coeffs_as_u16(&self) -> impl Iterator<Item = u16> + '_ {
+        self.iter()
+            .map(|mark| mark.thing.ideal.clone().generator().into())
+    }
+}
+
+impl<R: FactorialRing, I: PrincipalIdeal<Parent = R> + Ord> PartiallyEnumerableObject
+    for Object<R, I>
+{
+    fn all_fixed_dimension(dimension: usize) -> impl Iterator<Item = Self> + Clone {
         match dimension {
             0 => vec![Self::trivial()].into_iter(),
             d => {
@@ -216,16 +222,6 @@ impl<R: FactorialRing, I: PrincipalIdeal<Parent = R> + Ord> Object<R, I> {
                     .into_iter()
             }
         }
-    }
-
-    pub fn all_modules_up_to_dimension(dimension: usize) -> impl Iterator<Item = Self> + Clone {
-        (0..=dimension).flat_map(|d| Self::all_modules_of_dimension(d))
-    }
-
-    pub fn all_modules_up_to_dimension_hashed(dimension: usize) -> HashMap<usize, Vec<Self>> {
-        (0..=dimension)
-            .map(|d| (d, Self::all_modules_of_dimension(d).collect()))
-            .collect()
     }
 }
 
@@ -252,6 +248,20 @@ impl<R: Ring + Copy, I: Ideal<Parent = R> + Ord> ConcreteObject for Object<R, I>
                 self.clone()
                     .element_from_iterator(vec.into_iter().map(|qelement| qelement.element))
             })
+    }
+
+    default fn cardinality(&self) -> usize {
+        self.elements().count()
+    }
+}
+
+impl<R: Ring + Copy + Into<u16>, I: PrincipalIdeal<Parent = R> + Ord> ConcreteObject
+    for Object<R, I>
+{
+    fn cardinality(&self) -> usize {
+        self.torsion_coeffs_as_u16()
+            .fold(1_u16, |acc, next| acc.saturating_mul(next))
+            .into()
     }
 }
 
@@ -373,7 +383,8 @@ pub fn quotients_of_cyclic_module<Period: Radix + IsGreater<U1>>(
 #[cfg(test)]
 mod test {
     use super::*;
-    use typenum::{U3, U36, U4, U6, U64, U8};
+    use dedup::noncon::DedupNonConAdapter;
+    use typenum::{U2, U3, U36, U4, U6, U64, U7, U8};
 
     /* ## building */
 
@@ -780,5 +791,49 @@ mod test {
         assert!(full == full_a || full == full_b, "full submodule");
 
         assert_eq!(submodules.next(), None);
+    }
+
+    /*
+    #[test]
+    #[ignore]
+    fn z7_issue() {
+        type R = C<U7>;
+        type I = CIdeal<U7>;
+
+        let z7 = Arc::new(Object::<R, I>::from_iter([7]));
+        let z77 = Arc::new(Object::<R, I>::from_iter([7, 7]));
+
+        let mut submodules = z77.submodules();
+        assert!(submodules
+            .any(|canon_to_canon| canon_to_canon.to_string()
+                == "Mtx(1x2)[Z7(1), Z7(1)] : Z7 -> Z7xZ7"));
+        assert!(submodules
+            .any(|canon_to_canon| canon_to_canon.to_string()
+                == "Mtx(1x2)[Z7(4), Z7(4)] : Z7 -> Z7xZ7"));
+    }
+    */
+
+    #[test]
+    fn z2xz2_no_dupes() {
+        type R = C<U2>;
+        type I = CIdeal<U2>;
+        let n = U2::to_usize();
+
+        let z2xz2 = Object::<R, I>::all_by_dimension(0..=2)
+            .into_iter()
+            .find(|module| module.cardinality() == n * n)
+            .expect("there is a module of dimension two");
+
+        let z2xz2_sq =
+            DirectModule::<R, I>::sumproduct(&Arc::new(z2xz2.duplicate()), &Arc::new(z2xz2));
+
+        let submodules: Vec<CanonToCanon<R, I>> = z2xz2_sq.submodules_goursat();
+
+        let mut submodules_no_dupes = submodules.clone();
+        submodules_no_dupes
+            .into_iter()
+            .dedup_non_con()
+            .collect::<Vec<_>>();
+        assert_eq!(submodules, submodules_no_dupes);
     }
 }

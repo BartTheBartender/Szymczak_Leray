@@ -14,7 +14,7 @@ pub trait Radix = Unsigned + NonZero + Copy + Eq;
 /**
 ideal of a cyclic group of order `Period`
 */
-#[derive(Clone, Copy, PartialEq, Eq)]
+#[derive(Clone, Copy, PartialEq, Eq, Hash)]
 pub struct CIdeal<Period: Radix> {
     generator: C<Period>,
 }

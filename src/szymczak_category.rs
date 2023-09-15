@@ -1,9 +1,11 @@
 use crate::category::{
-    morphism::{Compose, EndoMorphism, Morphism},
-    Category, HomSet,
+    morphism::{Endo as EndoMorphism, Morphism},
+    object::Object,
+    Container as Category, HomSet,
 };
 // use rayon;
 use std::{
+    borrow::Borrow,
     collections::HashMap,
     fmt::{self, Debug, Display},
     hash::Hash,
@@ -16,35 +18,29 @@ type EndoMorphismsWithCycles<E> = Vec<(E, Vec<E>)>;
 type RawSzymczakClass<E> = Vec<(E, Vec<E>)>;
 type RawSzymczakClasses<E> = Vec<RawSzymczakClass<E>>;
 
-type SzymczakClass<Object, E> = HashMap<Object, Vec<E>>;
-type SzymczakClasses<Object, E> = Vec<SzymczakClass<Object, E>>;
+type SzymczakClass<O, E> = HashMap<O, Vec<E>>;
+type SzymczakClasses<O, E> = Vec<SzymczakClass<O, E>>;
 
-pub struct SzymczakCategory<Object: Eq, M: Morphism<Object, Object>, E: EndoMorphism<Object>> {
-    pub szymczak_classes: SzymczakClasses<Object, E>,
+pub struct SzymczakCategory<O: Object, M: Morphism<O>, E: EndoMorphism<O>> {
+    pub szymczak_classes: SzymczakClasses<O, E>,
     morphisms: PhantomData<M>,
 }
 
 impl<
-        Object: Eq + PartialEq + Hash + Clone + Sync + Send,
-        M: Morphism<Object, Object>
-            + Eq
-            + Compose<Object, Object, Object, M, Output = M>
-            + Compose<Object, Object, Object, E, Output = M>
-            + Sync
-            + Clone,
-        E: EndoMorphism<Object>
+        O: Object + Hash + Clone + Sync + Send,
+        M: Morphism<O> + Eq + Sync + Clone,
+        E: EndoMorphism<O>
             + Debug //to be removed in the future
+            + Clone
             + Sync
             + Send
-            + From<M>
-            + Compose<Object, Object, Object, M, Output = M>,
-    > SzymczakCategory<Object, M, E>
+            + PartialEq
+            + From<M>,
+    > SzymczakCategory<O, M, E>
 {
     //i dont really know if name of the function below is correct, but i find it cool (i woudl like to know your opinion as well). I dont know also how to parallelize it (i assume that we will have to use parallel Hash structures by rayon)
 
-    pub fn szymczak_functor<const RECURSION_PARAMETER: usize>(
-        category: &Category<Object, M>,
-    ) -> Self {
+    pub fn szymczak_functor<const RECURSION_PARAMETER: usize>(category: &Category<O, M>) -> Self {
         //step 0. If recursion parameter is less than 2, it will lead to the undefined behaviour
         if RECURSION_PARAMETER < 2 {
             panic!("RECURSION_PARAMETER cannot be smaller than 2");
@@ -71,7 +67,7 @@ impl<
         );
 
         //step 3. clean up the szymczak classes
-        let szymczak_classes: SzymczakClasses<Object, E> = raw_szymczak_classes
+        let szymczak_classes: SzymczakClasses<O, E> = raw_szymczak_classes
             .into_iter()
             .map(Self::drop_cycles)
             .map(Self::sort_by_object)
@@ -85,7 +81,7 @@ impl<
 
     fn raw_szymczak_functor<const RECURSION_PARAMETER: usize>(
         mut endomorphisms: EndoMorphisms<E>,
-        hom_sets: &HomSet<Object, M>,
+        hom_sets: &HomSet<O, M>,
     ) -> RawSzymczakClasses<E> {
         if endomorphisms.len() > RECURSION_PARAMETER {
             let left_endomorphisms = endomorphisms.split_off(endomorphisms.len() / 2);
@@ -120,7 +116,7 @@ impl<
 
     fn raw_szymczak_functor_final_step(
         endomorphisms: EndoMorphisms<E>,
-        hom_sets: &HomSet<Object, M>,
+        hom_sets: &HomSet<O, M>,
     ) -> RawSzymczakClasses<E> {
         let endomorphisms_with_cycles: EndoMorphismsWithCycles<E> = endomorphisms
             .into_iter()
@@ -168,7 +164,7 @@ impl<
     fn merge_raw_szymczak_classes(
         mut left_raw_szymczak_classes: RawSzymczakClasses<E>,
         mut right_raw_szymczak_classes: RawSzymczakClasses<E>,
-        hom_sets: &HomSet<Object, M>,
+        hom_sets: &HomSet<O, M>,
     ) -> RawSzymczakClasses<E> {
         /*
         let mut merged_raw_szymczak_classes = RawSzymczakClasses::<E>::new();
@@ -282,12 +278,12 @@ impl<
             .collect::<Vec<E>>()
     }
 
-    fn sort_by_object(raw_szymczak_class_without_cycle: Vec<E>) -> SzymczakClass<Object, E> {
-        let mut szymczak_class = SzymczakClass::<Object, E>::new();
+    fn sort_by_object(raw_szymczak_class_without_cycle: Vec<E>) -> SzymczakClass<O, E> {
+        let mut szymczak_class = SzymczakClass::<O, E>::new();
 
         for endomorphism in raw_szymczak_class_without_cycle.into_iter() {
             szymczak_class
-                .entry(endomorphism.source().as_ref().clone()) //this clone is needed to be stored as a key for the hashmap
+                .entry(endomorphism.source().borrow().clone()) //this clone is needed to be stored as a key for the hashmap
                 .or_default()
                 .push(endomorphism)
         }
@@ -298,29 +294,35 @@ impl<
     fn are_szymczak_isomorphic(
         left_endomorphism_with_cycle: (&E, &Vec<E>),
         right_endomorphism_with_cycle: (&E, &Vec<E>),
-        hom_sets: &HomSet<Object, M>,
+        hom_sets: &HomSet<O, M>,
     ) -> bool {
         let (l, l_cycle) = left_endomorphism_with_cycle;
         let (r, r_cycle) = right_endomorphism_with_cycle;
 
         let morphisms_l_to_r: &Vec<M> = hom_sets
-            .get(l.target().as_ref())
+            .get(l.target().borrow())
             .expect("there is a hom_set with the given object")
-            .get(r.source().as_ref())
+            .get(r.source().borrow())
             .expect("there is a hom_set with the given object");
 
         let morphisms_r_to_l: &Vec<M> = hom_sets
-            .get(r.target().as_ref())
+            .get(r.target().borrow())
             .expect("there is a hom_set with the given object")
-            .get(l.source().as_ref())
+            .get(l.source().borrow())
             .expect("there is a hom_set with the given object");
 
         for l_to_r in morphisms_l_to_r.iter() {
             for r_to_l in morphisms_r_to_l.iter() {
-                if l_to_r.compose_unchecked(r) == l.compose_unchecked(l_to_r)
-                    && r_to_l.compose_unchecked(l) == r.compose_unchecked(r_to_l)
-                    && Self::is_identity(&E::from(l_to_r.compose_unchecked(r_to_l)), l_cycle)
-                    && Self::is_identity(&E::from(r_to_l.compose_unchecked(l_to_r)), r_cycle)
+                if l_to_r.try_compose(r) == l.try_compose(l_to_r)
+                    && r_to_l.try_compose(l) == r.try_compose(r_to_l)
+                    && Self::is_identity(
+                        &E::from(l_to_r.try_compose(r_to_l.clone()).unwrap()),
+                        l_cycle,
+                    )
+                    && Self::is_identity(
+                        &E::from(r_to_l.try_compose(l_to_r.clone()).unwrap()),
+                        r_cycle,
+                    )
                 {
                     return true;
                 }
@@ -331,7 +333,7 @@ impl<
 
     fn is_identity(morphism: &E, cycle: &Vec<E>) -> bool {
         for en in cycle.iter() {
-            let en_morphism = morphism.compose_unchecked(en);
+            let en_morphism = morphism.try_compose(en.clone()).unwrap();
 
             for em in cycle.iter() {
                 if en_morphism == *em {
@@ -349,8 +351,8 @@ pub fn transform<L, R>(reference_to_tuple: &(L, R)) -> (&L, &R) {
     (&left, &right)
 }
 
-impl<Object: Eq + Display, M: Morphism<Object, Object>, E: EndoMorphism<Object> + Display> Display
-    for SzymczakCategory<Object, M, E>
+impl<O: Object + Display, M: Morphism<O>, E: EndoMorphism<O> + Display> Display
+    for SzymczakCategory<O, M, E>
 {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         let mut string = String::new();
@@ -375,19 +377,23 @@ impl<Object: Eq + Display, M: Morphism<Object, Object>, E: EndoMorphism<Object> 
 mod test {
     use super::*;
     use crate::{
-        category::{relation::Relation, Category},
-        rmodule::{canon::CanonModule, ring::Fin},
-        SzymczakCategory,
+        category::{object::Concrete, Container as Category},
+        ralg::{
+            cgroup::{ideal::CIdeal, C},
+            module::canon::object::Object as CanonModule,
+        },
+        relation::Relation,
     };
 
     #[test]
     fn szymczak_isomorphism_is_equivalence() {
-        use typenum::{Unsigned, U5 as N};
-        type R = Fin<N>;
+        use typenum::U5 as N;
+        type R = C<N>;
+        type I = CIdeal<N>;
 
-        let category = Category::<CanonModule<R>, Relation<R>>::new(1);
+        let category = Category::<CanonModule<R, I>, Relation<R, I>>::new(1);
 
-        let hom_set_zn_zn: Vec<Relation<R>> = category
+        let hom_set_zn_zn: Vec<Relation<R, I>> = category
             .clone()
             .hom_sets
             .into_iter()
@@ -469,13 +475,14 @@ mod test {
 
     #[test]
     fn szymczak_isomorphism_isnt_identically_true_nor_false() {
-        use typenum::{Unsigned, U5 as N};
+        use typenum::U5 as N;
 
-        type R = Fin<N>;
+        type R = C<N>;
+        type I = CIdeal<N>;
 
-        let category = Category::<CanonModule<R>, Relation<R>>::new(1);
+        let category = Category::<CanonModule<R, I>, Relation<R, I>>::new(1);
 
-        let hom_set_zn_zn: Vec<Relation<R>> = category
+        let hom_set_zn_zn: Vec<Relation<R, I>> = category
             .clone()
             .hom_sets
             .into_iter()
@@ -522,10 +529,11 @@ mod test {
     #[test]
     fn szymczak_isomorphism_different_base_objects() {
         use typenum::{Unsigned, U2 as P};
-        type R = Fin<P>;
+        type R = C<P>;
+        type I = CIdeal<P>;
         let p = P::to_usize();
 
-        let category = Category::<CanonModule<R>, Relation<R>>::new(1);
+        let category = Category::<CanonModule<R, I>, Relation<R, I>>::new(1);
 
         let all_objects = category.clone().objects();
         assert_eq!(all_objects.len(), 2);
@@ -569,10 +577,11 @@ mod test {
     #[test]
     fn is_identity() {
         use typenum::{Unsigned, U2 as P};
-        type R = Fin<P>;
+        type R = C<P>;
+        type I = CIdeal<P>;
         let p = P::to_usize();
 
-        let category = Category::<CanonModule<R>, Relation<R>>::new(1);
+        let category = Category::<CanonModule<R, I>, Relation<R, I>>::new(1);
 
         let all_objects = category.clone().objects();
         assert_eq!(all_objects.len(), 2);
@@ -604,9 +613,9 @@ mod test {
         let top_z2_cycle = top_z2.cycle();
 
         let morphisms_top_z1_to_top_z2 =
-            category.hom_set(top_z1.target().as_ref(), top_z2.source().as_ref());
+            category.hom_set(top_z1.target().borrow(), top_z2.source().borrow());
         let morphisms_top_z2_to_top_z1 =
-            category.hom_set(top_z2.target().as_ref(), top_z1.source().as_ref());
+            category.hom_set(top_z2.target().borrow(), top_z1.source().borrow());
 
         let mut are_szymczak_isomorphic: bool = false;
         let mut are_there_morphisms: bool = false;
@@ -615,18 +624,22 @@ mod test {
             for top_z2_to_top_z1 in morphisms_top_z2_to_top_z1.iter() {
                 println!("{}\n{}\n---", top_z1_to_top_z2, top_z2_to_top_z1);
 
-                if top_z1.compose_unchecked(&top_z1_to_top_z2)
-                    == top_z1_to_top_z2.compose_unchecked(&top_z2)
-                    && top_z2.compose_unchecked(&top_z2_to_top_z1)
-                        == top_z2_to_top_z1.compose_unchecked(&top_z1)
+                if top_z1.try_compose(top_z1_to_top_z2.clone())
+                    == top_z1_to_top_z2.try_compose(top_z2.clone())
+                    && top_z2.try_compose(top_z2_to_top_z1.clone())
+                        == top_z2_to_top_z1.try_compose(top_z1)
                 {
                     are_there_morphisms = true;
 
                     if SzymczakCategory::is_identity(
-                        &top_z1_to_top_z2.compose_unchecked(&top_z2_to_top_z1),
+                        &top_z1_to_top_z2
+                            .try_compose(top_z2_to_top_z1.clone())
+                            .unwrap(),
                         &top_z1_cycle,
                     ) && SzymczakCategory::is_identity(
-                        &top_z2_to_top_z1.compose_unchecked(&top_z1_to_top_z2),
+                        &top_z2_to_top_z1
+                            .try_compose(top_z1_to_top_z2.clone())
+                            .unwrap(),
                         &top_z2_cycle,
                     ) {
                         are_szymczak_isomorphic = true;
@@ -643,10 +656,11 @@ mod test {
     #[ignore]
     fn szymczak_classes_for_zp() {
         use typenum::{Unsigned, U7 as P};
-        type R = Fin<P>;
+        type R = C<P>;
+        type I = CIdeal<P>;
         let p = P::to_usize();
 
-        let category = Category::<CanonModule<R>, Relation<R>>::new(1);
+        let category = Category::<CanonModule<R, I>, Relation<R, I>>::new(1);
         // println!("{}\n---", category);
         let szymczak_category = SzymczakCategory::szymczak_functor::<20>(&category);
 
@@ -658,12 +672,13 @@ mod test {
     #[test]
     fn cycles_generation_for_zp() {
         use typenum::{Unsigned, U11 as P};
-        type R = Fin<P>;
+        type R = C<P>;
+        type I = CIdeal<P>;
         let p = P::to_usize();
 
-        let category = Category::<CanonModule<R>, Relation<R>>::new(1);
+        let category = Category::<CanonModule<R, I>, Relation<R, I>>::new(1);
 
-        let endomorphisms: EndoMorphisms<Relation<R>> = category
+        let endomorphisms: EndoMorphisms<Relation<R, I>> = category
             .hom_sets
             .iter()
             .flat_map(|(source, hom_sets_fixed_source)| {
@@ -673,15 +688,15 @@ mod test {
                     .flat_map(|(_, morphisms)| {
                         morphisms
                             .iter()
-                            .map(|morphism| Relation::<R>::from(morphism.clone()))
+                            .map(|morphism| Relation::<R, I>::from(morphism.clone()))
                     })
             })
             .collect();
         let endomorphisms_len = endomorphisms.len();
-        let endomorphisms_with_cycles: EndoMorphismsWithCycles<Relation<R>> = endomorphisms
+        let endomorphisms_with_cycles: EndoMorphismsWithCycles<Relation<R, I>> = endomorphisms
             .into_iter()
             .map(|endomorphism| {
-                let cycle: Vec<Relation<R>> = endomorphism.cycle();
+                let cycle: Vec<Relation<R, I>> = endomorphism.cycle();
                 (endomorphism, cycle)
             })
             .collect();
@@ -696,12 +711,13 @@ mod test {
     #[ignore]
     fn raw_szymczak_functor_for_zp() {
         use typenum::{Unsigned, U7 as P};
-        type R = Fin<P>;
+        type R = C<P>;
+        type I = CIdeal<P>;
         let p = P::to_usize();
 
-        let category = Category::<CanonModule<R>, Relation<R>>::new(1);
+        let category = Category::<CanonModule<R, I>, Relation<R, I>>::new(1);
 
-        let endomorphisms: EndoMorphisms<Relation<R>> = category
+        let endomorphisms: EndoMorphisms<Relation<R, I>> = category
             .hom_sets
             .iter()
             .flat_map(|(source, hom_sets_fixed_source)| {
@@ -711,7 +727,7 @@ mod test {
                     .flat_map(|(_, morphisms)| {
                         morphisms
                             .iter()
-                            .map(|morphism| Relation::<R>::from(morphism.clone()))
+                            .map(|morphism| Relation::<R, I>::from(morphism.clone()))
                     })
             })
             .collect();
@@ -720,23 +736,23 @@ mod test {
             println!("{:?}", endo);
         }
 
-        let endomorphisms_with_cycles: EndoMorphismsWithCycles<Relation<R>> = endomorphisms
+        let endomorphisms_with_cycles: EndoMorphismsWithCycles<Relation<R, I>> = endomorphisms
             .into_iter()
             .map(|endomorphism| {
-                let cycle: Vec<Relation<R>> = endomorphism.cycle();
+                let cycle: Vec<Relation<R, I>> = endomorphism.cycle();
                 (endomorphism, cycle)
             })
             .collect();
 
         let endomorphisms_with_cycles_len = endomorphisms_with_cycles.len();
 
-        let raw_szymczak_classes = RawSzymczakClasses::<Relation<R>>::new();
+        let raw_szymczak_classes = RawSzymczakClasses::<Relation<R, I>>::new();
 
         let raw_szymczak_classes = endomorphisms_with_cycles.into_iter().fold(
             raw_szymczak_classes,
             |mut raw_szymczak_classes, (endomorphism, cycle)| {
                 // println!("{:?}", endomorphism);
-                let maybe_raw_szymczak_class: Option<&mut RawSzymczakClass<Relation<R>>> =
+                let maybe_raw_szymczak_class: Option<&mut RawSzymczakClass<Relation<R, I>>> =
                     raw_szymczak_classes.iter_mut().find(|raw_szymczak_class| {
                         SzymczakCategory::are_szymczak_isomorphic(
                             (&endomorphism, &cycle),
@@ -752,7 +768,7 @@ mod test {
                 if let Some(raw_szymczak_class) = maybe_raw_szymczak_class {
                     raw_szymczak_class.push((endomorphism, cycle));
                 } else {
-                    let mut new_raw_szymczak_class = RawSzymczakClass::<Relation<R>>::new();
+                    let mut new_raw_szymczak_class = RawSzymczakClass::<Relation<R, I>>::new();
                     new_raw_szymczak_class.push((endomorphism, cycle));
                     raw_szymczak_classes.push(new_raw_szymczak_class);
                 }
@@ -776,11 +792,12 @@ mod test {
     #[test]
     fn merge_raw_szymczak_classes() {
         use typenum::{Unsigned, U5 as P};
-        type R = Fin<P>;
+        type R = C<P>;
+        type I = CIdeal<P>;
         let p = P::to_usize();
         const RECURSION_PARAMETER: usize = 2;
 
-        let category = Category::<CanonModule<R>, Relation<R>>::new(1);
+        let category = Category::<CanonModule<R, I>, Relation<R, I>>::new(1);
 
         let szymczak_category =
             SzymczakCategory::szymczak_functor::<{ RECURSION_PARAMETER }>(&category);

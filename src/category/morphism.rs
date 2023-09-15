@@ -1,17 +1,12 @@
-#![allow(unused_imports, reason = "DELETE LATER, refactoring")]
 use crate::{
     category::object::{Concrete as ConcreteObject, Object},
-    ralg::ring::{AdditivePartialGroup, AdditivePartialMonoid, Ring},
+    ralg::ring::{AdditivePartialGroup, AdditivePartialMonoid},
 };
 use dedup::noncon::DedupNonConAdapter;
-// use gcd::Gcd;
 use std::{
-    borrow,
-    cmp::Eq,
+    borrow::Borrow,
     collections::HashSet,
     hash::{Hash, Hasher},
-    ops::{Add, Neg},
-    sync::Arc,
 };
 
 /**
@@ -27,18 +22,20 @@ then Compose and Apply become separate traits.
 however, right now my problem is that too many things have the same type,
 not the other way around.
 */
-pub trait Morphism<O: Object, B: borrow::Borrow<O>>: Sized {
-    fn source(&self) -> B;
-    fn target(&self) -> B;
+pub trait Morphism<O: Object>: Sized {
+    type B: Borrow<O>;
+
+    fn source(&self) -> Self::B;
+    fn target(&self) -> Self::B;
 
     fn try_compose(self, other: Self) -> Option<Self>;
 }
 
-pub trait Enumerable<O: Object, B: borrow::Borrow<O>>: Morphism<O, B> {
-    fn hom(source: B, target: B) -> impl Iterator<Item = Self> + Clone;
+pub trait Enumerable<O: Object>: Morphism<O> {
+    fn hom(source: Self::B, target: Self::B) -> impl Iterator<Item = Self> + Clone;
 }
 
-pub trait Concrete<O: ConcreteObject, B: borrow::Borrow<O>>: Morphism<O, B>
+pub trait Concrete<O: ConcreteObject>: Morphism<O>
 where
     O::Element: Clone,
 {
@@ -56,16 +53,7 @@ where
     }
 }
 
-/*
-pub trait EndoMorphism<Object: Eq>:
-    Sized
-    + Clone
-    + Hash
-    + PartialEq
-    + Eq
-    + Morphism<Object, Object>
-    + Compose<Object, Object, Object, Self, Output = Self>
-{
+pub trait Endo<O: Object>: Morphism<O> + Clone + Hash {
     /**
     there is a possibility, that this hash is not perfect
     which can be a huge problem if uncaught
@@ -104,7 +92,9 @@ pub trait EndoMorphism<Object: Eq>:
 
         seen_iterations.insert(self.perfect_hash());
         std::iter::successors(Some(self.clone()), |current_iteration| {
-            let next_iteration = current_iteration.compose_unchecked(self);
+            let next_iteration = current_iteration
+                .try_compose(self.clone())
+                .expect("endo should be self composable");
             let next_iteration_hash = next_iteration.perfect_hash();
             match seen_iterations.contains(&next_iteration_hash) {
                 true => None,
@@ -117,11 +107,8 @@ pub trait EndoMorphism<Object: Eq>:
         .collect()
     }
 }
-*/
 
-pub trait PreAbelian<O: Object, B: borrow::Borrow<O>>:
-    Morphism<O, B> + AdditivePartialMonoid
-{
+pub trait PreAbelian<O: Object>: Morphism<O> + AdditivePartialMonoid {
     fn kernel(&self) -> Self;
     fn cokernel(&self) -> Self;
 
@@ -134,9 +121,7 @@ pub trait PreAbelian<O: Object, B: borrow::Borrow<O>>:
     }
 }
 
-pub trait Abelian<O: Object, B: borrow::Borrow<O>>:
-    PreAbelian<O, B> + AdditivePartialGroup
-{
+pub trait Abelian<O: Object>: PreAbelian<O> + AdditivePartialGroup {
     fn try_equaliser(self, other: Self) -> Option<Self> {
         self.try_sub(other).map(|x| x.kernel())
     }

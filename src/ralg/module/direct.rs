@@ -16,10 +16,10 @@ use typenum::{IsGreater, U1};
 
 #[derive(Clone)]
 pub struct Object<R: Ring, I: Ideal<Parent = R> + Ord> {
-    left_inclusion: CanonToCanon<R, I>,
-    right_inclusion: CanonToCanon<R, I>,
-    left_projection: CanonToCanon<R, I>,
-    right_projection: CanonToCanon<R, I>,
+    pub left_inclusion: CanonToCanon<R, I>,
+    pub right_inclusion: CanonToCanon<R, I>,
+    pub left_projection: CanonToCanon<R, I>,
+    pub right_projection: CanonToCanon<R, I>,
 }
 
 /* # debug and display */

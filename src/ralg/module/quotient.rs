@@ -76,6 +76,18 @@ impl<R: Ring + From<u16>, I: Ideal<Parent = R>> From<u16> for Object<R, I> {
 
 /* ## debug and display */
 
+impl<R: Ring, I: Ideal<Parent = R> + fmt::Debug> fmt::Debug for Object<R, I> {
+    default fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        if self.ideal.is_full() {
+            write!(f, "0")
+        } else if self.ideal.is_trivial() {
+            write!(f, "R",)
+        } else {
+            write!(f, "R/{:?}", self.ideal)
+        }
+    }
+}
+
 impl<Period: Radix + IsGreater<U1>, I: Ideal<Parent = C<Period>> + fmt::Debug> fmt::Debug
     for Object<C<Period>, I>
 {
@@ -87,6 +99,12 @@ impl<Period: Radix + IsGreater<U1>, I: Ideal<Parent = C<Period>> + fmt::Debug> f
         } else {
             write!(f, "C{}/{:?}", Period::U16, self.ideal)
         }
+    }
+}
+
+impl<R: Ring, I: Ideal<Parent = R> + fmt::Display> fmt::Display for Object<R, I> {
+    default fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        write!(f, "R/{}", self.ideal)
     }
 }
 

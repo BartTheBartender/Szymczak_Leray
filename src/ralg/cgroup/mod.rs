@@ -17,7 +17,7 @@ pub mod ideal;
 /**
 cyclic group of order `Period`
 */
-#[derive(Clone, Copy, PartialEq, Eq)]
+#[derive(Clone, Copy, PartialEq, Eq, Hash)]
 pub struct C<Period: Radix> {
     raw: u16, // we might want to generalize this type to include more than one possible storage type
     _period: marker::PhantomData<Period>,
@@ -97,6 +97,10 @@ impl<Period: Radix> Demesne for C<Period> {}
 impl<Period: Radix> Enumerable for C<Period> {
     fn terms() -> impl Iterator<Item = Self> + Clone {
         (1..=Period::U16).map(Self::from)
+    }
+
+    fn cardinality() -> usize {
+        Period::USIZE
     }
 }
 

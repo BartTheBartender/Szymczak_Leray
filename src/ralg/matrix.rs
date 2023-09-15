@@ -233,6 +233,37 @@ impl<T: Clone> VecD2<T> {
     }
 }
 
+// this can be placed in a better spot
+use std::ops;
+impl<T> VecD2<T>
+where
+    T: Copy + ops::BitOr<T, Output = T> + ops::BitAnd<T, Output = T>,
+{
+    // this assumes that self.rows == other.cols
+    pub fn compose_unchecked_bool(&self, other: &Self) -> Self {
+        Self {
+            nof_cols: self.nof_cols,
+            nof_rows: other.nof_rows,
+            buffer: (0..other.nof_rows)
+                .flat_map(|row| {
+                    (0..self.nof_cols).map(move |col| {
+                        other
+                            .row(row)
+                            .zip(self.col(col))
+                            .map(|(r, c)| *r & *c)
+                            .reduce(|acc, nxt| acc | nxt)
+                            .expect("matrices are not empty")
+                    })
+                })
+                .collect(),
+        }
+    }
+
+    pub fn buffer(&self) -> Vec<T> {
+        self.buffer.clone()
+    }
+}
+
 /* # matrix */
 
 #[allow(type_alias_bounds, reason = "waiting on feature `lazy_type_alias`")]

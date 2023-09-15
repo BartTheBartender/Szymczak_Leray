@@ -10,6 +10,10 @@ pub trait Demesne: Sized + PartialEq + Eq {}
 
 pub trait Enumerable: Demesne + From<u16> + Into<u16> {
     fn terms() -> impl Iterator<Item = Self> + Clone;
+
+    fn cardinality() -> usize {
+        Self::terms().count()
+    }
 }
 
 /* # additive structure */

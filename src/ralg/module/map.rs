@@ -97,14 +97,16 @@ impl<R: Ring + Copy, I: Ideal<Parent = R> + Ord> Eq for CanonToCanon<R, I> {}
 
 /* ## morphism */
 
-impl<R: Ring + Copy, I: Ideal<Parent = R> + Ord> Morphism<CanonModule<R, I>, Arc<CanonModule<R, I>>>
+impl<R: Ring + Copy, I: Ideal<Parent = R> + Ord> Morphism<CanonModule<R, I>>
     for CanonToCanon<R, I>
 {
-    fn source(&self) -> Arc<CanonModule<R, I>> {
+    type B = Arc<CanonModule<R, I>>;
+
+    fn source(&self) -> Self::B {
         Arc::clone(&self.source)
     }
 
-    fn target(&self) -> Arc<CanonModule<R, I>> {
+    fn target(&self) -> Self::B {
         Arc::clone(&self.target)
     }
 
@@ -120,12 +122,9 @@ impl<R: Ring + Copy, I: Ideal<Parent = R> + Ord> Morphism<CanonModule<R, I>, Arc
 /* ## enumerable morphism */
 
 impl<R: BezoutRing + Copy, I: PrincipalIdeal<Parent = R> + Ord>
-    EnumerableMorphism<CanonModule<R, I>, Arc<CanonModule<R, I>>> for CanonToCanon<R, I>
+    EnumerableMorphism<CanonModule<R, I>> for CanonToCanon<R, I>
 {
-    fn hom(
-        source: Arc<CanonModule<R, I>>,
-        target: Arc<CanonModule<R, I>>,
-    ) -> impl Iterator<Item = Self> + Clone {
+    fn hom(source: Self::B, target: Self::B) -> impl Iterator<Item = Self> + Clone {
         match (source.dimension(), target.dimension()) {
             (0, dim) => {
                 vec![Self::new(&source, &target, Matrix::from_buffer([], 0, dim))].into_iter()
@@ -170,8 +169,8 @@ impl<R: BezoutRing + Copy, I: PrincipalIdeal<Parent = R> + Ord>
 
 /* ## concrete morphism */
 
-impl<R: Ring + Copy, I: Ideal<Parent = R> + Ord>
-    ConcreteMorphism<CanonModule<R, I>, Arc<CanonModule<R, I>>> for CanonToCanon<R, I>
+impl<R: Ring + Copy, I: Ideal<Parent = R> + Ord> ConcreteMorphism<CanonModule<R, I>>
+    for CanonToCanon<R, I>
 {
     fn try_evaluate(
         &self,
@@ -221,7 +220,7 @@ impl<R: Ring + Copy, I: Ideal<Parent = R> + Ord> AdditivePartialMonoid for Canon
 }
 
 impl<R: BezoutRing + FactorialRing + Into<u16>, I: PrincipalIdeal<Parent = R> + Ord>
-    PreAbelian<CanonModule<R, I>, Arc<CanonModule<R, I>>> for CanonToCanon<R, I>
+    PreAbelian<CanonModule<R, I>> for CanonToCanon<R, I>
 {
     #[allow(clippy::expect_used, reason = "uncought error elsewhere")]
     fn kernel(&self) -> Self {
@@ -333,7 +332,7 @@ impl<R: Ring + Copy, I: Ideal<Parent = R> + Ord> AdditivePartialGroup for CanonT
 }
 
 impl<R: BezoutRing + FactorialRing + Into<u16>, I: PrincipalIdeal<Parent = R> + Ord>
-    Abelian<CanonModule<R, I>, Arc<CanonModule<R, I>>> for CanonToCanon<R, I>
+    Abelian<CanonModule<R, I>> for CanonToCanon<R, I>
 {
 }
 

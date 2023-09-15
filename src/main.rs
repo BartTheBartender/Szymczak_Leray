@@ -103,18 +103,18 @@ however, a bug inside it prevents using type aliases for other types
 
 mod category;
 mod ralg;
+// mod relation;
 // mod szymczak_category;
 // mod util;
 
 // - - -
 
 // parameters for the code
-// pub type Int = u16;
 // pub const RECURSION_PARAMETER_SZYMCZAK_FUNCTOR: usize = 100; //idk xD
 // use typenum::U2;
 // use typenum::U3 as N;
 // pub const MAX_DIMENSION: Int = 2;
-// pub type Int = u16;
+type Int = u16;
 // use std::time::{Duration, Instant};
 // type R = Fin<N>;
 
