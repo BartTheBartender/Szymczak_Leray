@@ -1,13 +1,16 @@
 use crate::ralg::{
     ring::{
-        AdditiveGroup, AdditiveMonoid, AdditivePartialGroup, AdditivePartialMonoid, BezoutRing, Demesne,
-        FactorialRing, MultiplicativeMonoid, MultiplicativePartialMonoid, Ring,
+        AdditiveGroup, AdditiveMonoid, AdditivePartialGroup, AdditivePartialMonoid,
+        Bezout as BezoutRing, Demesne, Enumerable, Factorial as FactorialRing,
+        MultiplicativeMonoid, MultiplicativePartialMonoid, Ring,
     },
     util::{extended_euclid, try_inverse},
 };
 use std::{fmt, marker};
-use typenum::{NonZero, Unsigned};
-pub trait Radix = Unsigned + NonZero + Copy + Eq; // + Send + Sync;
+use typenum::{IsGreater, NonZero, Unsigned, U1};
+pub trait Radix = Unsigned + NonZero + Copy + Eq;
+
+pub mod ideal;
 
 /* # cyclic groups */
 
@@ -37,7 +40,7 @@ impl<Period: Radix> C<Period> {
             .map(Self::from)
     }
 
-    fn naive_divisors(self) -> impl Iterator<Item = Self> + Clone {
+    pub fn naive_divisors(self) -> impl Iterator<Item = Self> + Clone {
         let self_raw = u16::from(self);
         (1..=Period::U16)
             .filter(move |&r| self_raw.rem_euclid(r) == 0)
@@ -49,7 +52,7 @@ impl<Period: Radix> C<Period> {
 
 impl<Period: Radix> fmt::Debug for C<Period> {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-        write!(f, "C{}({})", Period::U16, self.raw)
+        write!(f, "C{}[{}]", Period::U16, self.raw)
     }
 }
 
@@ -89,9 +92,11 @@ impl<Period: Radix> From<C<Period>> for u16 {
     }
 }
 
-impl<Period: Radix> Demesne for C<Period> {
-    fn elements() -> impl Iterator<Item = Self> + Clone {
-        (0..Period::U16).map(Self::from)
+impl<Period: Radix> Demesne for C<Period> {}
+
+impl<Period: Radix> Enumerable for C<Period> {
+    fn terms() -> impl Iterator<Item = Self> + Clone {
+        (1..=Period::U16).map(Self::from)
     }
 }
 
@@ -165,7 +170,7 @@ impl<Period: Radix> AdditiveGroup for C<Period> {}
 
 /* ### multiplicative structure */
 
-impl<Period: Radix> MultiplicativePartialMonoid for C<Period> {
+impl<Period: Radix + IsGreater<U1>> MultiplicativePartialMonoid for C<Period> {
     fn try_mul(self, other: Self) -> Option<Self> {
         Some(self.mul(other))
     }
@@ -191,7 +196,7 @@ impl<Period: Radix> MultiplicativePartialMonoid for C<Period> {
     }
 }
 
-impl<Period: Radix> MultiplicativeMonoid for C<Period> {
+impl<Period: Radix + IsGreater<U1>> MultiplicativeMonoid for C<Period> {
     fn one() -> Self {
         Self::from(1)
     }
@@ -223,36 +228,17 @@ impl<Period: Radix> MultiplicativeMonoid for C<Period> {
 
 /* ### rings */
 
-impl<Period: Radix> Ring for C<Period> {
-    // TODO all these functions are UNTESTED yet
+impl<Period: Radix + IsGreater<U1>> Ring for C<Period> {
     fn try_divide(self, r: Self) -> impl Iterator<Item = Self> + Clone {
-        Self::elements().filter(move |&x| self.mul(x) == r)
+        Self::terms().filter(move |&x| r.mul(x) == self)
     }
 
     fn is_divisor(&self, r: Self) -> bool {
-        self.try_divide(r).next().is_some()
+        r.try_divide(*self).next().is_some()
     }
 
     fn divisors(self) -> impl Iterator<Item = Self> + Clone {
-        Self::elements().filter(move |r| r.is_divisor(self))
-    }
-
-    fn min_generator_of_ideal(self) -> Self {
-        Self::gcd(self, Self::zero()).0
-    }
-
-    fn try_min_generator_of_ideal_generated_by(r: Self, s: Self) -> Self {
-        Self::gcd(r, s).0
-    }
-
-    fn principal_ideal(self) -> impl Iterator<Item = Self> + Clone {
-        let (gcd, _, _) = Self::gcd(self, Self::zero());
-        gcd.naive_multiples()
-    }
-
-    fn ideal(r: Self, s: Self) -> impl Iterator<Item = Self> + Clone {
-        let (gcd, _, _) = Self::gcd(r, s);
-        gcd.naive_multiples()
+        Self::terms().filter(move |r| r.is_divisor(self))
     }
 }
 
@@ -265,7 +251,7 @@ pub struct Factors<Period: Radix> {
 
 const SMALL_PRIMES: &[u16] = &[2, 3, 5, 7, 11, 13, 17, 19, 23, 29];
 
-impl<Period: Radix> Iterator for Factors<Period> {
+impl<Period: Radix + IsGreater<U1>> Iterator for Factors<Period> {
     type Item = C<Period>;
 
     #[allow(
@@ -287,7 +273,7 @@ impl<Period: Radix> Iterator for Factors<Period> {
     }
 }
 
-impl<Period: Radix> FactorialRing for C<Period> {
+impl<Period: Radix + IsGreater<U1>> FactorialRing for C<Period> {
     fn factors(self) -> impl Iterator<Item = Self> + Clone {
         let (gcd, _, _) = Self::gcd(self, Self::zero());
         Factors::<Period> { marble: gcd }
@@ -296,7 +282,7 @@ impl<Period: Radix> FactorialRing for C<Period> {
 
 /* #### bezout ring */
 
-impl<Period: Radix> BezoutRing for C<Period> {
+impl<Period: Radix + IsGreater<U1>> BezoutRing for C<Period> {
     #[allow(clippy::panic, reason = "structural guarantees are violated on panic")]
     fn gcd(r: Self, s: Self) -> (Self, Self, Self) {
         let r_raw = u16::from(r);
@@ -334,13 +320,13 @@ mod test {
 
     #[test]
     fn listing_elements() {
-        let mut els = C::<U6>::elements();
-        assert_eq!(els.next(), Some(C::<U6>::from(0)));
+        let mut els = C::<U6>::terms();
         assert_eq!(els.next(), Some(C::<U6>::from(1)));
         assert_eq!(els.next(), Some(C::<U6>::from(2)));
         assert_eq!(els.next(), Some(C::<U6>::from(3)));
         assert_eq!(els.next(), Some(C::<U6>::from(4)));
         assert_eq!(els.next(), Some(C::<U6>::from(5)));
+        assert_eq!(els.next(), Some(C::<U6>::from(0)));
         assert_eq!(els.next(), None);
     }
 
@@ -413,7 +399,7 @@ mod test {
     fn finding_true_divisors() {
         assert_eq!(
             C::<U6>::from(0).divisors().collect::<Vec<_>>(),
-            [0, 1, 2, 3, 4, 5].map(C::<U6>::from).to_vec()
+            [1, 2, 3, 4, 5, 0].map(C::<U6>::from).to_vec()
         );
         assert_eq!(
             C::<U6>::from(2).divisors().collect::<Vec<_>>(),
@@ -422,40 +408,6 @@ mod test {
         assert_eq!(
             C::<U6>::from(4).divisors().collect::<Vec<_>>(),
             [1, 2, 4, 5].map(C::<U6>::from).to_vec()
-        );
-    }
-
-    #[test]
-    fn finding_ideals() {
-        assert_eq!(
-            C::<U6>::from(0).principal_ideal().collect::<Vec<_>>(),
-            [0].map(C::<U6>::from).to_vec(),
-            "trivial ideal"
-        );
-        assert_eq!(
-            C::<U6>::from(1).principal_ideal().collect::<Vec<_>>(),
-            [0, 1, 2, 3, 4, 5].map(C::<U6>::from).to_vec(),
-            "full ideal"
-        );
-        assert_eq!(
-            C::<U6>::from(2).principal_ideal().collect::<Vec<_>>(),
-            [0, 2, 4].map(C::<U6>::from).to_vec(),
-            "divisible by two"
-        );
-        assert_eq!(
-            C::<U6>::from(3).principal_ideal().collect::<Vec<_>>(),
-            [0, 3].map(C::<U6>::from).to_vec(),
-            "divisible by three"
-        );
-        assert_eq!(
-            C::<U6>::from(4).principal_ideal().collect::<Vec<_>>(),
-            [0, 2, 4].map(C::<U6>::from).to_vec(),
-            "also divisible by two"
-        );
-        assert_eq!(
-            C::<U6>::from(5).principal_ideal().collect::<Vec<_>>(),
-            [0, 1, 2, 3, 4, 5].map(C::<U6>::from).to_vec(),
-            "any unit gives full ideal"
         );
     }
 

@@ -1,13 +1,15 @@
+pub mod ideal;
+
 /* # collections */
 
 /**
 an element of an algebraic structure,
-which can bo constructed from a natural number.
-we are excluding empty collections.
+NOT the entire collection.
 */
-// possibly we might want to exchange u16 for own type used solely to index stuff
-pub trait Demesne: Sized + PartialEq + Eq {
-    fn elements() -> impl Iterator<Item = Self> + Clone;
+pub trait Demesne: Sized + PartialEq + Eq {}
+
+pub trait Enumerable: Demesne + From<u16> + Into<u16> {
+    fn terms() -> impl Iterator<Item = Self> + Clone;
 }
 
 /* # additive structure */
@@ -17,15 +19,12 @@ pub trait AdditivePartialMonoid: Demesne {
 
     fn own_zero(&self) -> Self;
     fn is_zero(&self) -> bool;
+
     fn is_negable(&self) -> bool;
     fn try_neg(self) -> Option<Self>;
-
-    fn negable_elements() -> impl Iterator<Item = Self> + Clone {
-        Self::elements().filter_map(Self::try_neg)
-    }
 }
 
-pub trait AdditiveMonoid: AdditivePartialMonoid {
+pub trait AdditiveMonoid: AdditivePartialMonoid + Enumerable {
     fn zero() -> Self;
     fn add(self, other: Self) -> Self;
     fn add_assign(&mut self, other: Self);
@@ -59,13 +58,9 @@ pub trait MultiplicativePartialMonoid: Demesne {
     fn is_one(&self) -> bool;
     fn is_invable(&self) -> bool;
     fn try_inv(self) -> Option<Self>;
-
-    fn invable_elements() -> impl Iterator<Item = Self> + Clone {
-        Self::elements().filter_map(Self::try_inv)
-    }
 }
 
-pub trait MultiplicativeMonoid: MultiplicativePartialMonoid {
+pub trait MultiplicativeMonoid: MultiplicativePartialMonoid + Enumerable {
     fn one() -> Self;
     fn mul(self, other: Self) -> Self;
     fn mul_assign(&mut self, other: Self);
@@ -76,23 +71,17 @@ pub trait MultiplicativeMonoid: MultiplicativePartialMonoid {
 pub trait Ring: AdditiveGroup + MultiplicativeMonoid {
     /**
     attempts to find an element x,
-    such that self * x = r
+    such that r * x = self
     */
     fn try_divide(self, r: Self) -> impl Iterator<Item = Self> + Clone;
     fn is_divisor(&self, r: Self) -> bool;
     fn divisors(self) -> impl Iterator<Item = Self> + Clone;
-
-    fn min_generator_of_ideal(self) -> Self;
-    fn try_min_generator_of_ideal_generated_by(r: Self, s: Self) -> Self;
-
-    fn principal_ideal(self) -> impl Iterator<Item = Self> + Clone;
-    fn ideal(r: Self, s: Self) -> impl Iterator<Item = Self> + Clone;
 }
 
 // i would love to have this impl here,
 // but the feature `return_position_impl_trait_in_trait`
 // does not allow specialisation.
-// i prefer returning impl Iterators to having this implementation,
+// i prefer returning impl Iterators to having this default implementation,
 // that does not get used anywhere anyway.
 /*
 use itertools::Itertools;
@@ -130,11 +119,7 @@ where
 }
 */
 
-#[allow(
-    clippy::module_name_repetitions,
-    reason = "the module name will change"
-)]
-pub trait FactorialRing: Ring + Copy {
+pub trait Factorial: Ring + Copy {
     fn factors(self) -> impl Iterator<Item = Self> + Clone;
 
     fn power_factors(self) -> impl Iterator<Item = Self> + Clone {
@@ -156,7 +141,7 @@ pub trait FactorialRing: Ring + Copy {
     clippy::module_name_repetitions,
     reason = "the module name will change"
 )]
-pub trait BezoutRing: Ring {
+pub trait Bezout: Ring {
     /**
     returns (g,x,y) such that g = rx + sy
     */

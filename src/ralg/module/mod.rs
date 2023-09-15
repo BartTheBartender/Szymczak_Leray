@@ -1,11 +1,12 @@
-use crate::ralg::ring::{AdditivePartialGroup, Ring};
+use crate::{
+    category::object::Concrete,
+    ralg::ring::{AdditivePartialGroup, Ring},
+};
 
-// pub mod canon;
-// pub mod direct;
-// pub mod map;
-// pub mod ring;
-// pub mod quotient;
-// pub mod torsion;
+pub mod canon;
+pub mod direct;
+pub mod map;
+pub mod quotient;
 
 /*
 i would love this to be a group,
@@ -23,9 +24,8 @@ pub trait Module<R: Ring>: AdditivePartialGroup {
     fn mul_assign(&mut self, r: R);
 }
 
-pub trait ModuleObject<R: Ring> {
-    type Element: Module<R>;
-
-    fn own_elements(&self) -> impl Iterator<Item = Self::Element> + Clone;
-    fn is_element(&self, el: Self::Element) -> bool;
+// pub trait ModuleObject<R: Ring>: Concrete<Element: Module> {
+pub trait ModuleObject<R: Ring>: Concrete {
+    fn is_trivial(&self) -> bool;
+    fn trivial() -> Self;
 }

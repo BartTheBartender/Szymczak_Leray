@@ -17,3 +17,4 @@ gcd = "2.3"
 derive-where = "1.2"
 typenum = "1.16"
 nanoid = "0.4.0"
+dedup = { git = "https://github.com/orhid/dedup.rust", version = "0.1.0" }

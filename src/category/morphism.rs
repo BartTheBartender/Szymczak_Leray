@@ -1,6 +1,12 @@
-use crate::ralg::ring::Ring;
-use gcd::Gcd;
+#![allow(unused_imports, reason = "DELETE LATER, refactoring")]
+use crate::{
+    category::object::{Concrete as ConcreteObject, Object},
+    ralg::ring::{AdditivePartialGroup, AdditivePartialMonoid, Ring},
+};
+use dedup::noncon::DedupNonConAdapter;
+// use gcd::Gcd;
 use std::{
+    borrow,
     cmp::Eq,
     collections::HashSet,
     hash::{Hash, Hasher},
@@ -8,29 +14,49 @@ use std::{
     sync::Arc,
 };
 
-pub trait Morphism<Source: Eq, Target: Eq> {
-    fn source(&self) -> Arc<Source>;
-    fn target(&self) -> Arc<Target>;
+/**
+all the following traits should bre prefixed with Partial,
+but since we are unable to provide any types which would not be partial,
+this seems like a lot of work for no actual benefit other than pedantry.
+*/
+
+/*
+if we ever need this trait to work between different types,
+source and target can be split,
+then Compose and Apply become separate traits.
+however, right now my problem is that too many things have the same type,
+not the other way around.
+*/
+pub trait Morphism<O: Object, B: borrow::Borrow<O>>: Sized {
+    fn source(&self) -> B;
+    fn target(&self) -> B;
+
+    fn try_compose(self, other: Self) -> Option<Self>;
 }
 
-pub trait Compose<Source: Eq, Middle: Eq, Target: Eq, Lhs: Morphism<Middle, Target>>:
-    Morphism<Source, Middle>
+pub trait Enumerable<O: Object, B: borrow::Borrow<O>>: Morphism<O, B> {
+    fn hom(source: B, target: B) -> impl Iterator<Item = Self> + Clone;
+}
+
+pub trait Concrete<O: ConcreteObject, B: borrow::Borrow<O>>: Morphism<O, B>
+where
+    O::Element: Clone,
 {
-    type Output: Morphism<Source, Target>;
+    fn try_evaluate(&self, element: O::Element) -> Option<O::Element>;
 
-    fn compose_unchecked(&self, other: &Lhs) -> Self::Output;
-
-    fn compose(&self, other: &Lhs) -> Result<Self::Output, Error> {
-        match self.target() == other.source() {
-            true => Ok(self.compose_unchecked(other)),
-            false => Err(Error::SourceTargetMismatch),
-        }
+    fn image(&self) -> impl Iterator<Item = O::Element> + Clone {
+        self.source()
+            .borrow()
+            .elements()
+            .filter_map(|element| self.try_evaluate(element))
+            .dedup_non_con()
+            // this forces references to be returned and makes liftime managfement easier
+            .collect::<Vec<_>>()
+            .into_iter()
     }
-
-    // musiałem pozbyć się `apply`, bo się genericsy nie zgadzały
-    // ale można dopisać nowego traita na to gdzie `Middle` i `Target` są tym samym
 }
 
+/*
 pub trait EndoMorphism<Object: Eq>:
     Sized
     + Clone
@@ -48,7 +74,7 @@ pub trait EndoMorphism<Object: Eq>:
     fn perfect_hash(&self) -> u64 {
         let mut s = std::collections::hash_map::DefaultHasher::new();
         self.hash(&mut s);
-        s.finish()
+        s.finsh()
     }
 
     // jeśli naprawdę potrzebujesz Rc
@@ -91,37 +117,36 @@ pub trait EndoMorphism<Object: Eq>:
         .collect()
     }
 }
+*/
 
-pub trait PartialAbelianMorphism<R: Ring, Source: Module<R> + Eq, Target: Module<R> + Eq>:
-    Morphism<Source, Target>
+pub trait PreAbelian<O: Object, B: borrow::Borrow<O>>:
+    Morphism<O, B> + AdditivePartialMonoid
 {
-    fn is_zero(&self) -> bool;
     fn kernel(&self) -> Self;
     fn cokernel(&self) -> Self;
-}
 
-pub trait AbelianMorphism<R: Ring, Source: Module<R> + Eq, Target: Module<R> + Eq>:
-    Sized + PartialAbelianMorphism<R, Source, Target>
-{
-    fn equaliser(self, other: Self) -> Self;
-    fn coequaliser(self, other: Self) -> Self;
-}
-
-impl<R: Ring + Gcd, Source: Module<R> + Eq, Target: Module<R> + Eq, T>
-    AbelianMorphism<R, Source, Target> for T
-where
-    T: PartialAbelianMorphism<R, Source, Target>,
-    T: Add<Output = T> + Neg<Output = T>,
-{
-    fn equaliser(self, other: Self) -> Self {
-        (self + -other).kernel()
+    fn image(&self) -> Self {
+        self.cokernel().kernel()
     }
 
-    fn coequaliser(self, other: Self) -> Self {
-        (self + -other).cokernel()
+    fn coimage(&self) -> Self {
+        self.kernel().cokernel()
     }
 }
 
+pub trait Abelian<O: Object, B: borrow::Borrow<O>>:
+    PreAbelian<O, B> + AdditivePartialGroup
+{
+    fn try_equaliser(self, other: Self) -> Option<Self> {
+        self.try_sub(other).map(|x| x.kernel())
+    }
+
+    fn try_coequaliser(self, other: Self) -> Option<Self> {
+        self.try_sub(other).map(|x| x.cokernel())
+    }
+}
+
+/*
 pub trait AbelianEndoMorphism<R: Ring, Object: Module<R> + Eq>:
     EndoMorphism<Object> + AbelianMorphism<R, Object, Object>
 {
@@ -141,3 +166,4 @@ pub trait AbelianEndoMorphism<R: Ring, Object: Module<R> + Eq>:
             .cokernel()
     }
 }
+*/

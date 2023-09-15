@@ -1,4 +1,10 @@
-use crate::ralg::ring::{BezoutRing, Ring};
+use crate::ralg::{
+    module::canon::element::Element as CanonElement,
+    ring::{
+        ideal::Ideal, AdditivePartialGroup, AdditivePartialMonoid, Bezout as BezoutRing, Demesne,
+        Ring,
+    },
+};
 use itertools::Itertools;
 use std::{cmp, collections::BTreeSet, fmt};
 
@@ -6,12 +12,12 @@ use std::{cmp, collections::BTreeSet, fmt};
 
 #[derive(Clone, PartialEq, Eq)]
 pub struct VecD2<T> {
-    nof_cols: usize,
-    nof_rows: usize,
+    pub nof_cols: usize,
+    pub nof_rows: usize,
     buffer: Vec<T>,
 }
 
-/* ## debug */
+/* ## debug and display */
 
 impl<T: fmt::Debug> fmt::Debug for VecD2<T> {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
@@ -19,6 +25,23 @@ impl<T: fmt::Debug> fmt::Debug for VecD2<T> {
             f,
             "V2({:?}x{:?}){:?}",
             self.nof_cols, self.nof_rows, self.buffer
+        )
+    }
+}
+
+impl<T: fmt::Display> fmt::Display for VecD2<T> {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        write!(
+            f,
+            "V2 [\n{}\n]",
+            self.rows()
+                .map(|row| {
+                    let mut rstr = "  [".to_owned();
+                    rstr.push_str(&row.map(std::string::ToString::to_string).join(", "));
+                    rstr.push(']');
+                    rstr
+                })
+                .join("\n")
         )
     }
 }
@@ -44,14 +67,18 @@ impl<T> VecD2<T> {
         I: IntoIterator<Item = Vec<T>>,
     {
         let buffer = rows.into_iter().concat();
-        Self {
-            nof_cols: match nof_rows {
-                0 => 0,
-                x => buffer.len().div_euclid(x),
-            },
-            nof_rows,
-            buffer,
-        }
+        let nof_cols = match nof_rows {
+            0 => 0,
+            x => buffer.len().div_euclid(x),
+        };
+        Self::from_buffer(buffer, nof_cols, nof_rows)
+    }
+
+    pub fn from_rows_custom<I>(rows: I, nof_cols: usize, nof_rows: usize) -> Self
+    where
+        I: IntoIterator<Item = Vec<T>>,
+    {
+        Self::from_buffer(rows.into_iter().concat(), nof_cols, nof_rows)
     }
 
     pub fn from_cols<I>(cols: I, nof_cols: usize) -> Self
@@ -59,6 +86,13 @@ impl<T> VecD2<T> {
         I: IntoIterator<Item = Vec<T>>,
     {
         Self::from_rows(cols, nof_cols).transpose()
+    }
+
+    pub fn from_cols_custom<I>(cols: I, nof_cols: usize, nof_rows: usize) -> Self
+    where
+        I: IntoIterator<Item = Vec<T>>,
+    {
+        Self::from_rows_custom(cols, nof_rows, nof_cols).transpose()
     }
 
     /* # getters */
@@ -101,6 +135,10 @@ impl<T> VecD2<T> {
         }
     }
 
+    pub const fn shape(&self) -> (usize, usize) {
+        (self.nof_cols, self.nof_rows)
+    }
+
     /* ## iterators */
 
     pub fn iter(&self) -> impl Iterator<Item = &T> {
@@ -122,8 +160,11 @@ impl<T> VecD2<T> {
             .take(self.nof_cols)
     }
 
-    pub fn rows(&self) -> impl Iterator<Item = impl Iterator<Item = &T>> {
-        (0..self.nof_rows).map(|row| self.row(row))
+    fn into_row(self, row: usize) -> impl Iterator<Item = T> {
+        self.buffer
+            .into_iter()
+            .skip(row.wrapping_mul(self.nof_cols))
+            .take(self.nof_cols)
     }
 
     pub fn row_mut(&mut self, row: usize) -> impl Iterator<Item = &mut T> {
@@ -131,6 +172,10 @@ impl<T> VecD2<T> {
             .iter_mut()
             .skip(row.wrapping_mul(self.nof_cols))
             .take(self.nof_cols)
+    }
+
+    pub fn rows(&self) -> impl Iterator<Item = impl Iterator<Item = &T>> {
+        (0..self.nof_rows).map(|row| self.row(row))
     }
 
     fn col(&self, col: usize) -> impl Iterator<Item = &T> {
@@ -141,8 +186,12 @@ impl<T> VecD2<T> {
             .take(self.nof_rows)
     }
 
-    pub fn cols(&self) -> impl Iterator<Item = impl Iterator<Item = &T>> {
-        (0..self.nof_cols).map(|col| self.col(col))
+    fn into_col(self, col: usize) -> impl Iterator<Item = T> {
+        self.buffer
+            .into_iter()
+            .skip(col)
+            .step_by(self.nof_cols)
+            .take(self.nof_rows)
     }
 
     pub fn col_mut(&mut self, col: usize) -> impl Iterator<Item = &mut T> {
@@ -151,6 +200,10 @@ impl<T> VecD2<T> {
             .skip(col)
             .step_by(self.nof_cols)
             .take(self.nof_rows)
+    }
+
+    pub fn cols(&self) -> impl Iterator<Item = impl Iterator<Item = &T>> {
+        (0..self.nof_cols).map(|col| self.col(col))
     }
 
     /* # transformations */
@@ -182,9 +235,71 @@ impl<T: Clone> VecD2<T> {
 
 /* # matrix */
 
+#[allow(type_alias_bounds, reason = "waiting on feature `lazy_type_alias`")]
 pub type Matrix<R: Ring> = VecD2<R>;
 
-impl<R: Ring> VecD2<R> {
+/* ## conversion */
+
+impl<R: Ring, I: Ideal<Parent = R> + Ord> From<CanonElement<R, I>> for Matrix<R> {
+    fn from(element: CanonElement<R, I>) -> Self {
+        Self::from_cols([element.into_values().collect()], 1)
+    }
+}
+
+/* ## additive structure */
+
+impl<R: Ring> Demesne for Matrix<R> {}
+
+impl<R: Ring> AdditivePartialMonoid for Matrix<R> {
+    fn try_add(self, other: Self) -> Option<Self> {
+        (self.shape() == other.shape()).then_some(Self::from_buffer(
+            self.buffer
+                .into_iter()
+                .zip(other.buffer)
+                .map(|(x, y)| x.add(y)),
+            self.nof_cols,
+            other.nof_rows,
+        ))
+    }
+
+    fn own_zero(&self) -> Self {
+        Self::from_buffer(
+            (0..self.nof_cols.saturating_mul(self.nof_rows)).map(|_| R::zero()),
+            self.nof_cols,
+            self.nof_rows,
+        )
+    }
+
+    fn is_zero(&self) -> bool {
+        self.buffer.iter().all(R::is_zero)
+    }
+
+    fn is_negable(&self) -> bool {
+        true
+    }
+
+    fn try_neg(self) -> Option<Self> {
+        Some(self.neg())
+    }
+}
+
+impl<R: Ring> AdditivePartialGroup for Matrix<R> {
+    fn neg(self) -> Self {
+        Self::from_buffer(
+            self.buffer.into_iter().map(R::neg),
+            self.nof_cols,
+            self.nof_rows,
+        )
+    }
+
+    fn neg_inplace(&mut self) {
+        self.buffer.iter_mut().for_each(R::neg_inplace);
+    }
+}
+
+/* ## matrix operations */
+
+impl<R: Ring> Matrix<R> {
     fn identity(nof_cols: usize, nof_rows: usize) -> Self {
         Self::from_buffer(
             (0..nof_rows).flat_map(|r| {
@@ -199,7 +314,7 @@ impl<R: Ring> VecD2<R> {
     }
 }
 
-impl<R: Copy + Ring> VecD2<R> {
+impl<R: Ring + Copy> Matrix<R> {
     /* # elementary operations */
 
     fn mul_row_by(&mut self, row: usize, r: R) {
@@ -229,6 +344,7 @@ impl<R: Copy + Ring> VecD2<R> {
     }
 
     /* # composition */
+    // this could be covered by implementing PartialAbelianMorphism for Matrix
 
     /**
     returns other * self.
@@ -258,9 +374,9 @@ impl<R: Copy + Ring> VecD2<R> {
     }
 }
 
-impl<R: Copy + BezoutRing + Into<u16>> VecD2<R> {
-    /* # smithing */
+/* ## smithing */
 
+impl<R: Copy + BezoutRing + Into<u16>> Matrix<R> {
     fn find_smallest_nonzero_entry(
         &self,
         done_cols: &BTreeSet<usize>,
@@ -289,6 +405,7 @@ impl<R: Copy + BezoutRing + Into<u16>> VecD2<R> {
         let mut v = Self::identity(self.nof_cols, self.nof_cols);
         let mut done_cols = BTreeSet::new();
         let mut done_rows = BTreeSet::new();
+
         for _ in 0..cmp::min(smith.nof_rows, smith.nof_cols) {
             if let Some((minx, mincol, minrow)) =
                 smith.find_smallest_nonzero_entry(&done_cols, &done_rows)
@@ -299,15 +416,11 @@ impl<R: Copy + BezoutRing + Into<u16>> VecD2<R> {
                             continue;
                         }
                         let (gcd, _, _) = R::gcd(x, minx);
-                        if !minx.is_divisor(x) && let Some(muland) =
-                                gcd.try_divide(minx).find(|div| !div.is_invable()) 
-                                {
+                        if let Some(muland) = minx.try_divide(gcd).next() {
                             smith.mul_row_by(row, muland);
                             u.mul_row_by(row, muland);
-                        } // else no need to multiply by unit
-                        if let Some(muland) =
-                            gcd.try_divide(x).find(|div| !div.is_one()).map(R::neg)
-                        {
+                        }
+                        if let Some(muland) = x.try_divide(gcd).next().map(R::neg) {
                             smith.add_muled_row_to_row(minrow, row, muland);
                             u.add_muled_row_to_row(minrow, row, muland);
                         }
@@ -319,15 +432,11 @@ impl<R: Copy + BezoutRing + Into<u16>> VecD2<R> {
                             continue;
                         }
                         let (gcd, _, _) = R::gcd(x, minx);
-                        if !minx.is_divisor(x) && let Some(muland) =
-                                gcd.try_divide(minx).find(|div| !div.is_invable())
-                                {
+                        if let Some(muland) = minx.try_divide(gcd).next() {
                             smith.mul_col_by(col, muland);
                             v.mul_col_by(col, muland);
-                        } // else no need to multiply by unit
-                        if let Some(muland) =
-                            gcd.try_divide(x).find(|div| !div.is_one()).map(R::neg)
-                        {
+                        }
+                        if let Some(muland) = x.try_divide(gcd).next().map(R::neg) {
                             smith.add_muled_col_to_col(mincol, col, muland);
                             v.add_muled_col_to_col(mincol, col, muland);
                         }
@@ -355,7 +464,7 @@ mod test {
 
     use super::*;
     use crate::ralg::cgroup::C;
-    use typenum::{U32, U54, U6};
+    use typenum::{U32, U54, U6, U7};
 
     /* # 2d container */
 
@@ -459,6 +568,45 @@ mod test {
 
     /* # matrices */
 
+    /* ## additive structure */
+
+    #[test]
+    fn zeros() {
+        type R = C<U6>;
+
+        let a = Matrix::<R>::from_buffer([1, 0, 0, 1].map(R::from), 2, 2);
+        let z = a.own_zero();
+        assert_eq!(z, Matrix::<R>::from_buffer([0, 0, 0, 0].map(R::from), 2, 2));
+        assert!(z.is_zero());
+    }
+
+    #[test]
+    fn addition() {
+        type R = C<U6>;
+
+        let a = Matrix::<R>::from_buffer([0, 1, 0, 1].map(R::from), 2, 2);
+        assert_eq!(a.clone().try_add(a.own_zero()), Some(a.clone()));
+
+        let b = Matrix::<R>::from_buffer([1, 0, 0, 1].map(R::from), 2, 2);
+        let c = Matrix::<R>::from_buffer([1, 1, 0, 2].map(R::from), 2, 2);
+        assert_eq!(a.clone().try_add(b), Some(c));
+
+        let b = Matrix::<R>::from_buffer([1, 0, 0, 1, 0, 0].map(R::from), 3, 2);
+        assert_eq!(a.try_add(b), None);
+    }
+
+    #[test]
+    fn negation() {
+        type R = C<U6>;
+
+        let a = Matrix::<R>::from_buffer([0, 1, 0, 1].map(R::from), 2, 2);
+        let b = Matrix::<R>::from_buffer([0, 5, 0, 5].map(R::from), 2, 2);
+        assert_eq!(a.clone().neg(), b);
+        assert_eq!(Some(a.own_zero()), a.clone().try_add(a.neg()));
+    }
+
+    /* ## multiplicative structure */
+
     #[test]
     fn identities() {
         type R = C<U6>;
@@ -500,6 +648,8 @@ mod test {
         assert_eq!(b.compose(&a), d);
     }
 
+    /* ## elementary operations */
+
     #[test]
     fn muling_row_by_element() {
         type R = C<U6>;
@@ -536,7 +686,7 @@ mod test {
         assert_eq!(m, res);
     }
 
-    /* # smithing */
+    /* ## smithing */
 
     #[test]
     fn finding_smallest_nonzero_entry() {
@@ -574,7 +724,27 @@ mod test {
     }
 
     #[test]
-    fn smithing() {
+    fn smithing_easy() {
+        type R = C<U6>;
+        let m = Matrix::<R>::from_buffer([1, 1, 1, 1].map(R::from), 2, 2);
+        let (u, s, v) = m.pseudo_smith();
+        assert_eq!(s, Matrix::<R>::from_buffer([1, 0, 0, 0].map(R::from), 2, 2));
+        assert_eq!(u, Matrix::<R>::from_buffer([1, 0, 5, 1].map(R::from), 2, 2));
+        assert_eq!(v, Matrix::<R>::from_buffer([1, 5, 0, 1].map(R::from), 2, 2));
+    }
+
+    #[test]
+    fn smithing_apparently_hard() {
+        type R = C<U7>;
+        let m = Matrix::<R>::from_buffer([6, 4].map(R::from), 2, 1);
+        let (u, s, v) = m.pseudo_smith();
+        assert_eq!(s, Matrix::<R>::from_buffer([0, 4].map(R::from), 2, 1));
+        assert_eq!(u, Matrix::<R>::from_buffer([1].map(R::from), 1, 1));
+        assert_eq!(v, Matrix::<R>::from_buffer([2, 0, 4, 1].map(R::from), 2, 2));
+    }
+
+    #[test]
+    fn smithing_medium() {
         type R = C<U32>;
         let m = Matrix::<R>::from_buffer([2, 5, 6, 4, 3, 7].map(R::from), 3, 2);
         let (u, s, v) = m.pseudo_smith();

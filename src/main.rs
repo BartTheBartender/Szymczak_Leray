@@ -3,12 +3,16 @@
 #![feature(generic_const_exprs)]
 #![feature(let_chains)]
 #![feature(btree_extract_if)]
+#![feature(iterator_try_collect)]
 #![feature(extract_if)]
 #![feature(trait_alias)]
 #![feature(associated_type_bounds)]
 #![feature(arc_unwrap_or_clone)]
 #![feature(lint_reasons)]
-#![feature(lazy_type_alias)]
+/* this feature is necessary to constrain matrices,
+however, a bug inside it prevents using type aliases for other types
+*/
+// #![feature(lazy_type_alias)]
 #![feature(slice_group_by)]
 // visual separator
 #![allow(incomplete_features, reason = "we need nightly features")]
@@ -91,12 +95,12 @@
     clippy::unseparated_literal_suffix,
 )]
 #![allow(clippy::match_bool, reason = "i find it more readable")]
+#![allow(clippy::module_name_repetitions, reason = "this is a dumb rule")]
 /* clippy end */
 
-// mod category;
+mod category;
 // mod error;
 mod ralg;
-mod rmodule;
 // mod szymczak_category;
 // mod util;
 
