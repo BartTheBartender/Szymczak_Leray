@@ -17,6 +17,9 @@ however, a bug inside it prevents using type aliases for other types
 // visual separator
 #![allow(incomplete_features, reason = "we need nightly features")]
 #![allow(dead_code, reason = "to be removed later")] // REMOVE THIS LATER
+
+// - - -
+
 /* clippy begin */
 #![warn(
     // regular groups
