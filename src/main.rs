@@ -99,7 +99,6 @@ however, a bug inside it prevents using type aliases for other types
 /* clippy end */
 
 mod category;
-// mod error;
 mod ralg;
 // mod szymczak_category;
 // mod util;

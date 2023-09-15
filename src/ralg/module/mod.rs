@@ -6,7 +6,7 @@ use crate::{
 pub mod canon;
 pub mod direct;
 pub mod map;
-pub mod quotient;
+mod quotient;
 
 /*
 i would love this to be a group,
