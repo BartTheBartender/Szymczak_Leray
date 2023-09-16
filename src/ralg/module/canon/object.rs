@@ -865,4 +865,24 @@ mod test {
             assert_ne!(module.get(0), module.get(1));
         }
     }
+
+    #[test]
+    #[ignore]
+    fn submodules_of_Z2xZ2xZ2xZ2xZ2() {
+        type R = C<U2>;
+        type I = CIdeal<U2>;
+
+        let z2to5 = Object::<R, I>::from_iter([2, 2, 2, 2, 2]);
+        let submodules: Vec<CanonToCanon<R, I>> = z2to5.submodules();
+
+        assert_eq!(
+            submodules.len(),
+            374,
+            "there should be 1 + 31 + 155 + + 155 + 31 + 1  = 374 subgroups"
+        );
+
+        for module in submodules.iter().combinations(2) {
+            assert_ne!(module.get(0), module.get(1));
+        }
+    }
 }

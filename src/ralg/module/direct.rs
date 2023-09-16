@@ -228,39 +228,49 @@ impl<Period: Radix + IsGreater<U1>> Object<C<Period>, CIdeal<Period>> {
             Arc::unwrap_or_clone(self.right()).submodules()
         )
         .flat_map(|(left_sub, right_sub)| {
+            println!("- - -");
+            println!("entering first loop:\n   {left_sub:?}\n   {right_sub:?}");
             let smol = Self::sumproduct(&left_sub.source(), &right_sub.source());
             Arc::unwrap_or_clone(right_sub.source())
                 .submodules()
                 .into_iter()
                 .map(|sub| sub.cokernel())
                 .flat_map(|right_quot| {
+                    println!("entering second loop:\n   {right_quot:?}");
                     CanonToCanon::hom(smol.left(), right_quot.target())
                         .filter(|map| map.cokernel().is_zero())
                         .map(|phi| {
-                            smol.clone()
+                            println!("entering third loop:\n   {phi:?}");
+                            let l = smol
+                                .clone()
                                 .left_projection
                                 .try_compose(phi)
-                                .expect("phi after smol.left_projection")
-                                .try_equaliser(
-                                    smol.clone()
-                                        .right_projection
-                                        .try_compose(right_quot.clone())
-                                        .expect("right_quot after smol.right_projection"),
-                                )
-                                .expect("equaliser")
-                                .try_compose({
-                                    smol.universal_out(
-                                        &left_sub
-                                            .clone()
-                                            .try_compose(self.clone().left_inclusion)
-                                            .expect("self.left_inclusion after left_sub"),
-                                        &right_sub
-                                            .clone()
-                                            .try_compose(self.clone().right_inclusion)
-                                            .expect("self.right_inclusion after right_sub"),
-                                    )
-                                })
-                                .expect("universal_out after equaliser")
+                                .expect("phi after smol.left_projection");
+                            let r = smol
+                                .clone()
+                                .right_projection
+                                .try_compose(right_quot.clone())
+                                .expect("right_quot after smol.right_projection");
+                            dbg!(&l);
+                            dbg!(&r);
+                            let equaliser = l.try_equaliser(r).expect("equaliser");
+                            let univout = smol.universal_out(
+                                &left_sub
+                                    .clone()
+                                    .try_compose(self.clone().left_inclusion)
+                                    .expect("self.left_inclusion after left_sub"),
+                                &right_sub
+                                    .clone()
+                                    .try_compose(self.clone().right_inclusion)
+                                    .expect("self.right_inclusion after right_sub"),
+                            );
+                            dbg!(&equaliser);
+                            dbg!(&univout);
+                            let submodule = equaliser
+                                .try_compose(univout)
+                                .expect("universal_out after equaliser");
+                            dbg!(&submodule);
+                            submodule
                         })
                         .collect::<Vec<_>>() // necessary to force the closure to release borrowed variables
                 })

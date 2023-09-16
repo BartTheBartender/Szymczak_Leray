@@ -88,45 +88,37 @@ mod test {
     #[test]
     fn edge_len() {
         use typenum::U7 as N;
-        let n: u16 = 7;
-
         type R = C<N>;
         type I = CIdeal<N>;
+        let n: u16 = 7;
+
         let zn_canon: CanonModule<R, I> = CanonModule::all_by_dimension(0..=1)
-            .into_iter()
-            .filter(|module| module.cardinality() == n.into())
-            .next()
+            .find(|module| module.cardinality() == n.into())
             .expect("there is a zn_module here");
 
-        assert_eq!(HelperData::edge_len(&zn_canon), n.into());
+        assert_eq!(HelperData::edge_len(&zn_canon), n);
 
         let znxzn_canon: CanonModule<R, I> = CanonModule::all_by_dimension(0..=2)
-            .into_iter()
-            .filter(|module| module.cardinality() == (n * n).into())
-            .next()
+            .find(|module| module.cardinality() == (n * n).into())
             .expect("there is a zn_module here");
-        assert_eq!(HelperData::edge_len(&znxzn_canon), (n * n).into());
+        assert_eq!(HelperData::edge_len(&znxzn_canon), n * n);
     }
 
     #[test]
     fn indices() {
         use typenum::U5 as N;
-        let n: u16 = 5;
-
         type R = C<N>;
         type I = CIdeal<N>;
-        let zn_canon: CanonModule<R, I> = CanonModule::all_by_dimension(0..1)
-            .into_iter()
-            .filter(|module| module.cardinality() == n.into())
-            .next()
+        let n: u16 = 5;
+
+        let zn_canon: CanonModule<R, I> = CanonModule::all_by_dimension(0..=1)
+            .find(|module| module.cardinality() == n.into())
             .expect("there is a zn_module here");
 
         assert_eq!(HelperData::indices(&zn_canon, &zn_canon), vec![1, 5]);
 
-        let znxzn_canon: CanonModule<R, I> = CanonModule::all_by_dimension(0..2)
-            .into_iter()
-            .filter(|module| module.cardinality() == (n * n).into())
-            .next()
+        let znxzn_canon: CanonModule<R, I> = CanonModule::all_by_dimension(0..=2)
+            .find(|module| module.cardinality() == (n * n).into())
             .expect("there is a zn_module here");
         assert_eq!(
             HelperData::indices(&znxzn_canon, &znxzn_canon),
@@ -137,36 +129,28 @@ mod test {
     #[test]
     fn indices_different_modules() {
         use typenum::U15 as N;
+        type R = C<N>;
+        type I = CIdeal<N>;
         let n: u16 = 5;
         let m: u16 = 3;
 
-        type R = C<N>;
-        type I = CIdeal<N>;
         let zn_canon: CanonModule<R, I> = CanonModule::all_by_dimension(0..=1)
-            .into_iter()
-            .filter(|module| module.cardinality() == n.into())
-            .next()
+            .find(|module| module.cardinality() == n.into())
             .expect("there is a zn_module here");
 
         let zm_canon: CanonModule<R, I> = CanonModule::all_by_dimension(0..=1)
-            .into_iter()
-            .filter(|module| module.cardinality() == m.into())
-            .next()
+            .find(|module| module.cardinality() == m.into())
             .expect("there is a zm_module here");
 
         assert_eq!(HelperData::indices(&zn_canon, &zm_canon), vec![1, 5]);
         assert_eq!(HelperData::indices(&zm_canon, &zn_canon), vec![1, 3]);
 
-        let znxzn_canon: CanonModule<R, I> = CanonModule::all_by_dimension(0..2)
-            .into_iter()
-            .filter(|module| module.cardinality() == (n * n).into())
-            .next()
+        let znxzn_canon: CanonModule<R, I> = CanonModule::all_by_dimension(0..=2)
+            .find(|module| module.cardinality() == (n * n).into())
             .expect("there is a znxzn_module here");
 
         let zmxzm_canon: CanonModule<R, I> = CanonModule::all_by_dimension(0..=2)
-            .into_iter()
-            .filter(|module| module.cardinality() == (m * m).into())
-            .next()
+            .find(|module| module.cardinality() == (m * m).into())
             .expect("there is a zmxzm_module here");
 
         assert_eq!(
@@ -182,21 +166,17 @@ mod test {
     #[test]
     fn torsion_coeffs_vec() {
         use typenum::U15 as N;
+        type R = C<N>;
+        type I = CIdeal<N>;
         let n: u16 = 5;
         let m: u16 = 3;
 
-        type R = C<N>;
-        type I = CIdeal<N>;
-        let zn_canon: CanonModule<R, I> = CanonModule::all_by_dimension(0..1)
-            .into_iter()
-            .filter(|module| module.cardinality() == n.into())
-            .next()
+        let zn_canon: CanonModule<R, I> = CanonModule::all_by_dimension(0..=1)
+            .find(|module| module.cardinality() == n.into())
             .expect("there is a zn_module here");
 
         let zm_canon: CanonModule<R, I> = CanonModule::all_by_dimension(0..=1)
-            .into_iter()
-            .filter(|module| module.cardinality() == m.into())
-            .next()
+            .find(|module| module.cardinality() == m.into())
             .expect("there is a zm_module here");
 
         assert_eq!(
@@ -209,15 +189,11 @@ mod test {
         );
 
         let znxzn_canon: CanonModule<R, I> = CanonModule::all_by_dimension(0..=2)
-            .into_iter()
-            .filter(|module| module.cardinality() == (n * n).into())
-            .next()
+            .find(|module| module.cardinality() == (n * n).into())
             .expect("there is a znxzn_module here");
 
         let zmxzm_canon: CanonModule<R, I> = CanonModule::all_by_dimension(0..=2)
-            .into_iter()
-            .filter(|module| module.cardinality() == (m * m).into())
-            .next()
+            .find(|module| module.cardinality() == (m * m).into())
             .expect("there is a zmxzm_module here");
 
         assert_eq!(

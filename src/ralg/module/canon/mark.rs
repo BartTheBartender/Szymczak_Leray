@@ -1,18 +1,22 @@
-use nanoid::nanoid;
-use std::{cmp, sync::Arc};
+use std::{
+    cmp,
+    sync::atomic::{AtomicU64, Ordering},
+};
 
 /* # element with UUID */
+
+static COUNTER: AtomicU64 = AtomicU64::new(0);
 
 #[derive(Clone, Debug, PartialEq, Eq, Hash)]
 pub struct Mark<T> {
     pub thing: T,
-    index: Arc<str>,
+    index: u64,
 }
 
 /* ## helper functions */
 
 impl<T> Mark<T> {
-    pub fn new(thing: T, index: Arc<str>) -> Self {
+    pub const fn new(thing: T, index: u64) -> Self {
         Self { thing, index }
     }
 
@@ -42,7 +46,7 @@ impl<T> From<T> for Mark<T> {
     fn from(thing: T) -> Self {
         Self {
             thing,
-            index: Arc::from(nanoid!()),
+            index: COUNTER.fetch_add(1, Ordering::SeqCst),
         }
     }
 }

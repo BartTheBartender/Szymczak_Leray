@@ -83,3 +83,11 @@ impl<T: Ord + Clone> MarkTree<T> {
         }
     }
 }
+
+impl<T: Ord> FromIterator<Mark<T>> for MarkTree<T> {
+    fn from_iter<J: IntoIterator<Item = Mark<T>>>(iter: J) -> Self {
+        Self {
+            buffer: iter.into_iter().collect(),
+        }
+    }
+}

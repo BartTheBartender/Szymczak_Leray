@@ -105,7 +105,7 @@ mod category;
 mod ralg;
 // mod relation;
 // mod szymczak_category;
-// mod util;
+mod util;
 
 // - - -
 
