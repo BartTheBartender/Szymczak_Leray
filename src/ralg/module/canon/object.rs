@@ -260,7 +260,7 @@ impl<R: Ring + Copy + Into<u16>, I: PrincipalIdeal<Parent = R> + Ord> ConcreteOb
 {
     fn cardinality(&self) -> usize {
         self.torsion_coeffs_as_u16()
-            .fold(1_u16, |acc, next| acc.saturating_mul(next))
+            .fold(1_u16, u16::saturating_mul)
             .into()
     }
 }
@@ -382,8 +382,8 @@ pub fn quotients_of_cyclic_module<Period: Radix + IsGreater<U1>>(
 
 #[cfg(test)]
 mod test {
+    #![allow(non_snake_case, reason = "module names look this way")]
     use super::*;
-    use dedup::noncon::DedupNonConAdapter;
     use typenum::{U2, U3, U36, U4, U6, U64, U7, U8};
 
     /* ## building */
@@ -526,7 +526,6 @@ mod test {
     /* ## sub and quot spaces */
 
     #[test]
-    #[allow(non_snake_case, reason = "module names look this way")]
     fn submodules_of_Z8() {
         type R = C<U8>;
         type I = CIdeal<U8>;
@@ -568,7 +567,6 @@ mod test {
     }
 
     #[test]
-    #[allow(non_snake_case, reason = "module names look this way")]
     fn quotients_of_Z8() {
         type R = C<U8>;
         type I = CIdeal<U8>;
@@ -610,7 +608,6 @@ mod test {
     }
 
     #[test]
-    #[allow(non_snake_case, reason = "module names look this way")]
     fn submodules_of_Z2xZ4() {
         type R = C<U4>;
         type I = CIdeal<U4>;
@@ -718,7 +715,6 @@ mod test {
     }
 
     #[test]
-    #[allow(non_snake_case, reason = "module names look this way")]
     fn submodules_of_Z3xZ3() {
         type R = C<U3>;
         type I = CIdeal<U3>;
@@ -793,47 +789,80 @@ mod test {
         assert_eq!(submodules.next(), None);
     }
 
-    /*
     #[test]
-    #[ignore]
-    fn z7_issue() {
+    fn submodules_of_Z7xZ7() {
         type R = C<U7>;
         type I = CIdeal<U7>;
 
         let z7 = Arc::new(Object::<R, I>::from_iter([7]));
         let z77 = Arc::new(Object::<R, I>::from_iter([7, 7]));
 
-        let mut submodules = z77.submodules();
-        assert!(submodules
-            .any(|canon_to_canon| canon_to_canon.to_string()
-                == "Mtx(1x2)[Z7(1), Z7(1)] : Z7 -> Z7xZ7"));
-        assert!(submodules
-            .any(|canon_to_canon| canon_to_canon.to_string()
-                == "Mtx(1x2)[Z7(4), Z7(4)] : Z7 -> Z7xZ7"));
+        let submodules = (*z77).clone().submodules();
+
+        for j in 2..7 {
+            assert!(!submodules.contains(&CanonToCanon::new(
+                &z7,
+                &z77,
+                Matrix::from_buffer([j, j].map(R::from), 1, 2),
+            )));
+        }
     }
-    */
 
     #[test]
-    fn z2xz2_no_dupes() {
+    fn submodules_of_Z2xZ2() {
         type R = C<U2>;
         type I = CIdeal<U2>;
-        let n = U2::to_usize();
 
-        let z2xz2 = Object::<R, I>::all_by_dimension(0..=2)
-            .into_iter()
-            .find(|module| module.cardinality() == n * n)
-            .expect("there is a module of dimension two");
+        let z2to2 = Object::<R, I>::from_iter([2, 2]);
+        let submodules: Vec<CanonToCanon<R, I>> = z2to2.submodules();
 
-        let z2xz2_sq =
-            DirectModule::<R, I>::sumproduct(&Arc::new(z2xz2.duplicate()), &Arc::new(z2xz2));
+        assert_eq!(
+            submodules.len(),
+            5,
+            "there should be 1 + 3 + 1  = 5 subgroups"
+        );
 
-        let submodules: Vec<CanonToCanon<R, I>> = z2xz2_sq.submodules_goursat();
+        for module in submodules.iter().combinations(2) {
+            assert_ne!(module.get(0), module.get(1));
+        }
+    }
 
-        let mut submodules_no_dupes = submodules.clone();
-        submodules_no_dupes
-            .into_iter()
-            .dedup_non_con()
-            .collect::<Vec<_>>();
-        assert_eq!(submodules, submodules_no_dupes);
+    #[test]
+    fn submodules_of_Z2xZ2xZ2() {
+        type R = C<U2>;
+        type I = CIdeal<U2>;
+
+        let z2to3 = Object::<R, I>::from_iter([2, 2, 2]);
+        let submodules: Vec<CanonToCanon<R, I>> = z2to3.submodules();
+
+        assert_eq!(
+            submodules.len(),
+            16,
+            "there should be 1 + 7 + 7 + 1  = 16 subgroups"
+        );
+
+        for module in submodules.iter().combinations(2) {
+            assert_ne!(module.get(0), module.get(1));
+        }
+    }
+
+    #[test]
+    #[ignore]
+    fn submodules_of_Z2xZ2xZ2xZ2() {
+        type R = C<U2>;
+        type I = CIdeal<U2>;
+
+        let z2to4 = Object::<R, I>::from_iter([2, 2, 2, 2]);
+        let submodules: Vec<CanonToCanon<R, I>> = z2to4.submodules();
+
+        assert_eq!(
+            submodules.len(),
+            67,
+            "there should be 1 + 15 + 35 + 15 + 1  = 67 subgroups"
+        );
+
+        for module in submodules.iter().combinations(2) {
+            assert_ne!(module.get(0), module.get(1));
+        }
     }
 }

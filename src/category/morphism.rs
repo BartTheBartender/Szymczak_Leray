@@ -3,11 +3,7 @@ use crate::{
     ralg::ring::{AdditivePartialGroup, AdditivePartialMonoid},
 };
 use dedup::noncon::DedupNonConAdapter;
-use std::{
-    borrow::Borrow,
-    collections::HashSet,
-    hash::{Hash, Hasher},
-};
+use std::{borrow::Borrow, collections::HashSet, hash::Hash};
 
 /**
 all the following traits should bre prefixed with Partial,
@@ -53,53 +49,21 @@ where
     }
 }
 
-pub trait Endo<O: Object>: Morphism<O> + Clone + Hash {
-    /**
-    there is a possibility, that this hash is not perfect
-    which can be a huge problem if uncaught
-    implementators of this trait should make sure that their hash is perfect
-    */
-    fn perfect_hash(&self) -> u64 {
-        let mut s = std::collections::hash_map::DefaultHasher::new();
-        self.hash(&mut s);
-        s.finsh()
-    }
-
-    // jeśli naprawdę potrzebujesz Rc
-    /*
-    fn cycle_rc(&self) -> Vec<Rc<Self>> {
-        let mut seen_iterations = HashSet::new();
-
-        seen_iterations.insert(self.perfect_hash());
-        std::iter::successors(Some(Rc::new(self.clone())), |current_iteration| {
-            let next_iteration = current_iteration.compose_unchecked(self);
-            let next_iteration_hash = next_iteration.perfect_hash();
-            match seen_iterations.contains(&next_iteration_hash) {
-                true => None,
-                false => {
-                    seen_iterations.insert(next_iteration_hash);
-                    Some(Rc::new(next_iteration))
-                }
-            }
-        })
-        .collect()
-    }
-    */
-
+pub trait Endo<O: Object>: Morphism<O> + Clone + Eq + Hash {
     fn cycle(&self) -> Vec<Self> {
         // nie ma potrzeby trzymać całego morfizmu, wystarczy perfekcyjny hash
         let mut seen_iterations = HashSet::new();
 
-        seen_iterations.insert(self.perfect_hash());
+        seen_iterations.insert(self.clone());
         std::iter::successors(Some(self.clone()), |current_iteration| {
             let next_iteration = current_iteration
+                .clone()
                 .try_compose(self.clone())
                 .expect("endo should be self composable");
-            let next_iteration_hash = next_iteration.perfect_hash();
-            match seen_iterations.contains(&next_iteration_hash) {
+            match seen_iterations.contains(&next_iteration) {
                 true => None,
                 false => {
-                    seen_iterations.insert(next_iteration_hash);
+                    seen_iterations.insert(next_iteration.clone());
                     Some(next_iteration)
                 }
             }
