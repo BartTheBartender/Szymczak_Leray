@@ -107,25 +107,32 @@ mod util;
 
 // - - -
 
+use crate::{
+    category::{relation::Relation, szymczak_functor::SzymczakCategory, Container as Category},
+    ralg::{
+        cgroup::{ideal::CIdeal, C},
+        module::canon::object::Object as Module,
+    },
+};
+use std::time::{Duration, Instant};
 // parameters for the code
-// pub const RECURSION_PARAMETER_SZYMCZAK_FUNCTOR: usize = 100; //idk xD
-// use typenum::U2;
-// use typenum::U3 as N;
-// pub const MAX_DIMENSION: Int = 2;
+use typenum::U3 as N;
 type Int = u16;
-// use std::time::{Duration, Instant};
-// type R = Fin<N>;
+type R = C<N>;
+type I = CIdeal<N>;
 
-const fn main() {
-    /*
+fn main() {
     let category_time = Instant::now();
-    let category = Category::<CanonModule<R>, Relation<R>>::new(MAX_DIMENSION);
+    let category = Category::<Module<R, I>, Relation<R, I>>::new(1);
     println!("category generated after {:?}", category_time.elapsed());
     let szymczak_classes_time = Instant::now();
-    let szymczak_category = SzymczakCategory::szymczak_functor::<20>(&category);
+    let szymczak_category =
+        SzymczakCategory::<Module<R, I>, Relation<R, I>, Relation<R, I>>::szymczak_functor::<20>(
+            &category,
+        );
     println!(
         "szymczak classes generated after {:?}",
         szymczak_classes_time.elapsed()
     );
-    */
+    println!("{:?}", szymczak_category);
 }
