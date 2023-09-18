@@ -428,8 +428,6 @@ mod test {
                 .unwrap(),
         );
 
-        print!("{:?}", zn_module);
-
         let direct = DirectModule::<R, I>::sumproduct(
             &Arc::clone(&zn_module),
             &Arc::new(zn_module.duplicate()),
@@ -440,7 +438,13 @@ mod test {
 
         let relations_zn_out: Vec<Relation<R, I>> = submodules
             .into_iter()
-            .map(|submodule| Relation::<R, I>::from((&direct, submodule)))
+            .map(|submodule| {
+                println!("new submodule");
+                for element in submodule.image() {
+                    println!("element:{:?}", element)
+                }
+                Relation::<R, I>::from((&direct, submodule))
+            })
             .collect();
 
         for relation in relations_zn_out.iter() {
