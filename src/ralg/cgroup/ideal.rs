@@ -1,5 +1,5 @@
 use crate::ralg::{
-    cgroup::C,
+    cgroup::{Radix, C},
     ring::{
         ideal::{Ideal, Principal},
         AdditiveMonoid, AdditivePartialMonoid, Bezout as BezoutRing, MultiplicativePartialMonoid,
@@ -7,7 +7,6 @@ use crate::ralg::{
 };
 use std::{cmp, fmt};
 use typenum::{IsGreater, NonZero, Unsigned, U1};
-pub trait Radix = Unsigned + NonZero + Copy + Eq;
 
 /* # ideals */
 

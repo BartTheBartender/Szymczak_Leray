@@ -6,9 +6,9 @@ use crate::ralg::{
     },
     util::{extended_euclid, try_inverse},
 };
-use std::{fmt, marker};
+use std::{fmt, hash::Hash, marker};
 use typenum::{IsGreater, NonZero, Unsigned, U1};
-pub trait Radix = Unsigned + NonZero + Copy + Eq;
+pub trait Radix = Unsigned + NonZero + Copy + Eq + Hash;
 
 pub mod ideal;
 

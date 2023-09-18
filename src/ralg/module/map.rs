@@ -110,12 +110,12 @@ impl<R: Ring + Copy, I: Ideal<Parent = R> + Ord> Morphism<CanonModule<R, I>>
         Arc::clone(&self.target)
     }
 
-    fn try_compose(self, other: Self) -> Option<Self> {
-        (self.target == other.source).then_some(Self {
+    fn compose(&self, other: &Self) -> Self {
+        Self {
             source: Arc::clone(&self.source),
             target: Arc::clone(&other.target),
             matrix: self.matrix.compose(&other.matrix),
-        })
+        }
     }
 }
 

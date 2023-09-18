@@ -103,8 +103,6 @@ however, a bug inside it prevents using type aliases for other types
 
 mod category;
 mod ralg;
-// mod relation;
-// mod szymczak_category;
 mod util;
 
 // - - -

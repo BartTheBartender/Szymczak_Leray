@@ -1,7 +1,7 @@
 use crate::{
     category::object::{
-        Concrete as ConcreteObject, Enumerable as EnumerableObject, Object as CatObject,
-        PartiallyEnumerable as PartiallyEnumerableObject,
+        Concrete as ConcreteObject, Duplicable as DuplicableObject, Enumerable as EnumerableObject,
+        Object as CatObject, PartiallyEnumerable as PartiallyEnumerableObject,
     },
     ralg::{
         cgroup::{ideal::CIdeal, Radix, C},
@@ -285,6 +285,18 @@ impl<R: Ring + Copy, I: Ideal<Parent = R> + Ord> Object<R, I> {
             true => R::one(),
             false => R::zero(),
         }))
+    }
+}
+
+impl<R: Ring + Copy, I: Ideal<Parent = R> + Ord> DuplicableObject for Object<R, I> {
+    /**
+    returns a tree isomorphic to self,
+    but with *different* coefficient uuids
+    */
+    fn duplicate(&self) -> Self {
+        Self {
+            buffer: self.buffer.iter().map(Mark::duplicate).collect(),
+        }
     }
 }
 

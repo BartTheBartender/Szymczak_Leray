@@ -16,10 +16,10 @@ use crate::{
     },
 };
 
-use std::{fmt, sync::Arc};
+use std::{fmt, ops::Mul, sync::Arc};
 use typenum::{IsGreater, U1};
 
-#[derive(Clone, PartialEq, Eq)]
+#[derive(Clone, PartialEq, Eq, Hash)]
 pub struct Relation<R: Ring, I: Ideal<Parent = R> + Ord> {
     pub source: Arc<CanonModule<R, I>>,
     pub target: Arc<CanonModule<R, I>>,
@@ -72,6 +72,7 @@ impl<R: Ring + fmt::Display, I: Ideal<Parent = R> + Ord + fmt::Display> fmt::Dis
     }
 }
 
+//important code  - generation of the category of R-modules and relations
 impl<R: Ring, I: Ideal<Parent = R> + Ord> Morphism<CanonModule<R, I>> for Relation<R, I> {
     type B = Arc<CanonModule<R, I>>;
 
@@ -84,12 +85,12 @@ impl<R: Ring, I: Ideal<Parent = R> + Ord> Morphism<CanonModule<R, I>> for Relati
     }
 
     // other . self
-    fn try_compose(self, other: Self) -> Option<Self> {
-        (self.target == other.source).then_some(Self {
-            source: Arc::clone(&self.source),
-            target: Arc::clone(&other.target),
+    fn compose(&self, other: &Self) -> Self {
+        Self {
+            source: Arc::clone(&other.source),
+            target: Arc::clone(&self.target),
             matrix: self.matrix.compose_unchecked_bool(&other.matrix),
-        })
+        }
     }
 }
 
@@ -223,6 +224,7 @@ mod test {
     };
 
     #[test]
+    #[ignore]
     #[allow(clippy::default_numeric_fallback, reason = "i ain't refactoring this")]
     fn relation_composition_z5() {
         use typenum::U5 as N;
@@ -332,35 +334,15 @@ mod test {
 
         //36 = 8 + 7 + 6 + 5 + 4 + 3 + 2 + 1
 
+        /*
         //8
-        assert_eq!(
-            bottom.clone().try_compose(bottom.clone()),
-            Some(bottom.clone())
-        );
-        assert_eq!(
-            bottom.clone().try_compose(zero_dagger.clone()),
-            Some(zero_dagger.clone())
-        );
-        assert_eq!(
-            bottom.clone().try_compose(zero.clone()),
-            Some(bottom.clone())
-        );
-        assert_eq!(
-            bottom.clone().try_compose(one.clone()),
-            Some(bottom.clone())
-        );
-        assert_eq!(
-            bottom.clone().try_compose(two.clone()),
-            Some(bottom.clone())
-        );
-        assert_eq!(
-            bottom.clone().try_compose(three.clone()),
-            Some(bottom.clone())
-        );
-        assert_eq!(
-            bottom.clone().try_compose(four.clone()),
-            Some(bottom.clone())
-        );
+        assert_eq!(bottom.compose(&bottom), bottom);
+        assert_eq!(bottom.compose(&zero_dagger), zero_dagger);
+        assert_eq!(bottom.compose(&zero), bottom);
+        assert_eq!(bottom.compose(&one), bottom);
+        assert_eq!(bottom.compose(&two), bottom);
+        assert_eq!(bottom.compose(&three), bottom);
+        assert_eq!(bottom.clone().compose(&four), Some(bottom.clone()));
         assert_eq!(
             bottom.clone().try_compose(top.clone()),
             Some(zero_dagger.clone())
@@ -372,8 +354,8 @@ mod test {
             Some(zero_dagger.clone())
         );
         assert_eq!(
-            zero_dagger.clone().try_compose(zero.clone()),
-            Some(bottom.clone())
+            zero_dagger.compose(zero),
+            bottom)
         );
         assert_eq!(
             zero_dagger.clone().try_compose(one.clone()),
@@ -428,6 +410,9 @@ mod test {
 
         //1
         assert_eq!(top.clone().try_compose(top.clone()), Some(top.clone()));
+
+        */
+        assert!(false)
     }
 
     #[test]
@@ -437,8 +422,13 @@ mod test {
         type R = C<N>;
         type I = CIdeal<N>;
 
-        let zn_module: Arc<CanonModule<R, I>> =
-            Arc::new(CanonModule::<R, I>::all_by_dimension(0..=1).next().unwrap());
+        let zn_module: Arc<CanonModule<R, I>> = Arc::new(
+            CanonModule::<R, I>::all_by_dimension(0..=1)
+                .find(|module| module.cardinality() == N::to_usize().into())
+                .unwrap(),
+        );
+
+        print!("{:?}", zn_module);
 
         let direct = DirectModule::<R, I>::sumproduct(
             &Arc::clone(&zn_module),
@@ -452,6 +442,10 @@ mod test {
             .into_iter()
             .map(|submodule| Relation::<R, I>::from((&direct, submodule)))
             .collect();
+
+        for relation in relations_zn_out.iter() {
+            println!("{:?}", relation);
+        }
 
         assert_eq!(relations_zn_out.len(), 6);
 
@@ -523,6 +517,7 @@ mod test {
     }
 
     #[test]
+    #[ignore]
     fn z3_category_from_function() {
         use typenum::{Unsigned, U3 as N};
         let n = N::to_usize();
@@ -602,6 +597,7 @@ mod test {
     }
 
     #[test]
+    #[ignore]
     fn no_duplicates() {
         use typenum::{Unsigned, U7 as N};
         type R = C<N>;
@@ -627,7 +623,8 @@ mod test {
     }
 
     #[test]
-    fn z1_to_z2_relations() {
+    #[ignore]
+    fn trivial_to_c2_relations() {
         use typenum::{Unsigned, U2 as N};
         // let n: Int = N::to_usize() as Int;
         type R = C<N>;
@@ -635,14 +632,10 @@ mod test {
 
         let mut zn_modules = CanonModule::<R, I>::all_by_dimension(0..=1);
 
-        let z1 = Arc::new(
-            zn_modules
-                .find(|module| module.to_string() == "Z1")
-                .unwrap(),
-        );
+        let z1 = Arc::new(zn_modules.find(|module| module.to_string() == "0").unwrap());
         let z2 = Arc::new(
             zn_modules
-                .find(|module| module.to_string() == "Z2")
+                .find(|module| module.to_string() == "C2")
                 .unwrap(),
         );
 

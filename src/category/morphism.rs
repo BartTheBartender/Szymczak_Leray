@@ -24,7 +24,17 @@ pub trait Morphism<O: Object>: Sized {
     fn source(&self) -> Self::B;
     fn target(&self) -> Self::B;
 
-    fn try_compose(self, other: Self) -> Option<Self>;
+    //this function will be called googol times in szymczak_functor, hence obligatory taking ovnership was unacceptable
+    fn compose(&self, other: &Self) -> Self;
+    fn try_compose(&self, other: &Self) -> Result<Self, String> {
+        if self.target().borrow() == other.source().borrow() {
+            Ok(self.compose(other))
+        } else {
+            Err(String::from(
+                "Morphisms cannot be composed since the middle object is different",
+            ))
+        }
+    }
 }
 
 pub trait Enumerable<O: Object>: Morphism<O> {
@@ -58,7 +68,7 @@ pub trait Endo<O: Object>: Morphism<O> + Clone + Eq + Hash {
         std::iter::successors(Some(self.clone()), |current_iteration| {
             let next_iteration = current_iteration
                 .clone()
-                .try_compose(self.clone())
+                .try_compose(&self)
                 .expect("endo should be self composable");
             match seen_iterations.contains(&next_iteration) {
                 true => None,

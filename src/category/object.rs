@@ -35,3 +35,7 @@ pub trait Concrete: Object {
         self.elements().count()
     }
 }
+
+pub trait Duplicable: Object {
+    fn duplicate(&self) -> Self;
+}

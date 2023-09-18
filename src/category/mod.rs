@@ -1,7 +1,10 @@
 use crate::{
     category::{
         morphism::{Enumerable as EnumerableMorphism, Morphism},
-        object::{Object, PartiallyEnumerable as PartiallyEnumerableObject},
+        object::{
+            Duplicable as DuplicableObject, Object,
+            PartiallyEnumerable as PartiallyEnumerableObject,
+        },
     },
     Int,
 };
@@ -9,6 +12,8 @@ use std::{collections::HashMap, fmt, hash::Hash, sync::Arc};
 
 pub mod morphism;
 pub mod object;
+pub mod relation;
+pub mod szymczak_functor;
 
 pub type HomSet<Object, M> = HashMap<Object, HashMap<Object, Vec<M>>>;
 
@@ -18,7 +23,7 @@ pub struct Container<O: Object, M: Morphism<O>> {
 }
 
 impl<
-        O: Object + Hash + Clone + PartiallyEnumerableObject,
+        O: Object + Hash + Clone + PartiallyEnumerableObject + DuplicableObject,
         M: Morphism<O, B = Arc<O>> + EnumerableMorphism<O> + Clone,
     > Container<O, M>
 {
@@ -32,8 +37,8 @@ impl<
 
         let all_targets: Vec<Arc<O>> = all_objects
             .iter()
-            // .map(|object| Arc::new(object.duplicate())) // na chuj tutaj duplikować?
-            .map(|object| Arc::new(object.clone()))
+            .map(|object| Arc::new(object.duplicate())) // na chuj tutaj duplikować? -- bo w przeciwnym razie sumprduct nie działa
+            //.map(|object| Arc::new(object.clone()))
             .collect();
 
         let hom_sets = all_sources

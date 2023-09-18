@@ -10,7 +10,7 @@ use std::{cmp, collections::BTreeSet, fmt};
 
 /* # two dimensional container */
 
-#[derive(Clone, PartialEq, Eq)]
+#[derive(Clone, PartialEq, Eq, Hash)]
 pub struct VecD2<T> {
     pub nof_cols: usize,
     pub nof_rows: usize,
