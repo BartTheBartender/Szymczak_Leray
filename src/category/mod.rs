@@ -28,16 +28,16 @@ impl<
     > Container<O, M>
 {
     pub fn new(maximal_dimension: Int) -> Self {
-        let all_objects: Vec<O> = O::all_by_dimension(0..maximal_dimension.into()).collect();
+        let all_objects: Vec<O> = O::all_by_dimension(0..=maximal_dimension.into()).collect();
 
         let all_sources: Vec<Arc<O>> = all_objects
             .iter()
-            .map(|object| Arc::new(object.clone()))
+            .map(|object| Arc::new(object.duplicate()))
             .collect();
 
         let all_targets: Vec<Arc<O>> = all_objects
-            .iter()
-            .map(|object| Arc::new(object.duplicate())) // na chuj tutaj duplikować? -- bo w przeciwnym razie sumprduct nie działa
+            .into_iter()
+            .map(|object| Arc::new(object)) // na chuj tutaj duplikować? -- bo w przeciwnym razie sumprduct nie działa
             //.map(|object| Arc::new(object.clone()))
             .collect();
 

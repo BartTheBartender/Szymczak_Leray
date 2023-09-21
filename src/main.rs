@@ -130,9 +130,10 @@ fn main() {
         SzymczakCategory::<Module<R, I>, Relation<R, I>, Relation<R, I>>::szymczak_functor::<20>(
             &category,
         );
+    println!("{}", category);
     println!(
         "szymczak classes generated after {:?}",
         szymczak_classes_time.elapsed()
     );
-    println!("{:?}", szymczak_category);
+    println!("{}", szymczak_category);
 }

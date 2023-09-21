@@ -224,10 +224,9 @@ mod test {
     use std::sync::Arc;
 
     #[test]
-    #[ignore]
     #[allow(clippy::default_numeric_fallback, reason = "i ain't refactoring this")]
     fn relation_composition_z5() {
-        use typenum::U5 as N;
+        use typenum::{Unsigned, U5 as N};
         type R = C<N>;
         type I = CIdeal<N>;
         let category = Category::<CanonModule<R, I>, Relation<R, I>>::new(1);
@@ -235,12 +234,12 @@ mod test {
         let relations: Vec<Relation<R, I>> = category
             .hom_sets
             .iter()
-            .filter(|(source, _)| source.cardinality() > 1)
+            .filter(|(source, _)| source.cardinality() == N::to_usize().into())
             .map(|(_, hom_sets_fixed_source)| hom_sets_fixed_source)
             .next()
             .expect("there is non-trivial source")
             .iter()
-            .filter(|(target, _)| target.cardinality() > 1)
+            .filter(|(target, _)| target.cardinality() == N::to_usize().into())
             .map(|(_, relations_iter)| relations_iter)
             .next()
             .expect("there is non-trivial target")
@@ -334,7 +333,6 @@ mod test {
 
         //36 = 8 + 7 + 6 + 5 + 4 + 3 + 2 + 1
 
-        /*
         //8
         assert_eq!(bottom.compose(&bottom), bottom);
         assert_eq!(bottom.compose(&zero_dagger), zero_dagger);
@@ -342,77 +340,50 @@ mod test {
         assert_eq!(bottom.compose(&one), bottom);
         assert_eq!(bottom.compose(&two), bottom);
         assert_eq!(bottom.compose(&three), bottom);
-        assert_eq!(bottom.clone().compose(&four), Some(bottom.clone()));
-        assert_eq!(
-            bottom.clone().try_compose(top.clone()),
-            Some(zero_dagger.clone())
-        );
+        assert_eq!(bottom.compose(&four), bottom);
+        assert_eq!(bottom.compose(&top), zero_dagger);
 
         //7
-        assert_eq!(
-            zero_dagger.clone().try_compose(zero_dagger.clone()),
-            Some(zero_dagger.clone())
-        );
-        assert_eq!(
-            zero_dagger.compose(zero),
-            bottom)
-        );
-        assert_eq!(
-            zero_dagger.clone().try_compose(one.clone()),
-            Some(zero_dagger.clone())
-        );
-        assert_eq!(
-            zero_dagger.clone().try_compose(two.clone()),
-            Some(zero_dagger.clone())
-        );
-        assert_eq!(
-            zero_dagger.clone().try_compose(three.clone()),
-            Some(zero_dagger.clone())
-        );
-        assert_eq!(
-            zero_dagger.clone().try_compose(four.clone()),
-            Some(zero_dagger.clone())
-        );
-        assert_eq!(
-            zero_dagger.clone().try_compose(top.clone()),
-            Some(zero_dagger.clone())
-        );
+        assert_eq!(zero_dagger.compose(&zero_dagger), zero_dagger);
+        assert_eq!(zero_dagger.compose(&zero), bottom);
+        assert_eq!(zero_dagger.compose(&one), zero_dagger);
+        assert_eq!(zero_dagger.compose(&two), zero_dagger);
+        assert_eq!(zero_dagger.compose(&three), zero_dagger);
+        assert_eq!(zero_dagger.compose(&four), zero_dagger);
+        assert_eq!(zero_dagger.compose(&top), zero_dagger);
 
         //6
-        assert_eq!(zero.clone().try_compose(zero.clone()), Some(zero.clone()));
-        assert_eq!(zero.clone().try_compose(one.clone()), Some(zero.clone()));
-        assert_eq!(zero.clone().try_compose(two.clone()), Some(zero.clone()));
-        assert_eq!(zero.clone().try_compose(three.clone()), Some(zero.clone()));
-        assert_eq!(zero.clone().try_compose(four.clone()), Some(zero.clone()));
-        assert_eq!(zero.clone().try_compose(top.clone()), Some(top.clone()));
+        assert_eq!(zero.compose(&zero), zero);
+        assert_eq!(zero.compose(&one), zero);
+        assert_eq!(zero.compose(&two), zero);
+        assert_eq!(zero.compose(&three), zero);
+        assert_eq!(zero.compose(&four), zero);
+        assert_eq!(zero.compose(&top), top);
 
         //5
-        assert_eq!(one.clone().try_compose(one.clone()), Some(one.clone()));
-        assert_eq!(one.clone().try_compose(two.clone()), Some(two.clone()));
-        assert_eq!(one.clone().try_compose(three.clone()), Some(three.clone()));
-        assert_eq!(one.clone().try_compose(four.clone()), Some(four.clone()));
-        assert_eq!(one.clone().try_compose(top.clone()), Some(top.clone()));
+        assert_eq!(one.compose(&one), one);
+        assert_eq!(one.compose(&two), two);
+        assert_eq!(one.compose(&three), three);
+        assert_eq!(one.compose(&four), four);
+        assert_eq!(one.compose(&top), top);
 
         //4
-        assert_eq!(two.clone().try_compose(two.clone()), Some(four.clone()));
-        assert_eq!(two.clone().try_compose(three.clone()), Some(one.clone()));
-        assert_eq!(two.clone().try_compose(four.clone()), Some(three.clone()));
-        assert_eq!(two.clone().try_compose(top.clone()), Some(top.clone()));
+        assert_eq!(two.compose(&two), four);
+        assert_eq!(two.compose(&three), one);
+        assert_eq!(two.compose(&four), three);
+        assert_eq!(two.compose(&top), top);
 
         //3
-        assert_eq!(three.clone().try_compose(three.clone()), Some(four.clone()));
-        assert_eq!(three.clone().try_compose(four.clone()), Some(two.clone()));
-        assert_eq!(three.clone().try_compose(top.clone()), Some(top.clone()));
+        assert_eq!(three.compose(&three), four);
+        assert_eq!(three.compose(&four), two);
+        assert_eq!(three.compose(&top), top);
 
         //2
-        assert_eq!(four.clone().try_compose(four.clone()), Some(one.clone()));
-        assert_eq!(four.clone().try_compose(top.clone()), Some(top.clone()));
+        assert_eq!(four.compose(&four), one);
+        assert_eq!(four.compose(&top), top);
 
         //1
-        assert_eq!(top.clone().try_compose(top.clone()), Some(top.clone()));
-
-        */
-        assert!(false)
+        assert_eq!(top.compose(&top), top);
     }
 
     #[test]
@@ -521,7 +492,6 @@ mod test {
     }
 
     #[test]
-    #[ignore]
     fn z3_category_from_function() {
         use typenum::{Unsigned, U3 as N};
         let n = N::to_usize();
@@ -601,22 +571,22 @@ mod test {
     }
 
     #[test]
-    #[ignore]
     fn no_duplicates() {
-        use typenum::U7 as N;
+        use typenum::{Unsigned, U7 as N};
         type R = C<N>;
         type I = CIdeal<N>;
 
         let category = Category::<CanonModule<R, I>, Relation<R, I>>::new(1);
+        print!("{}", category);
 
         let hom_set_zn_zn: Vec<Relation<R, I>> = category
             .hom_sets
             .into_iter()
-            .find(|(source, _)| source.cardinality() > 1)
+            .find(|(source, _)| source.cardinality() == N::to_usize().into())
             .expect("there is a hom_set with non-trivial source")
             .1
             .into_iter()
-            .find(|(target, _)| target.cardinality() > 1)
+            .find(|(target, _)| target.cardinality() == N::to_usize().into())
             .expect("there is a hom_set with non-trivial target")
             .1;
 
@@ -627,7 +597,6 @@ mod test {
     }
 
     #[test]
-    #[ignore]
     fn trivial_to_c2_relations() {
         use typenum::U2 as N;
         // let n: Int = N::to_usize() as Int;
@@ -636,12 +605,8 @@ mod test {
 
         let mut zn_modules = CanonModule::<R, I>::all_by_dimension(0..=1);
 
-        let z1 = Arc::new(zn_modules.find(|module| module.to_string() == "0").unwrap());
-        let z2 = Arc::new(
-            zn_modules
-                .find(|module| module.to_string() == "C2")
-                .unwrap(),
-        );
+        let z1 = Arc::new(zn_modules.find(|module| module.cardinality() == 1).unwrap());
+        let z2 = Arc::new(zn_modules.find(|module| module.cardinality() == 2).unwrap());
 
         let direct = DirectModule::<R, I>::sumproduct(&z1, &z2);
 
@@ -649,8 +614,8 @@ mod test {
     }
 
     #[test]
-    #[ignore]
-    fn category_high_dimension_no_dupes() {
+    //ten test ma zle wygenrerowane obiekty
+    fn high_dimension_no_dupes() {
         use typenum::{Unsigned, U2 as N};
         let n = N::to_usize();
         type R = C<N>;
@@ -661,6 +626,7 @@ mod test {
             .expect("there is module of dim two");
 
         let category = Category::<CanonModule<R, I>, Relation<R, I>>::new(2);
+        println!("category;\n{},\nz2xz2:\n{:?}", category, z2xz2);
 
         let hom_set_z2xz2 = category.hom_set(&z2xz2, &z2xz2);
         let mut hom_set_z2xz2_no_dupes = hom_set_z2xz2.clone();

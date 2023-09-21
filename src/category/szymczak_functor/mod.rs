@@ -74,7 +74,7 @@ impl<
             .map(Self::sort_by_object)
             .collect();
 
-        SzymczakCategory {
+        Self {
             szymczak_classes,
             morphisms: PhantomData::<M>,
         }
@@ -87,8 +87,8 @@ impl<
         if endomorphisms.len() > RECURSION_PARAMETER {
             let left_endomorphisms = endomorphisms.split_off(endomorphisms.len() / 2);
             let right_endomorphisms = endomorphisms;
-            assert_ne!(left_endomorphisms.len(), 0);
-            assert_ne!(right_endomorphisms.len(), 0);
+            //assert_ne!(left_endomorphisms.len(), 0);
+            //assert_ne!(right_endomorphisms.len(), 0);
 
             let (left_raw_szymczak_classes, right_raw_szymczak_classes) = rayon::join(
                 || {
@@ -201,13 +201,13 @@ impl<
                     }
 
                     right_raw_szymczak_classes
-                        .retain(|right_raw_szymczak_class| right_raw_szymczak_class.len() != 0);
+                        .retain(|right_raw_szymczak_class| !right_raw_szymczak_class.is_empty());
 
                     merged_raw_szymczak_classes
                 },
             );
         left_raw_szymczak_classes
-            .retain(|left_raw_szymczak_class| left_raw_szymczak_class.len() != 0);
+            .retain(|left_raw_szymczak_class| !left_raw_szymczak_class.is_empty());
 
         merged_raw_szymczak_classes.append(&mut left_raw_szymczak_classes);
         merged_raw_szymczak_classes.append(&mut right_raw_szymczak_classes);
@@ -229,7 +229,7 @@ impl<
             szymczak_class
                 .entry(endomorphism.source().borrow().clone()) //this clone is needed to be stored as a key for the hashmap
                 .or_default()
-                .push(endomorphism)
+                .push(endomorphism);
         }
 
         szymczak_class
@@ -256,8 +256,8 @@ impl<
             .get(l.source().borrow())
             .expect("there is a hom_set with the given object");
 
-        for l_to_r in morphisms_l_to_r.iter() {
-            for r_to_l in morphisms_r_to_l.iter() {
+        for l_to_r in morphisms_l_to_r {
+            for r_to_l in morphisms_r_to_l {
                 if l_to_r.compose(l) == r.compose(r_to_l)
                     && r_to_l.compose(l) == r.compose(r_to_l)
                     && Self::is_identity(&E::from(l_to_r.compose(r_to_l)), l_cycle)
@@ -271,10 +271,10 @@ impl<
     }
 
     fn is_identity(morphism: &E, cycle: &Vec<E>) -> bool {
-        for en in cycle.iter() {
+        for en in cycle {
             let en_morphism = morphism.compose(en);
 
-            for em in cycle.iter() {
+            for em in cycle {
                 if en_morphism == *em {
                     return true;
                 }
@@ -285,7 +285,7 @@ impl<
     }
 }
 
-pub fn transform<L, R>(reference_to_tuple: &(L, R)) -> (&L, &R) {
+pub const fn transform<L, R>(reference_to_tuple: &(L, R)) -> (&L, &R) {
     let (left, right) = reference_to_tuple;
     (&left, &right)
 }
@@ -296,16 +296,16 @@ impl<O: Object + Display, M: Morphism<O>, E: EndoMorphism<O> + Display> Display
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         let mut string = String::new();
 
-        for szymczak_class in self.szymczak_classes.iter() {
+        for szymczak_class in &self.szymczak_classes {
             string.push_str("new szymczak class:\n");
-            for (object, endomorphisms) in szymczak_class.iter() {
+            for (object, endomorphisms) in szymczak_class {
                 string.push_str(&["object:", &object.to_string()].join(" "));
-                string.push_str("\n");
-                for endomorphism in endomorphisms.iter() {
+                string.push('\n');
+                for endomorphism in endomorphisms {
                     string.push_str(&endomorphism.to_string());
-                    string.push_str("\n");
+                    string.push('\n');
                 }
-                string.push_str("\n");
+                string.push('\n');
             }
         }
         write!(f, "{}", string)
@@ -324,9 +324,8 @@ mod test {
     };
 
     #[test]
-    #[ignore]
     fn szymczak_isomorphism_is_equivalence() {
-        use typenum::U5 as N;
+        use typenum::{Unsigned, U5 as N};
         type R = C<N>;
         type I = CIdeal<N>;
 
@@ -336,19 +335,34 @@ mod test {
             .clone()
             .hom_sets
             .into_iter()
-            .find(|(source, _)| source.cardinality() > 1)
+            .find(|(source, _)| source.cardinality() == N::to_usize())
             .expect("there is a hom_set with non-trivial source")
             .1
             .into_iter()
-            .find(|(target, _)| target.cardinality() > 1)
+            .find(|(target, _)| target.cardinality() == N::to_usize())
             .expect("there is a hom_set with non-trivial target")
             .1;
+
+        for rel in &hom_set_zn_zn {
+            println!(
+                "source: {:?}\ntarget: {:?}\nmatrix: {}",
+                rel.source(),
+                rel.target(),
+                rel
+            );
+        }
+
+        assert_eq!(
+            hom_set_zn_zn.get(0).unwrap().source(),
+            hom_set_zn_zn.get(0).unwrap().target()
+        );
 
         //reflexive
         for index in 0..hom_set_zn_zn.len() {
             let endo = &hom_set_zn_zn[index];
 
             let endo_with_cycle = (endo, &endo.cycle());
+            println!("dupa dupa");
 
             assert!(SzymczakCategory::are_szymczak_isomorphic(
                 endo_with_cycle,
