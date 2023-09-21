@@ -240,14 +240,21 @@ impl<R: Ring + Copy, I: Ideal<Parent = R> + Ord> ConcreteObject for Object<R, I>
     }
 
     fn elements(&self) -> impl Iterator<Item = Self::Element> + Clone + '_ {
-        self.buffer
-            .iter()
-            .map(|mark| mark.thing.elements())
-            .multi_cartesian_product()
-            .map(move |vec| {
-                self.clone()
-                    .element_from_iterator(vec.into_iter().map(|qelement| qelement.element))
-            })
+        match self.dimension() {
+            0 => vec![self.zero()].into_iter(),
+            _ => self
+                .buffer
+                .iter()
+                .map(|mark| mark.thing.elements())
+                .multi_cartesian_product()
+                .map(move |vec| {
+                    self.clone()
+                        .element_from_iterator(vec.into_iter().map(|qelement| qelement.element))
+                })
+                // collect necessary to force return type to be the same in both branches
+                .collect::<Vec<_>>()
+                .into_iter(),
+        }
     }
 
     default fn cardinality(&self) -> usize {

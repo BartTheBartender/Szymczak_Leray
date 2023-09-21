@@ -439,7 +439,7 @@ mod test {
         let relations_zn_out: Vec<Relation<R, I>> = submodules
             .into_iter()
             .map(|submodule| {
-                println!("new submodule");
+                println!("new submodule: {:?}", submodule);
                 for element in submodule.image() {
                     println!("element:{:?}", element)
                 }
