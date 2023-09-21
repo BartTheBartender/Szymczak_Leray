@@ -24,8 +24,8 @@ pub trait Module<R: Ring>: AdditivePartialGroup {
     fn mul_assign(&mut self, r: R);
 }
 
-// pub trait ModuleObject<R: Ring>: Concrete<Element: Module> {
 pub trait ModuleObject<R: Ring>: Concrete {
     fn is_trivial(&self) -> bool;
     fn trivial() -> Self;
+    fn zero(&self) -> Self::Element;
 }

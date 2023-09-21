@@ -1,7 +1,6 @@
 use crate::ralg::ring::{Bezout, Ring};
-use std::hash::Hash;
 
-pub trait Ideal: Clone + PartialEq + Eq + Hash {
+pub trait Ideal: Clone + PartialEq + Eq {
     type Parent: Ring;
 
     fn principal(r: Self::Parent) -> Self;

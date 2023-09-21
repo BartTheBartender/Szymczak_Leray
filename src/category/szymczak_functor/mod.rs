@@ -22,6 +22,7 @@ type RawSzymczakClasses<M, E> = Vec<RawSzymczakClass<M, E>>;
 type SzymczakClass<O, E> = HashMap<O, Vec<E>>;
 type SzymczakClasses<O, E> = Vec<SzymczakClass<O, E>>;
 
+#[derive(Debug)]
 pub struct SzymczakCategory<O: Object, M: Morphism<O>, E: EndoMorphism<O>> {
     pub szymczak_classes: SzymczakClasses<O, E>,
     morphisms: PhantomData<M>,

@@ -158,6 +158,10 @@ impl<R: Ring + Copy, I: Ideal<Parent = R>> ModuleObject<R> for Object<R, I> {
     fn trivial() -> Self {
         Self::from(I::principal(R::one()))
     }
+
+    fn zero(&self) -> Self::Element {
+        self.attach_element(R::zero())
+    }
 }
 
 impl<R: BezoutRing + Copy, I: PrincipalIdeal<Parent = R>> Object<R, I> {

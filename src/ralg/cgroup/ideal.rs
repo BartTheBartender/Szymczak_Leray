@@ -6,7 +6,7 @@ use crate::ralg::{
     },
 };
 use std::{cmp, fmt};
-use typenum::{IsGreater, NonZero, Unsigned, U1};
+use typenum::{IsGreater, U1};
 
 /* # ideals */
 

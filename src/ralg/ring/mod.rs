@@ -1,5 +1,3 @@
-use std::hash::Hash;
-
 pub mod ideal;
 
 /* # collections */
@@ -74,7 +72,7 @@ pub trait MultiplicativeMonoid: MultiplicativePartialMonoid + Enumerable {
 
 /* # rings */
 
-pub trait Ring: AdditiveGroup + MultiplicativeMonoid + Hash + Clone {
+pub trait Ring: AdditiveGroup + MultiplicativeMonoid {
     /**
     attempts to find an element x,
     such that r * x = self

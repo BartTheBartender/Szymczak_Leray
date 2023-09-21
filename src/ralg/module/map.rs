@@ -8,7 +8,9 @@ use crate::{
     },
     ralg::{
         matrix::Matrix,
-        module::{canon::object::Object as CanonModule, quotient::Object as QuotObject},
+        module::{
+            canon::object::Object as CanonModule, quotient::Object as QuotObject, ModuleObject,
+        },
         ring::{
             ideal::{Ideal, Principal as PrincipalIdeal},
             AdditivePartialGroup, AdditivePartialMonoid, Bezout as BezoutRing, Demesne,
@@ -110,7 +112,16 @@ impl<R: Ring + Copy, I: Ideal<Parent = R> + Ord> Morphism<CanonModule<R, I>>
         Arc::clone(&self.target)
     }
 
+    fn try_compose(&self, other: &Self) -> Option<Self> {
+        (self.target == other.source).then_some(Self {
+            source: Arc::clone(&self.source),
+            target: Arc::clone(&other.target),
+            matrix: self.matrix.compose(&other.matrix),
+        })
+    }
+
     fn compose(&self, other: &Self) -> Self {
+        assert!(self.target == other.source, "middle object mismatch");
         Self {
             source: Arc::clone(&self.source),
             target: Arc::clone(&other.target),
@@ -176,10 +187,14 @@ impl<R: Ring + Copy, I: Ideal<Parent = R> + Ord> ConcreteMorphism<CanonModule<R,
         &self,
         element: <CanonModule<R, I> as ConcreteObject>::Element,
     ) -> Option<<CanonModule<R, I> as ConcreteObject>::Element> {
-        self.source.is_element(&element).then_some(
-            self.target
-                .element_from_matrix(Matrix::from(element).compose(&self.matrix)),
-        )
+        self.source
+            .is_element(&element)
+            .then(|| match self.matrix.shape() {
+                (0, _d) | (_d, 0) => self.target.zero(),
+                (_s, _t) => self
+                    .target
+                    .element_from_matrix(Matrix::from(element).compose(&self.matrix)),
+            })
     }
 }
 
@@ -495,6 +510,77 @@ mod test {
             ))
         );
         assert_eq!(hom_z3_z3.next(), None);
+    }
+
+    #[test]
+    fn evaluation() {
+        let z1 = Arc::new(CanonModule::<R, I>::from_iter([1]));
+        let z6 = Arc::new(CanonModule::<R, I>::from_iter([6]));
+
+        let zero = CanonToCanon::new(&z1, &z1, Matrix::from_buffer([], 0, 0));
+        let bot = CanonToCanon::new(&z1, &z6, Matrix::from_buffer([], 0, 2));
+        let top = CanonToCanon::new(&z6, &z1, Matrix::from_buffer([], 2, 0));
+        let map = CanonToCanon::new(
+            &z6,
+            &z6,
+            Matrix::from_buffer([2, 0, 0, 1].map(R::from), 2, 2),
+        );
+
+        // zero
+        assert_eq!(
+            zero.try_evaluate(z1.element_from_iterator([0].map(R::from).into_iter())),
+            Some(z1.element_from_iterator([0].map(R::from).into_iter()))
+        );
+        assert_eq!(
+            zero.try_evaluate(z6.element_from_iterator([0, 0].map(R::from).into_iter())),
+            None
+        );
+
+        // bot
+        assert_eq!(
+            bot.try_evaluate(z1.element_from_iterator([0].map(R::from).into_iter())),
+            Some(z6.element_from_iterator([0, 0].map(R::from).into_iter()))
+        );
+        assert_eq!(
+            bot.try_evaluate(z6.element_from_iterator([0, 0].map(R::from).into_iter())),
+            None
+        );
+
+        // top
+        assert_eq!(
+            top.try_evaluate(z6.element_from_iterator([0, 0].map(R::from).into_iter())),
+            Some(z1.element_from_iterator([0].map(R::from).into_iter()))
+        );
+        assert_eq!(
+            top.try_evaluate(z6.element_from_iterator([0, 1].map(R::from).into_iter())),
+            Some(z1.element_from_iterator([0].map(R::from).into_iter()))
+        );
+        assert_eq!(
+            top.try_evaluate(z6.element_from_iterator([1, 0].map(R::from).into_iter())),
+            Some(z1.element_from_iterator([0].map(R::from).into_iter()))
+        );
+        assert_eq!(
+            top.try_evaluate(z1.element_from_iterator([0].map(R::from).into_iter())),
+            None
+        );
+
+        // map
+        assert_eq!(
+            map.try_evaluate(z6.element_from_iterator([0, 0].map(R::from).into_iter())),
+            Some(z6.element_from_iterator([0, 0].map(R::from).into_iter()))
+        );
+        assert_eq!(
+            map.try_evaluate(z6.element_from_iterator([0, 1].map(R::from).into_iter())),
+            Some(z6.element_from_iterator([0, 1].map(R::from).into_iter()))
+        );
+        assert_eq!(
+            map.try_evaluate(z6.element_from_iterator([1, 0].map(R::from).into_iter())),
+            Some(z6.element_from_iterator([2, 0].map(R::from).into_iter()))
+        );
+        assert_eq!(
+            map.try_evaluate(z1.element_from_iterator([0].map(R::from).into_iter())),
+            None,
+        );
     }
 
     #[test]

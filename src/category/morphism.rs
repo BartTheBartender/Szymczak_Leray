@@ -24,16 +24,9 @@ pub trait Morphism<O: Object>: Sized {
     fn source(&self) -> Self::B;
     fn target(&self) -> Self::B;
 
-    //this function will be called googol times in szymczak_functor, hence obligatory taking ovnership was unacceptable
     fn compose(&self, other: &Self) -> Self;
-    fn try_compose(&self, other: &Self) -> Result<Self, String> {
-        if self.target().borrow() == other.source().borrow() {
-            Ok(self.compose(other))
-        } else {
-            Err(String::from(
-                "Morphisms cannot be composed since the middle object is different",
-            ))
-        }
+    fn try_compose(&self, other: &Self) -> Option<Self> {
+        (self.target().borrow() == other.source().borrow()).then_some(self.compose(other))
     }
 }
 

@@ -233,10 +233,10 @@ impl<R: Ring + Copy, I: Ideal<Parent = R> + Ord> ConcreteObject for Object<R, I>
     type Element = Element<R, I>;
 
     fn is_element(&self, el: &Self::Element) -> bool {
-        self.buffer
-            .iter()
-            .zip(el.buffer.iter())
-            .all(|(self_mark, other_mark)| self_mark.thing.ideal == other_mark.thing.ideal)
+        itertools::equal(
+            self.buffer.iter().map(|mark| &mark.thing.ideal),
+            el.buffer.iter().map(|mark| &mark.thing.ideal),
+        )
     }
 
     fn elements(&self) -> impl Iterator<Item = Self::Element> + Clone + '_ {
@@ -272,6 +272,10 @@ impl<R: Ring + Copy, I: Ideal<Parent = R> + Ord> ModuleObject<R> for Object<R, I
 
     fn trivial() -> Self {
         Self::default()
+    }
+
+    fn zero(&self) -> Self::Element {
+        self.element_from_iterator(self.buffer.iter().map(|_| R::zero()))
     }
 }
 
@@ -500,6 +504,20 @@ mod test {
     }
 
     /* ## module structure */
+
+    #[test]
+    #[allow(clippy::shadow_unrelated, reason = "useful in test")]
+    fn checking_elements() {
+        type R = C<U6>;
+        type I = CIdeal<U6>;
+        let z1 = Object::<R, I>::from_iter([1]);
+        let z6 = Object::<R, I>::from_iter([6]);
+
+        assert!(z1.is_element(&z1.element_from_iterator([0].map(R::from).into_iter())));
+        assert!(z6.is_element(&z6.element_from_iterator([0, 0].map(R::from).into_iter())));
+        assert!(!z1.is_element(&z6.element_from_iterator([0, 0].map(R::from).into_iter())));
+        assert!(!z6.is_element(&z1.element_from_iterator([0].map(R::from).into_iter())));
+    }
 
     #[test]
     #[allow(clippy::shadow_unrelated, reason = "useful in test")]

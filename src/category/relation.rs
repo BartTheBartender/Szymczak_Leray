@@ -16,7 +16,7 @@ use crate::{
     },
 };
 
-use std::{fmt, ops::Mul, sync::Arc};
+use std::{fmt, hash, sync::Arc};
 use typenum::{IsGreater, U1};
 
 #[derive(Clone, PartialEq, Eq, Hash)]
@@ -190,7 +190,10 @@ impl<R: Ring + Copy + Into<u16>, I: PrincipalIdeal<Parent = R> + Ord>
     }
 }
 
-impl<R: Ring, I: Ideal<Parent = R> + Ord> EndoMorphism<CanonModule<R, I>> for Relation<R, I> {}
+impl<R: Ring + Clone + hash::Hash, I: Ideal<Parent = R> + Ord + hash::Hash>
+    EndoMorphism<CanonModule<R, I>> for Relation<R, I>
+{
+}
 
 impl<Period: Radix + IsGreater<U1>> EnumerableMorphism<CanonModule<C<Period>, CIdeal<Period>>>
     for Relation<C<Period>, CIdeal<Period>>
@@ -217,11 +220,8 @@ mod test {
         util::category_of_relations::HelperData,
         Int,
     };
-    use bitvec::prelude::*;
-    use std::{
-        collections::{HashMap, HashSet},
-        sync::Arc,
-    };
+    // use bitvec::prelude::*;
+    use std::sync::Arc;
 
     #[test]
     #[ignore]
@@ -603,7 +603,7 @@ mod test {
     #[test]
     #[ignore]
     fn no_duplicates() {
-        use typenum::{Unsigned, U7 as N};
+        use typenum::U7 as N;
         type R = C<N>;
         type I = CIdeal<N>;
 
@@ -629,7 +629,7 @@ mod test {
     #[test]
     #[ignore]
     fn trivial_to_c2_relations() {
-        use typenum::{Unsigned, U2 as N};
+        use typenum::U2 as N;
         // let n: Int = N::to_usize() as Int;
         type R = C<N>;
         type I = CIdeal<N>;
@@ -651,9 +651,6 @@ mod test {
     #[test]
     #[ignore]
     fn category_high_dimension_no_dupes() {
-        use crate::category::{
-            morphism::Enumerable as EnumerableMorphism, object::Enumerable as EnumerableObject,
-        };
         use typenum::{Unsigned, U2 as N};
         let n = N::to_usize();
         type R = C<N>;
