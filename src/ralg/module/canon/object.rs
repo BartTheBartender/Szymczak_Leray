@@ -533,7 +533,16 @@ mod test {
         type I = CIdeal<U6>;
         let a = Object::<R, I>::from_iter([1].map(|j| CIdeal::principal(C::from(j))));
         assert!(a.is_trivial());
-        itertools::assert_equal(a.elements(), []);
+        itertools::assert_equal(
+            a.elements().map(|element| {
+                element
+                    .buffer
+                    .into_iter()
+                    .map(|quotient| quotient.thing.element)
+                    .collect::<Vec<_>>()
+            }),
+            [vec![]],
+        );
 
         let a = Object::<R, I>::from_iter([3].map(|j| CIdeal::principal(C::from(j))));
         itertools::assert_equal(
