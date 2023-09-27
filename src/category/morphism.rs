@@ -98,6 +98,10 @@ pub trait Abelian<O: Object>: PreAbelian<O> + AdditivePartialGroup {
     }
 }
 
+pub trait ToMap<O: Object>: Morphism<O> {
+    fn is_a_map(&self) -> bool;
+}
+
 /*
 pub trait AbelianEndoMorphism<R: Ring, Object: Module<R> + Eq>:
     EndoMorphism<Object> + AbelianMorphism<R, Object, Object>

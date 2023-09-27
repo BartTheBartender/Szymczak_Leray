@@ -1,7 +1,7 @@
 pub use crate::{
     category::morphism::{
         Concrete as ConcreteMorphism, Endo as EndoMorphism, Enumerable as EnumerableMorphism,
-        Morphism,
+        Morphism, ToMap,
     },
     ralg::{
         cgroup::{ideal::CIdeal, Radix, C},
@@ -43,11 +43,14 @@ impl<R: Ring + fmt::Debug, I: Ideal<Parent = R> + Ord + fmt::Debug> fmt::Debug f
             }
             //  matrix_out.push('\n');
         }
+        /*
         write!(
             f,
             "s:{:?}, t:{:?}, Mtx({}x{}):{}",
             self.source, self.target, self.matrix.nof_rows, self.matrix.nof_cols, matrix_out
         )
+        */
+        write!(f, "{matrix_out}")
     }
 }
 impl<R: Ring + fmt::Display, I: Ideal<Parent = R> + Ord + fmt::Display> fmt::Display
@@ -211,6 +214,14 @@ impl<Period: Radix + IsGreater<U1>> EnumerableMorphism<CanonModule<C<Period>, CI
             .submodules_goursat()
             .into_iter()
             .map(move |submodule| Self::from((&direct, submodule)))
+    }
+}
+
+impl<R: Ring, I: Ideal<Parent = R> + Ord> ToMap<CanonModule<R, I>> for Relation<R, I> {
+    fn is_a_map(&self) -> bool {
+        self.matrix
+            .cols()
+            .all(|collumn| collumn.filter(|entry| **entry).count() == 1)
     }
 }
 
@@ -638,5 +649,26 @@ mod test {
         let mut hom_set_z2xz2_no_dupes = hom_set_z2xz2.clone();
         hom_set_z2xz2_no_dupes.dedup();
         assert_eq!(hom_set_z2xz2, hom_set_z2xz2_no_dupes);
+    }
+
+    #[test]
+    fn is_a_map() {
+        use typenum::{Unsigned, U2 as N};
+        type R = C<N>;
+        type I = CIdeal<N>;
+        let n = N::to_usize();
+
+        let category = Category::<CanonModule<R, I>, Relation<R, I>>::new(1);
+        let zn = CanonModule::<R, I>::from_iter([2]);
+
+        let hom_set_znxzn = category.hom_set(&zn, &zn);
+
+        assert_eq!(
+            n,
+            hom_set_znxzn
+                .iter()
+                .filter(|relation| relation.is_a_map())
+                .count()
+        );
     }
 }

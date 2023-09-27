@@ -1,5 +1,5 @@
 use crate::category::{
-    morphism::{Endo as EndoMorphism, Morphism},
+    morphism::{Endo as EndoMorphism, Morphism, ToMap},
     object::Object,
     Category, HomSet,
 };
@@ -229,16 +229,12 @@ impl<
         szymczak_class
     }
 
-    //the endomorphism is casted to M on purpouse, to make M::compose make sense
+    //the endomorphism is casted to M on purpose, to make M::compose make sense
     fn are_szymczak_isomorphic(
         left_endomorphism_with_cycle: (&M, &Vec<E>),
         right_endomorphism_with_cycle: (&M, &Vec<E>),
         hom_sets: &HomSet<O, M>,
     ) -> bool {
-        println!(
-            "left: {:?}\n right: {:?}---\n\n",
-            left_endomorphism_with_cycle, right_endomorphism_with_cycle
-        );
         let (l, l_cycle) = left_endomorphism_with_cycle;
         let (r, r_cycle) = right_endomorphism_with_cycle;
 
@@ -279,7 +275,6 @@ impl<
                 {
                     return true;
                 }
-                //  println!("###");
             }
         }
         false
@@ -288,7 +283,6 @@ impl<
     fn is_identity(morphism: &E, cycle: &Vec<E>) -> bool {
         for en in cycle {
             let en_morphism = morphism.compose(en);
-            //println!("\ten* morphism: {:?}", en_morphism);
 
             for em in cycle {
                 if en_morphism == *em {
@@ -306,25 +300,33 @@ pub const fn transform<L, R>(reference_to_tuple: &(L, R)) -> (&L, &R) {
     (&left, &right)
 }
 
-impl<O: Object + Display, M: Morphism<O>, E: EndoMorphism<O> + Display> Display
+impl<O: Object + Display + Debug, M: Morphism<O>, E: EndoMorphism<O> + Display + Debug> Display
     for SzymczakCategory<O, M, E>
 {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         let mut string = String::new();
 
         for szymczak_class in &self.szymczak_classes {
-            string.push_str("new szymczak class:\n");
+            string.push_str("---\n");
             for (object, endomorphisms) in szymczak_class {
-                string.push_str(&["object:", &object.to_string()].join(" "));
-                string.push('\n');
+                string.push_str(&format!("-\n{object:?}:\n"));
                 for endomorphism in endomorphisms {
-                    string.push_str(&endomorphism.to_string());
+                    string.push_str(&format!("{endomorphism:?}"));
                     string.push('\n');
                 }
-                string.push('\n');
             }
         }
-        write!(f, "{}", string)
+        write!(f, "{string}")
+    }
+}
+
+impl<O: Object, M: Morphism<O>, E: EndoMorphism<O> + ToMap<O>> SzymczakCategory<O, M, E> {
+    pub fn every_class_has_a_map(&self) -> bool {
+        self.szymczak_classes.iter().all(|szymczak_class| {
+            szymczak_class
+                .values()
+                .any(|endomorphisms| endomorphisms.iter().any(ToMap::<O>::is_a_map))
+        })
     }
 }
 
@@ -611,25 +613,6 @@ mod test {
     }
 
     #[test]
-    fn szymczak_classes_for_zp() {
-        use typenum::{Unsigned, U7 as P};
-        type R = C<P>;
-        type I = CIdeal<P>;
-        let p = P::to_usize();
-
-        let category = Category::<CanonModule<R, I>, Relation<R, I>>::new(1);
-        // println!("{}\n---", category);
-        let szymczak_category =
-            SzymczakCategory::<CanonModule<R, I>, Relation<R, I>, Relation<R, I>>::szymczak_functor::<
-                20,
-            >(&category);
-
-        //println!("{}", szymczak_category);
-
-        assert_eq!(szymczak_category.szymczak_classes.len(), p);
-    }
-
-    #[test]
     fn cycles_generation_for_zp() {
         use typenum::{Unsigned, U11 as P};
         type R = C<P>;
@@ -691,10 +674,11 @@ mod test {
                     })
             })
             .collect();
-
+        /*
         for endo in endomorphisms.iter() {
             println!("{:?}", endo);
         }
+        */
 
         let endomorphisms_with_cycles: EndoMorphismsWithCycles<Relation<R, I>, Relation<R, I>> =
             endomorphisms
@@ -705,7 +689,7 @@ mod test {
                 })
                 .collect();
 
-        let endomorphisms_with_cycles_len = endomorphisms_with_cycles.len();
+        //let endomorphisms_with_cycles_len = endomorphisms_with_cycles.len();
 
         let raw_szymczak_classes = RawSzymczakClasses::<Relation<R, I>, Relation<R, I>>::new();
 
@@ -740,6 +724,7 @@ mod test {
             },
         );
 
+        /*
         println!("\n\nAFTER GENERATION:");
         for raw_szymczak_class in raw_szymczak_classes.iter() {
             println!("new szymczak class:");
@@ -748,7 +733,7 @@ mod test {
                 println!("endo:{:?}", endo.0);
             }
         }
-
+        */
         assert_eq!(raw_szymczak_classes.len(), p);
     }
 
@@ -757,8 +742,8 @@ mod test {
         use typenum::{Unsigned, U5 as P};
         type R = C<P>;
         type I = CIdeal<P>;
-        let p = P::to_usize();
         const RECURSION_PARAMETER: usize = 2;
+        let p = P::to_usize();
 
         let category = Category::<CanonModule<R, I>, Relation<R, I>>::new(1);
 
@@ -768,4 +753,30 @@ mod test {
             >(&category);
         assert_eq!(szymczak_category.szymczak_classes.len(), p);
     }
+
+    macro_rules! generate_test_szymczak_functor_zp {
+        ($name:ident, $p:ident) => {
+            #[test]
+            fn $name() {
+                use typenum::{$p, Unsigned};
+                type R = C<$p>;
+                type I = CIdeal<$p>;
+                let p = $p::to_usize();
+
+                let category = Category::<CanonModule<R, I>, Relation<R, I>>::new(1);
+                let szymczak_category = SzymczakCategory::<
+                    CanonModule<R, I>,
+                    Relation<R, I>,
+                    Relation<R, I>,
+                >::szymczak_functor::<20>(&category);
+                assert_eq!(szymczak_category.szymczak_classes.len(), p);
+            }
+        };
+    }
+
+    generate_test_szymczak_functor_zp!(szymczak_functor_z2, U2);
+    generate_test_szymczak_functor_zp!(szymczak_functor_z3, U3);
+    generate_test_szymczak_functor_zp!(szymczak_functor_z5, U5);
+    generate_test_szymczak_functor_zp!(szymczak_functor_z7, U7);
+    generate_test_szymczak_functor_zp!(szymczak_functor_z11, U11);
 }

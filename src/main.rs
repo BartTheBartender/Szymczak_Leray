@@ -114,9 +114,9 @@ use crate::{
         module::canon::object::Object as Module,
     },
 };
-use std::time::{Duration, Instant};
+use std::time::Instant;
 // parameters for the code
-use typenum::U3 as N;
+use typenum::{Unsigned, U32 as N};
 type Int = u16;
 type R = C<N>;
 type I = CIdeal<N>;
@@ -124,16 +124,26 @@ type I = CIdeal<N>;
 fn main() {
     let category_time = Instant::now();
     let category = Category::<Module<R, I>, Relation<R, I>>::new(1);
-    println!("category generated after {:?}", category_time.elapsed());
+    //println!("Category generated after {:?}.", category_time.elapsed());
     let szymczak_classes_time = Instant::now();
     let szymczak_category =
-        SzymczakCategory::<Module<R, I>, Relation<R, I>, Relation<R, I>>::szymczak_functor::<20>(
+        SzymczakCategory::<Module<R, I>, Relation<R, I>, Relation<R, I>>::szymczak_functor::<5>(
             &category,
         );
-    println!("{}", category);
+
+    //println!("{}", szymczak_category);
+
+    /*
     println!(
-        "szymczak classes generated after {:?}",
-        szymczak_classes_time.elapsed()
+        "Szymczak classes generated after: {:?}.\nNumber of szymczak classes: {}",
+        szymczak_classes_time.elapsed(),
+        szymczak_category.szymczak_classes.len()
     );
-    println!("{}", szymczak_category);
+    */
+
+    println!(
+        "Module: Z/{}, every class has a map: {}",
+        N::to_usize(),
+        szymczak_category.every_class_has_a_map()
+    );
 }
