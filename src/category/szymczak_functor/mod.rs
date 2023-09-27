@@ -43,9 +43,10 @@ impl<
 {
     pub fn szymczak_functor<const RECURSION_PARAMETER: usize>(category: &Category<O, M>) -> Self {
         //step 0. If recursion parameter is less than 2, it will lead to the undefined behaviour
-        if RECURSION_PARAMETER < 2 {
-            panic!("RECURSION_PARAMETER cannot be smaller than 2");
-        }
+        assert!(
+            RECURSION_PARAMETER >= 2,
+            "parameter of recursion cannot be less that 2!"
+        );
         //step 1. Clone all the endomorphisms (we will need them to be owned)
 
         let endomorphisms: EndoMorphisms<E> = category
@@ -87,9 +88,6 @@ impl<
         if endomorphisms.len() > RECURSION_PARAMETER {
             let left_endomorphisms = endomorphisms.split_off(endomorphisms.len() / 2);
             let right_endomorphisms = endomorphisms;
-            //assert_ne!(left_endomorphisms.len(), 0);
-            //assert_ne!(right_endomorphisms.len(), 0);
-
             let (left_raw_szymczak_classes, right_raw_szymczak_classes) = rayon::join(
                 || {
                     Self::raw_szymczak_functor::<{ RECURSION_PARAMETER }>(
@@ -155,10 +153,6 @@ impl<
             },
         );
 
-        assert!(!raw_szymczak_classes
-            .iter()
-            .find(|raw_szymczak_class| raw_szymczak_class.len() == 0)
-            .is_some());
         raw_szymczak_classes
     }
 
@@ -345,7 +339,7 @@ mod test {
 
         //reflexive
         for index in 0..hom_set_zn_zn.len() {
-            let endo = &hom_set_zn_zn[index];
+            let endo = hom_set_zn_zn.get(index).unwrap();
 
             let endo_with_cycle = (endo, &endo.cycle());
 
@@ -358,11 +352,11 @@ mod test {
 
         //symmetric
         for index_0 in 0..hom_set_zn_zn.len() {
-            let endo_0 = &hom_set_zn_zn[index_0];
+            let endo_0 = hom_set_zn_zn.get(index_0).unwrap();
             let endo_with_cycle_0 = (endo_0, &endo_0.cycle());
 
             for index_1 in 0..hom_set_zn_zn.len() {
-                let endo_1 = &hom_set_zn_zn[index_1];
+                let endo_1 = hom_set_zn_zn.get(index_1).unwrap();
                 let endo_with_cycle_1 = (endo_1, &endo_1.cycle());
 
                 if SzymczakCategory::are_szymczak_isomorphic(
@@ -381,14 +375,14 @@ mod test {
 
         //transitive
         for index_0 in 0..hom_set_zn_zn.len() {
-            let endo_0 = &hom_set_zn_zn[index_0];
+            let endo_0 = hom_set_zn_zn.get(index_0).unwrap();
             let endo_with_cycle_0 = (endo_0, &endo_0.cycle());
 
             for index_1 in 0..hom_set_zn_zn.len() {
-                let endo_1 = &hom_set_zn_zn[index_1];
+                let endo_1 = hom_set_zn_zn.get(index_1).unwrap();
                 let endo_with_cycle_1 = (endo_1, &endo_1.cycle());
                 for index_2 in 0..hom_set_zn_zn.len() {
-                    let endo_2 = &hom_set_zn_zn[index_2];
+                    let endo_2 = hom_set_zn_zn.get(index_2).unwrap();
                     let endo_with_cycle_2 = (endo_2, &endo_2.cycle());
 
                     if SzymczakCategory::are_szymczak_isomorphic(
@@ -462,7 +456,6 @@ mod test {
     }
 
     #[test]
-    #[ignore]
     fn szymczak_isomorphism_different_base_objects() {
         use typenum::{Unsigned, U2 as P};
         type R = C<P>;
@@ -496,8 +489,6 @@ mod test {
 
         assert_eq!(top_z1.matrix.buffer(), vec![true]);
         assert_eq!(top_z2.matrix.buffer(), vec![true, true, true, true]);
-
-        println!("top z1:\n{:?},\ntop z2:\n{:?}", top_z1, top_z2);
 
         let top_z1_with_cycle = (&top_z1, &top_z1.cycle());
         let top_z2_with_cycle = (top_z2, &top_z2.cycle());
@@ -563,20 +554,8 @@ mod test {
 
         for top_z1_to_top_z2 in &morphisms_top_z1_to_top_z2 {
             for top_z2_to_top_z1 in &morphisms_top_z2_to_top_z1 {
-                println!("{:?}\n{:?}", top_z1_to_top_z2, top_z2_to_top_z1);
-                println!(
-                    "z1 -> z2 {:?} == {:?}",
-                    top_z1.compose(top_z1_to_top_z2),
-                    top_z1_to_top_z2.compose(&top_z2)
-                );
-                println!(
-                    "z2 -> z1 {:?} == {:?}\n--",
-                    top_z2.compose(top_z2_to_top_z1),
-                    top_z2_to_top_z1.compose(&top_z1)
-                );
-
-                if top_z1.try_compose(top_z1_to_top_z2) == top_z1_to_top_z2.try_compose(&top_z2)
-                    && top_z2.try_compose(top_z2_to_top_z1) == top_z2_to_top_z1.try_compose(&top_z1)
+                if top_z1.compose(top_z1_to_top_z2) == top_z1_to_top_z2.compose(&top_z2)
+                    && top_z2.compose(top_z2_to_top_z1) == top_z2_to_top_z1.compose(&top_z1)
                 {
                     are_there_morphisms = true;
 
