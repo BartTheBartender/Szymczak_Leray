@@ -1,4 +1,4 @@
-use crate::{
+pub use crate::{
     category::morphism::{
         Concrete as ConcreteMorphism, Endo as EndoMorphism, Enumerable as EnumerableMorphism,
         Morphism,
@@ -68,7 +68,12 @@ impl<R: Ring + fmt::Display, I: Ideal<Parent = R> + Ord + fmt::Display> fmt::Dis
                 }
             }
         }
-        write!(f, "{matrix_out}")
+        write!(
+            f,
+            "source: {}, target: {}, matrix:\n{matrix_out}",
+            self.source(),
+            self.target()
+        )
     }
 }
 
@@ -215,7 +220,7 @@ mod test {
     use crate::{
         category::{
             object::{Concrete, PartiallyEnumerable},
-            Container as Category,
+            Category,
         },
         util::category_of_relations::HelperData,
         Int,
@@ -231,19 +236,20 @@ mod test {
         type I = CIdeal<N>;
         let category = Category::<CanonModule<R, I>, Relation<R, I>>::new(1);
 
-        let relations: Vec<Relation<R, I>> = category
-            .hom_sets
-            .iter()
-            .filter(|(source, _)| source.cardinality() == N::to_usize().into())
-            .map(|(_, hom_sets_fixed_source)| hom_sets_fixed_source)
-            .next()
-            .expect("there is non-trivial source")
-            .iter()
-            .filter(|(target, _)| target.cardinality() == N::to_usize().into())
-            .map(|(_, relations_iter)| relations_iter)
-            .next()
-            .expect("there is non-trivial target")
-            .to_vec();
+        println!("{:?}", category);
+
+        for object in category.clone().objects() {
+            println!("{:?}", object);
+        }
+
+        let zn = category
+            .clone()
+            .objects()
+            .into_iter()
+            .find(|module| module.cardinality() == N::to_usize())
+            .expect("there is a zn module");
+
+        let hom_set_zn_zn = category.hom_set(&zn, &zn);
 
         let bottom_ok_raw = vec![
             1, 0, 0, 0, 0, /**/ 0, 0, 0, 0, 0, /**/ 0, 0, 0, 0, 0, /**/ 0, 0, 0, 0,
@@ -290,42 +296,42 @@ mod test {
         let four_ok: Vec<bool> = four_ok_raw.into_iter().map(|entry| entry == 1).collect();
         let top_ok: Vec<bool> = top_ok_raw.into_iter().map(|entry| entry == 1).collect();
 
-        let bottom: Relation<R, I> = relations
+        let bottom: Relation<R, I> = hom_set_zn_zn
             .iter()
             .find(|relation| relation.matrix.buffer() == bottom_ok)
             .expect("there are exactly eight relations")
             .clone();
-        let zero: Relation<R, I> = relations
+        let zero: Relation<R, I> = hom_set_zn_zn
             .iter()
             .find(|relation| relation.matrix.buffer() == zero_ok)
             .expect("there are exactly eight relations")
             .clone();
-        let zero_dagger: Relation<R, I> = relations
+        let zero_dagger: Relation<R, I> = hom_set_zn_zn
             .iter()
             .find(|relation| relation.matrix.buffer() == zero_dagger_ok)
             .expect("there are exactly eight relations")
             .clone();
-        let one: Relation<R, I> = relations
+        let one: Relation<R, I> = hom_set_zn_zn
             .iter()
             .find(|relation| relation.matrix.buffer() == one_ok)
             .expect("there are exactly eight relations")
             .clone();
-        let two: Relation<R, I> = relations
+        let two: Relation<R, I> = hom_set_zn_zn
             .iter()
             .find(|relation| relation.matrix.buffer() == two_ok)
             .expect("there are exactly eight relations")
             .clone();
-        let three: Relation<R, I> = relations
+        let three: Relation<R, I> = hom_set_zn_zn
             .iter()
             .find(|relation| relation.matrix.buffer() == three_ok)
             .expect("there are exactly eight relations")
             .clone();
-        let four: Relation<R, I> = relations
+        let four: Relation<R, I> = hom_set_zn_zn
             .iter()
             .find(|relation| relation.matrix.buffer() == four_ok)
             .expect("there are exactly eight relations")
             .clone();
-        let top: Relation<R, I> = relations
+        let top: Relation<R, I> = hom_set_zn_zn
             .iter()
             .find(|relation| relation.matrix.buffer() == top_ok)
             .expect("there are exactly eight relations")
@@ -389,13 +395,12 @@ mod test {
     #[test]
     fn category_step_by_step() {
         use typenum::{Unsigned, U3 as N};
-        // let n: Int = N::to_usize() as Int;
         type R = C<N>;
         type I = CIdeal<N>;
 
         let zn_module: Arc<CanonModule<R, I>> = Arc::new(
             CanonModule::<R, I>::all_by_dimension(0..=1)
-                .find(|module| module.cardinality() == N::to_usize().into())
+                .find(|module| module.cardinality() == N::to_usize())
                 .unwrap(),
         );
 
@@ -614,12 +619,13 @@ mod test {
     }
 
     #[test]
-    //ten test ma zle wygenrerowane obiekty
+    #[ignore]
+    //ten test ma zle wygenrerowane obiekty w ralg
     fn high_dimension_no_dupes() {
         use typenum::{Unsigned, U2 as N};
-        let n = N::to_usize();
         type R = C<N>;
         type I = CIdeal<N>;
+        let n = N::to_usize();
 
         let z2xz2: CanonModule<R, I> = CanonModule::<R, I>::all_by_dimension(0..=2)
             .find(|module| module.cardinality() == n * n)

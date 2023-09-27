@@ -108,7 +108,7 @@ mod util;
 // - - -
 
 use crate::{
-    category::{relation::Relation, szymczak_functor::SzymczakCategory, Container as Category},
+    category::{relation::Relation, szymczak_functor::SzymczakCategory, Category},
     ralg::{
         cgroup::{ideal::CIdeal, C},
         module::canon::object::Object as Module,

@@ -465,7 +465,7 @@ mod test {
         let z42_canon = Arc::new(CanonModule::<R, I>::from_iter([4, 2]));
         let z42_direct = Object::sumproduct(&z2, &z4);
 
-        assert!(z42_canon.is_equivalent(&z42_direct.module()));
+        assert_eq!(z42_canon, z42_direct.module());
         assert_eq!(
             z42_direct.left_inclusion,
             CanonToCanon::new(
@@ -509,6 +509,6 @@ mod test {
         let z33_canon = Arc::new(CanonModule::<R, I>::from_iter([3, 3]));
         let z33_direct = Object::sumproduct(&z3, &Arc::new(z3.duplicate()));
 
-        assert!(z33_canon.is_equivalent(&z33_direct.module()));
+        assert_eq!(z33_canon, z33_direct.module());
     }
 }

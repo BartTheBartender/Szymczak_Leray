@@ -1,7 +1,7 @@
 use crate::category::{
     morphism::{Endo as EndoMorphism, Morphism},
     object::Object,
-    Container as Category, HomSet,
+    Category, HomSet,
 };
 // use rayon;
 use std::{
@@ -316,7 +316,7 @@ impl<O: Object + Display, M: Morphism<O>, E: EndoMorphism<O> + Display> Display
 mod test {
     use super::*;
     use crate::{
-        category::{object::Concrete, relation::Relation, Container as Category},
+        category::{object::Concrete, relation::Relation, Category},
         ralg::{
             cgroup::{ideal::CIdeal, C},
             module::canon::object::Object as CanonModule,

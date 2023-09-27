@@ -18,17 +18,21 @@ pub mod szymczak_functor;
 pub type HomSet<Object, M> = HashMap<Object, HashMap<Object, Vec<M>>>;
 
 #[derive(Clone)]
-pub struct Container<O: Object, M: Morphism<O>> {
+pub struct Category<O: Object, M: Morphism<O>> {
     pub hom_sets: HomSet<O, M>,
 }
 
 impl<
-        O: Object + Hash + Clone + PartiallyEnumerableObject + DuplicableObject,
-        M: Morphism<O, B = Arc<O>> + EnumerableMorphism<O> + Clone,
-    > Container<O, M>
+        O: Object + Hash + Clone + PartiallyEnumerableObject + DuplicableObject + fmt::Debug,
+        M: Morphism<O, B = Arc<O>> + EnumerableMorphism<O> + Clone + fmt::Debug,
+    > Category<O, M>
 {
     pub fn new(maximal_dimension: Int) -> Self {
         let all_objects: Vec<O> = O::all_by_dimension(0..=maximal_dimension.into()).collect();
+        for obj in &all_objects {
+            println!("{:?}", obj);
+        }
+        assert_ne!(all_objects[0], all_objects[1]);
 
         let all_sources: Vec<Arc<O>> = all_objects
             .iter()
@@ -37,8 +41,7 @@ impl<
 
         let all_targets: Vec<Arc<O>> = all_objects
             .into_iter()
-            .map(|object| Arc::new(object)) // na chuj tutaj duplikować? -- bo w przeciwnym razie sumprduct nie działa
-            //.map(|object| Arc::new(object.clone()))
+            .map(|object| Arc::new(object))
             .collect();
 
         let hom_sets = all_sources
@@ -47,8 +50,12 @@ impl<
                 let hom_sets_fixed_source: HashMap<O, Vec<M>> = all_targets
                     .iter()
                     .map(|target: &Arc<O>| {
-                        let hom_set = M::hom(Arc::clone(source), Arc::clone(target));
-                        (target.as_ref().clone(), hom_set.collect())
+                        let hom_set_fixed_source_and_target =
+                            M::hom(Arc::clone(source), Arc::clone(target));
+                        (
+                            target.as_ref().clone(),
+                            hom_set_fixed_source_and_target.collect(),
+                        )
                     })
                     .collect::<HashMap<O, Vec<M>>>();
                 (source.as_ref().clone(), hom_sets_fixed_source)
@@ -63,9 +70,21 @@ impl<
         self.hom_sets.into_keys().collect::<Vec<O>>()
     }
 
-    //why cant i use iterators?
+    //why cant i use iterators? how to enforce the functions to take ownership?
     pub fn morphisms(self) -> Vec<M> {
-        todo!()
+        self.hom_sets
+            .into_values()
+            .fold(Vec::<M>::new(), |mut morphisms, hom_sets_fixed_source| {
+                let mut morphisms_fixed_source = hom_sets_fixed_source.into_values().fold(
+                    Vec::<M>::new(),
+                    |mut morphisms_fixed_source, mut morphisms_fixed_source_and_target| {
+                        morphisms_fixed_source.append(&mut morphisms_fixed_source_and_target);
+                        morphisms_fixed_source
+                    },
+                );
+                morphisms.append(&mut morphisms_fixed_source);
+                morphisms
+            })
     }
 
     pub fn hom_set(&self, source: &O, target: &O) -> Vec<M> {
@@ -78,7 +97,7 @@ impl<
     }
 }
 
-impl<O: Object + fmt::Display, M: Morphism<O> + fmt::Display> fmt::Display for Container<O, M> {
+impl<O: Object + fmt::Display, M: Morphism<O> + fmt::Display> fmt::Display for Category<O, M> {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         let mut string = String::new();
 
@@ -101,5 +120,49 @@ impl<O: Object + fmt::Display, M: Morphism<O> + fmt::Display> fmt::Display for C
         }
 
         write!(f, "{string}")
+    }
+}
+impl<O: Object + fmt::Debug, M: Morphism<O> + fmt::Debug> fmt::Debug for Category<O, M> {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        let mut string = String::new();
+
+        for (source, hom_sets_fixed_object) in &self.hom_sets {
+            for (target, morphisms) in hom_sets_fixed_object {
+                string.push_str(
+                    &[
+                        "s:",
+                        &format!("{source:?}"),
+                        "t:",
+                        &format!("{target:?}"),
+                        "\n",
+                    ]
+                    .join(" "),
+                );
+                for morphism in morphisms {
+                    string.push_str(&[&format!("{morphism:?}",), "\n"].join(""));
+                }
+            }
+        }
+
+        write!(f, "{string}")
+    }
+}
+
+#[cfg(test)]
+mod test {
+    use super::*;
+    use crate::{
+        category::relation::{CanonModule, Relation},
+        ralg::cgroup::{ideal::CIdeal, C},
+    };
+
+    #[test]
+    fn objects() {
+        use typenum::U5 as N;
+        type R = C<N>;
+        type I = CIdeal<N>;
+        let category = Category::<CanonModule<R, I>, Relation<R, I>>::new(1);
+
+        assert_eq!(category.objects().len(), 2);
     }
 }

@@ -1,5 +1,8 @@
 use crate::ralg::module::canon::mark::Mark;
-use std::collections::BTreeSet;
+use std::{
+    collections::BTreeSet,
+    hash::{Hash, Hasher},
+};
 
 pub mod element;
 mod mark;
@@ -7,7 +10,7 @@ pub mod object;
 
 /* # coefficient tree */
 
-#[derive(Clone, PartialEq, Eq, Hash)]
+#[derive(Clone)]
 pub struct MarkTree<T: Ord> {
     buffer: BTreeSet<Mark<T>>,
 }
@@ -20,6 +23,28 @@ impl<T: Ord> Default for MarkTree<T> {
         Self {
             buffer: BTreeSet::new(),
         }
+    }
+}
+
+/* ## Basic traits are implemented by hand intentionally, in order to deal with uuids in marks */
+impl<T: Ord + PartialEq> PartialEq for MarkTree<T> {
+    /**
+    checks whether the things in marks are the same
+    disregarding the uuids
+    */
+    fn eq(&self, other: &Self) -> bool {
+        (self.buffer.len() == other.buffer.len())
+            && self
+                .buffer
+                .iter()
+                .zip(other.buffer.iter())
+                .all(|(self_mark, other_mark)| self_mark.thing == other_mark.thing)
+    }
+}
+impl<T: Ord + Eq> Eq for MarkTree<T> {}
+impl<T: Ord + Hash> Hash for MarkTree<T> {
+    fn hash<H: Hasher>(&self, state: &mut H) {
+        let _ = self.buffer.iter().map(|mark| mark.thing.hash(state));
     }
 }
 
@@ -40,17 +65,6 @@ impl<T: Ord> MarkTree<T> {
 
     pub fn remove(&mut self, mark: &Mark<T>) -> bool {
         self.buffer.remove(mark)
-    }
-
-    /**
-    checks whether the things in marks are the same
-    disregarding the uuids
-    */
-    pub fn is_equivalent(&self, other: &Self) -> bool {
-        self.buffer
-            .iter()
-            .zip(other.buffer.iter())
-            .all(|(self_mark, other_mark)| self_mark.thing == other_mark.thing)
     }
 
     /* # iterators */
