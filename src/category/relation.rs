@@ -45,7 +45,7 @@ impl<R: Ring + fmt::Debug, I: Ideal<Parent = R> + Ord + fmt::Debug> fmt::Debug f
         }
         write!(
             f,
-            "s:{:?}, t:{:?}, Mtx({}x{}):\n{}",
+            "s:{:?}, t:{:?}, Mtx({}x{}):{}",
             self.source, self.target, self.matrix.nof_rows, self.matrix.nof_cols, matrix_out
         )
     }
@@ -89,11 +89,11 @@ impl<R: Ring, I: Ideal<Parent = R> + Ord> Morphism<CanonModule<R, I>> for Relati
         Arc::clone(&self.target)
     }
 
-    // other . self
+    // other * self
     fn compose(&self, other: &Self) -> Self {
         Self {
-            source: Arc::clone(&other.source),
-            target: Arc::clone(&self.target),
+            source: Arc::clone(&self.source),
+            target: Arc::clone(&other.target),
             matrix: self.matrix.compose_unchecked_bool(&other.matrix),
         }
     }

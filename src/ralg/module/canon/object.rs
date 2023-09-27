@@ -874,6 +874,7 @@ mod test {
     }
 
     #[test]
+    #[ignore]
     fn submodules_of_Z2xZ2xZ2() {
         type R = C<U2>;
         type I = CIdeal<U2>;

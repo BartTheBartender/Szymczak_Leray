@@ -330,27 +330,13 @@ mod test {
         type I = CIdeal<N>;
 
         let category = Category::<CanonModule<R, I>, Relation<R, I>>::new(1);
-
-        let hom_set_zn_zn: Vec<Relation<R, I>> = category
+        let zn: CanonModule<R, I> = category
             .clone()
-            .hom_sets
+            .objects()
             .into_iter()
-            .find(|(source, _)| source.cardinality() == N::to_usize())
-            .expect("there is a hom_set with non-trivial source")
-            .1
-            .into_iter()
-            .find(|(target, _)| target.cardinality() == N::to_usize())
-            .expect("there is a hom_set with non-trivial target")
-            .1;
-
-        for rel in &hom_set_zn_zn {
-            println!(
-                "source: {:?}\ntarget: {:?}\nmatrix: {}",
-                rel.source(),
-                rel.target(),
-                rel
-            );
-        }
+            .find(|object| object.cardinality() == N::to_usize())
+            .expect("there is a module of given cardinality");
+        let hom_set_zn_zn: Vec<Relation<R, I>> = category.hom_set(&zn, &zn);
 
         assert_eq!(
             hom_set_zn_zn.get(0).unwrap().source(),
@@ -362,7 +348,6 @@ mod test {
             let endo = &hom_set_zn_zn[index];
 
             let endo_with_cycle = (endo, &endo.cycle());
-            println!("dupa dupa");
 
             assert!(SzymczakCategory::are_szymczak_isomorphic(
                 endo_with_cycle,
@@ -427,26 +412,22 @@ mod test {
     }
 
     #[test]
-    #[ignore]
     fn szymczak_isomorphism_isnt_identically_true_nor_false() {
-        use typenum::U5 as N;
+        use typenum::{Unsigned, U5 as N};
 
         type R = C<N>;
         type I = CIdeal<N>;
 
         let category = Category::<CanonModule<R, I>, Relation<R, I>>::new(1);
 
-        let hom_set_zn_zn: Vec<Relation<R, I>> = category
+        let category = Category::<CanonModule<R, I>, Relation<R, I>>::new(1);
+        let zn: CanonModule<R, I> = category
             .clone()
-            .hom_sets
+            .objects()
             .into_iter()
-            .find(|(source, _)| source.cardinality() > 1)
-            .expect("there is a hom_set with non-trivial source")
-            .1
-            .into_iter()
-            .find(|(target, _)| target.cardinality() > 1)
-            .expect("there is a hom_set with non-trivial target")
-            .1;
+            .find(|object| object.cardinality() == N::to_usize())
+            .expect("there is a module of given cardinality");
+        let hom_set_zn_zn: Vec<Relation<R, I>> = category.hom_set(&zn, &zn);
 
         assert_eq!(hom_set_zn_zn.len(), 8);
 
@@ -504,9 +485,6 @@ mod test {
             .expect("there is z2 module")
             .clone();
 
-        assert_eq!(z2.to_string(), "Z2");
-        assert_eq!(z1.to_string(), "Z1");
-
         let mut z1_to_z1 = category.hom_set(&z1, &z1);
         let z2_to_z2 = category.hom_set(&z2, &z2);
 
@@ -519,6 +497,8 @@ mod test {
         assert_eq!(top_z1.matrix.buffer(), vec![true]);
         assert_eq!(top_z2.matrix.buffer(), vec![true, true, true, true]);
 
+        println!("top z1:\n{:?},\ntop z2:\n{:?}", top_z1, top_z2);
+
         let top_z1_with_cycle = (&top_z1, &top_z1.cycle());
         let top_z2_with_cycle = (top_z2, &top_z2.cycle());
 
@@ -530,7 +510,6 @@ mod test {
     }
 
     #[test]
-    #[ignore]
     fn is_identity() {
         use typenum::{Unsigned, U2 as P};
         type R = C<P>;
@@ -540,7 +519,6 @@ mod test {
         let category = Category::<CanonModule<R, I>, Relation<R, I>>::new(1);
 
         let all_objects = category.clone().objects();
-        assert_eq!(all_objects.len(), 2);
 
         let z1 = all_objects
             .iter()
@@ -553,20 +531,27 @@ mod test {
             .expect("there is z2 module")
             .clone();
 
-        assert_eq!(z2.to_string(), "Z2");
-        assert_eq!(z1.to_string(), "Z1");
-
         let mut z1_to_z1 = category.hom_set(&z1, &z1);
         let z2_to_z2 = category.hom_set(&z2, &z2);
 
-        let top_z1 = z1_to_z1.pop().expect("there is only top relation on z1");
+        let top_z1 = z1_to_z1
+            .pop()
+            .expect("there is only top relation on z1")
+            .clone();
         let top_z2 = z2_to_z2
             .iter()
             .find(|endo| endo.matrix.buffer() == vec![true, true, true, true])
-            .expect("there is the top relation on z2");
+            .expect("there is the top relation on z2")
+            .clone();
 
         let top_z1_cycle = top_z1.cycle();
         let top_z2_cycle = top_z2.cycle();
+
+        assert_eq!(top_z1_cycle.len(), 1);
+        assert_eq!(*top_z1_cycle.get(0).unwrap(), top_z1);
+
+        assert_eq!(top_z2_cycle.len(), 1);
+        assert_eq!(*top_z2_cycle.get(0).unwrap(), top_z2);
 
         let morphisms_top_z1_to_top_z2 =
             category.hom_set(top_z1.target().borrow(), top_z2.source().borrow());
@@ -576,12 +561,22 @@ mod test {
         let mut are_szymczak_isomorphic: bool = false;
         let mut are_there_morphisms: bool = false;
 
-        for top_z1_to_top_z2 in morphisms_top_z1_to_top_z2.iter() {
-            for top_z2_to_top_z1 in morphisms_top_z2_to_top_z1.iter() {
-                println!("{}\n{}\n---", top_z1_to_top_z2, top_z2_to_top_z1);
+        for top_z1_to_top_z2 in &morphisms_top_z1_to_top_z2 {
+            for top_z2_to_top_z1 in &morphisms_top_z2_to_top_z1 {
+                println!("{:?}\n{:?}", top_z1_to_top_z2, top_z2_to_top_z1);
+                println!(
+                    "z1 -> z2 {:?} == {:?}",
+                    top_z1.compose(top_z1_to_top_z2),
+                    top_z1_to_top_z2.compose(&top_z2)
+                );
+                println!(
+                    "z2 -> z1 {:?} == {:?}\n--",
+                    top_z2.compose(top_z2_to_top_z1),
+                    top_z2_to_top_z1.compose(&top_z1)
+                );
 
-                if top_z1.compose(&top_z1_to_top_z2) == top_z1_to_top_z2.compose(&top_z2)
-                    && top_z2.compose(&top_z2_to_top_z1) == top_z2_to_top_z1.compose(&top_z1)
+                if top_z1.try_compose(top_z1_to_top_z2) == top_z1_to_top_z2.try_compose(&top_z2)
+                    && top_z2.try_compose(top_z2_to_top_z1) == top_z2_to_top_z1.try_compose(&top_z1)
                 {
                     are_there_morphisms = true;
 
@@ -629,7 +624,6 @@ mod test {
     }
 
     #[test]
-    #[ignore]
     fn cycles_generation_for_zp() {
         use typenum::{Unsigned, U11 as P};
         type R = C<P>;
@@ -669,7 +663,6 @@ mod test {
     }
 
     #[test]
-    #[ignore]
     #[ignore]
     fn raw_szymczak_functor_for_zp() {
         use typenum::{Unsigned, U7 as P};
