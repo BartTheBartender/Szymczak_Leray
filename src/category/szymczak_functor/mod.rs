@@ -30,7 +30,7 @@ pub struct SzymczakCategory<O: Object, M: Morphism<O>, E: EndoMorphism<O>> {
 
 impl<
         O: Object + Hash + Clone + Sync + Send,
-        M: Morphism<O> + Eq + Send + Sync + Clone,
+        M: Morphism<O> + Eq + Send + Sync + Clone + Debug, //to be removed in the future
         E: EndoMorphism<O>
             + Debug //to be removed in the future
             + Clone
@@ -235,6 +235,10 @@ impl<
         right_endomorphism_with_cycle: (&M, &Vec<E>),
         hom_sets: &HomSet<O, M>,
     ) -> bool {
+        println!(
+            "left: {:?}\n right: {:?}---\n\n",
+            left_endomorphism_with_cycle, right_endomorphism_with_cycle
+        );
         let (l, l_cycle) = left_endomorphism_with_cycle;
         let (r, r_cycle) = right_endomorphism_with_cycle;
 
@@ -252,13 +256,30 @@ impl<
 
         for l_to_r in morphisms_l_to_r {
             for r_to_l in morphisms_r_to_l {
-                if l_to_r.compose(l) == r.compose(r_to_l)
-                    && r_to_l.compose(l) == r.compose(r_to_l)
-                    && Self::is_identity(&E::from(l_to_r.compose(r_to_l)), l_cycle)
-                    && Self::is_identity(&E::from(r_to_l.compose(l_to_r)), r_cycle)
+                /*
+                println!(
+                    "l_to_r: {:?}\nr_to_l: {:?}\n{:?} == {:?}\n{:?} == {:?}\nl_cycle: {:?}\nr_cycle: {:?}\n",
+                    l_to_r,
+                    r_to_l,
+                    l_to_r.compose(r),
+                    l.compose(l_to_r),
+                    r_to_l.compose(l),
+                    r.compose(r_to_l), l_cycle, r_cycle
+                );
+                */
+                if
+                //l -> r
+                l_to_r.compose(r) == l.compose(l_to_r)
+                //r -> l
+                && r_to_l.compose(l) == r.compose(r_to_l)
+                //identity on l
+                && Self::is_identity(&E::from(l_to_r.compose(r_to_l)), l_cycle)
+                //identity on r
+                && Self::is_identity(&E::from(r_to_l.compose(l_to_r)), r_cycle)
                 {
                     return true;
                 }
+                //  println!("###");
             }
         }
         false
@@ -267,6 +288,7 @@ impl<
     fn is_identity(morphism: &E, cycle: &Vec<E>) -> bool {
         for en in cycle {
             let en_morphism = morphism.compose(en);
+            //println!("\ten* morphism: {:?}", en_morphism);
 
             for em in cycle {
                 if en_morphism == *em {
@@ -456,51 +478,6 @@ mod test {
     }
 
     #[test]
-    fn szymczak_isomorphism_different_base_objects() {
-        use typenum::{Unsigned, U2 as P};
-        type R = C<P>;
-        type I = CIdeal<P>;
-        let p = P::to_usize();
-
-        let category = Category::<CanonModule<R, I>, Relation<R, I>>::new(1);
-
-        let all_objects = category.clone().objects();
-        assert_eq!(all_objects.len(), 2);
-
-        let z1 = all_objects
-            .iter()
-            .find(|object| object.cardinality() == 1)
-            .expect("there is z1 module")
-            .clone();
-        let z2 = all_objects
-            .iter()
-            .find(|object| object.cardinality() == p)
-            .expect("there is z2 module")
-            .clone();
-
-        let mut z1_to_z1 = category.hom_set(&z1, &z1);
-        let z2_to_z2 = category.hom_set(&z2, &z2);
-
-        let top_z1 = z1_to_z1.pop().expect("there is only top relation on z1");
-        let top_z2 = z2_to_z2
-            .iter()
-            .find(|endo| endo.matrix.buffer() == vec![true, true, true, true])
-            .expect("there is the top relation on z2");
-
-        assert_eq!(top_z1.matrix.buffer(), vec![true]);
-        assert_eq!(top_z2.matrix.buffer(), vec![true, true, true, true]);
-
-        let top_z1_with_cycle = (&top_z1, &top_z1.cycle());
-        let top_z2_with_cycle = (top_z2, &top_z2.cycle());
-
-        assert!(SzymczakCategory::are_szymczak_isomorphic(
-            top_z1_with_cycle,
-            top_z2_with_cycle,
-            &category.hom_sets
-        ));
-    }
-
-    #[test]
     fn is_identity() {
         use typenum::{Unsigned, U2 as P};
         type R = C<P>;
@@ -583,7 +560,57 @@ mod test {
     }
 
     #[test]
-    #[ignore]
+    fn szymczak_isomorphism_different_base_objects() {
+        use typenum::{Unsigned, U2 as P};
+        type R = C<P>;
+        type I = CIdeal<P>;
+        let p = P::to_usize();
+
+        let category = Category::<CanonModule<R, I>, Relation<R, I>>::new(1);
+
+        let all_objects = category.clone().objects();
+        assert_eq!(all_objects.len(), 2);
+
+        let z1 = all_objects
+            .iter()
+            .find(|object| object.cardinality() == 1)
+            .expect("there is z1 module")
+            .clone();
+        let z2 = all_objects
+            .iter()
+            .find(|object| object.cardinality() == p)
+            .expect("there is z2 module")
+            .clone();
+
+        let mut z1_to_z1 = category.hom_set(&z1, &z1);
+        let z2_to_z2 = category.hom_set(&z2, &z2);
+
+        let top_z1 = z1_to_z1.pop().expect("there is only top relation on z1");
+        let top_z2 = z2_to_z2
+            .iter()
+            .find(|endo| endo.matrix.buffer() == vec![true, true, true, true])
+            .expect("there is the top relation on z2")
+            .clone();
+
+        assert_eq!(top_z1.matrix.buffer(), vec![true]);
+        assert_eq!(top_z2.matrix.buffer(), vec![true, true, true, true]);
+
+        let top_z1_with_cycle = (&top_z1, &top_z1.cycle());
+        let top_z2_with_cycle = (&top_z2, &top_z2.cycle());
+
+        assert_eq!(top_z1_with_cycle.1.len(), 1);
+        assert_eq!(top_z1_with_cycle.0, top_z1_with_cycle.1.get(0).unwrap());
+        assert_eq!(top_z2_with_cycle.1.len(), 1);
+        assert_eq!(top_z2_with_cycle.0, top_z2_with_cycle.1.get(0).unwrap());
+
+        assert!(SzymczakCategory::are_szymczak_isomorphic(
+            top_z1_with_cycle,
+            top_z2_with_cycle,
+            &category.hom_sets
+        ));
+    }
+
+    #[test]
     fn szymczak_classes_for_zp() {
         use typenum::{Unsigned, U7 as P};
         type R = C<P>;
@@ -642,7 +669,6 @@ mod test {
     }
 
     #[test]
-    #[ignore]
     fn raw_szymczak_functor_for_zp() {
         use typenum::{Unsigned, U7 as P};
         type R = C<P>;
@@ -727,7 +753,6 @@ mod test {
     }
 
     #[test]
-    #[ignore]
     fn merge_raw_szymczak_classes() {
         use typenum::{Unsigned, U5 as P};
         type R = C<P>;
