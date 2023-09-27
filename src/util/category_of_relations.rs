@@ -1,11 +1,14 @@
 use crate::{
-    rmodule::{canon::CanonModule, direct::DirectModule, ring::SuperRing},
+    ralg::{
+        module::{canon::object::Object as CanonModule, direct::Object as DirectModule},
+        ring::{ideal::Principal as PrincipalIdeal, Ring},
+    },
     Int,
 };
 use std::{iter, marker::PhantomData};
 
 #[derive(Debug)]
-pub struct HelperData<R: SuperRing> {
+pub struct HelperData<R: Ring> {
     pub indices: Vec<Int>,
     pub torsion_coeffs_vec: Vec<Int>,
     pub rows: Int,
@@ -15,15 +18,15 @@ pub struct HelperData<R: SuperRing> {
     super_ring: PhantomData<R>,
 }
 
-impl<R: SuperRing> HelperData<R> {
-    pub fn new(direct: &DirectModule<R>) -> Self {
+impl<R: Ring + Copy + Into<u16>> HelperData<R> {
+    pub fn new<I: PrincipalIdeal<Parent = R> + Ord>(direct: &DirectModule<R, I>) -> Self {
         let source = direct.left();
         let target = direct.right();
 
         let rows = Self::edge_len(&target);
         let cols = Self::edge_len(&source);
 
-        HelperData {
+        Self {
             indices: Self::indices(&source, &target),
             torsion_coeffs_vec: Self::torsion_coeffs_vec(&source, &target),
             rows,
@@ -33,17 +36,19 @@ impl<R: SuperRing> HelperData<R> {
         }
     }
 
-    fn edge_len(object: &CanonModule<R>) -> Int {
-        object.torsion_coeffs().map(|x| x.get()).product()
+    fn edge_len<I: PrincipalIdeal<Parent = R> + Ord>(object: &CanonModule<R, I>) -> Int {
+        object.torsion_coeffs_as_u16().product()
     }
 
-    fn indices(source: &CanonModule<R>, target: &CanonModule<R>) -> Vec<Int> {
+    fn indices<I: PrincipalIdeal<Parent = R> + Ord>(
+        source: &CanonModule<R, I>,
+        target: &CanonModule<R, I>,
+    ) -> Vec<Int> {
         let mut one_source_target: Vec<Int> = iter::once(1)
             .chain(
                 source
-                    .torsion_coeffs()
-                    .map(|x| x.get())
-                    .chain(target.torsion_coeffs().map(|x| x.get())),
+                    .torsion_coeffs_as_u16()
+                    .chain(target.torsion_coeffs_as_u16()),
             )
             .collect();
         one_source_target.pop();
@@ -60,16 +65,13 @@ impl<R: SuperRing> HelperData<R> {
         output
     }
 
-    fn torsion_coeffs_vec(source: &CanonModule<R>, target: &CanonModule<R>) -> Vec<Int> {
+    fn torsion_coeffs_vec<I: PrincipalIdeal<Parent = R> + Ord>(
+        source: &CanonModule<R, I>,
+        target: &CanonModule<R, I>,
+    ) -> Vec<Int> {
         [
-            source
-                .torsion_coeffs()
-                .map(|x| x.get())
-                .collect::<Vec<Int>>(),
-            target
-                .torsion_coeffs()
-                .map(|x| x.get())
-                .collect::<Vec<Int>>(),
+            source.torsion_coeffs_as_u16().collect::<Vec<Int>>(),
+            target.torsion_coeffs_as_u16().collect::<Vec<Int>>(),
         ]
         .concat()
     }
@@ -77,64 +79,46 @@ impl<R: SuperRing> HelperData<R> {
 
 #[cfg(test)]
 mod test {
-
     use super::*;
     use crate::{
-        error::Error,
-        rmodule::{
-            canon::CanonModule,
-            direct::DirectModule,
-            ring::{Fin, Ring},
-            torsion::CoeffTree,
-        },
-        util::category_of_relations::HelperData,
+        category::object::{Concrete, PartiallyEnumerable},
+        ralg::cgroup::{ideal::CIdeal, C},
     };
-    use std::sync::Arc;
 
     #[test]
     fn edge_len() {
         use typenum::U7 as N;
+        type R = C<N>;
+        type I = CIdeal<N>;
         let n: u16 = 7;
 
-        type R = Fin<N>;
-        let zn_canon: CanonModule<R> = CoeffTree::<R, ()>::all_torsion_coeffs(1)
-            .into_iter()
-            .map(|torsion_coeffs| CanonModule::new(torsion_coeffs))
-            .filter(|module| module.cardinality() == n.into())
-            .next()
+        let zn_canon: CanonModule<R, I> = CanonModule::all_by_dimension(0..=1)
+            .find(|module| module.cardinality() == n.into())
             .expect("there is a zn_module here");
 
-        assert_eq!(HelperData::edge_len(&zn_canon), n.into());
+        assert_eq!(HelperData::edge_len(&zn_canon), n);
 
-        let znxzn_canon: CanonModule<R> = CoeffTree::<R, ()>::all_torsion_coeffs(2)
-            .into_iter()
-            .map(|torsion_coeffs| CanonModule::new(torsion_coeffs))
-            .filter(|module| module.cardinality() == (n * n).into())
-            .next()
+        let znxzn_canon: CanonModule<R, I> = CanonModule::all_by_dimension(0..=2)
+            .find(|module| module.cardinality() == (n * n).into())
             .expect("there is a zn_module here");
-        assert_eq!(HelperData::edge_len(&znxzn_canon), (n * n).into());
+        assert_eq!(HelperData::edge_len(&znxzn_canon), n * n);
     }
 
     #[test]
     fn indices() {
         use typenum::U5 as N;
+        type R = C<N>;
+        type I = CIdeal<N>;
         let n: u16 = 5;
 
-        type R = Fin<N>;
-        let zn_canon: CanonModule<R> = CoeffTree::<R, ()>::all_torsion_coeffs(1)
-            .into_iter()
-            .map(|torsion_coeffs| CanonModule::new(torsion_coeffs))
-            .filter(|module| module.cardinality() == n.into())
-            .next()
+        let zn_canon: CanonModule<R, I> = CanonModule::all_by_dimension(0..=1)
+            .find(|module| module.cardinality() == n.into())
             .expect("there is a zn_module here");
 
         assert_eq!(HelperData::indices(&zn_canon, &zn_canon), vec![1, 5]);
 
-        let znxzn_canon: CanonModule<R> = CoeffTree::<R, ()>::all_torsion_coeffs(2)
-            .into_iter()
-            .map(|torsion_coeffs| CanonModule::new(torsion_coeffs))
-            .filter(|module| module.cardinality() == (n * n).into())
-            .next()
+        let znxzn_canon: CanonModule<R, I> = CanonModule::all_by_dimension(0..=2)
+            .find(|module| module.cardinality() == (n * n).into())
             .expect("there is a zn_module here");
         assert_eq!(
             HelperData::indices(&znxzn_canon, &znxzn_canon),
@@ -145,39 +129,28 @@ mod test {
     #[test]
     fn indices_different_modules() {
         use typenum::U15 as N;
+        type R = C<N>;
+        type I = CIdeal<N>;
         let n: u16 = 5;
         let m: u16 = 3;
 
-        type R = Fin<N>;
-        let zn_canon: CanonModule<R> = CoeffTree::<R, ()>::all_torsion_coeffs(1)
-            .into_iter()
-            .map(|torsion_coeffs| CanonModule::new(torsion_coeffs))
-            .filter(|module| module.cardinality() == n.into())
-            .next()
+        let zn_canon: CanonModule<R, I> = CanonModule::all_by_dimension(0..=1)
+            .find(|module| module.cardinality() == n.into())
             .expect("there is a zn_module here");
 
-        let zm_canon: CanonModule<R> = CoeffTree::<R, ()>::all_torsion_coeffs(1)
-            .into_iter()
-            .map(|torsion_coeffs| CanonModule::new(torsion_coeffs))
-            .filter(|module| module.cardinality() == m.into())
-            .next()
+        let zm_canon: CanonModule<R, I> = CanonModule::all_by_dimension(0..=1)
+            .find(|module| module.cardinality() == m.into())
             .expect("there is a zm_module here");
 
         assert_eq!(HelperData::indices(&zn_canon, &zm_canon), vec![1, 5]);
         assert_eq!(HelperData::indices(&zm_canon, &zn_canon), vec![1, 3]);
 
-        let znxzn_canon: CanonModule<R> = CoeffTree::<R, ()>::all_torsion_coeffs(2)
-            .into_iter()
-            .map(|torsion_coeffs| CanonModule::new(torsion_coeffs))
-            .filter(|module| module.cardinality() == (n * n).into())
-            .next()
+        let znxzn_canon: CanonModule<R, I> = CanonModule::all_by_dimension(0..=2)
+            .find(|module| module.cardinality() == (n * n).into())
             .expect("there is a znxzn_module here");
 
-        let zmxzm_canon: CanonModule<R> = CoeffTree::<R, ()>::all_torsion_coeffs(2)
-            .into_iter()
-            .map(|torsion_coeffs| CanonModule::new(torsion_coeffs))
-            .filter(|module| module.cardinality() == (m * m).into())
-            .next()
+        let zmxzm_canon: CanonModule<R, I> = CanonModule::all_by_dimension(0..=2)
+            .find(|module| module.cardinality() == (m * m).into())
             .expect("there is a zmxzm_module here");
 
         assert_eq!(
@@ -193,22 +166,17 @@ mod test {
     #[test]
     fn torsion_coeffs_vec() {
         use typenum::U15 as N;
+        type R = C<N>;
+        type I = CIdeal<N>;
         let n: u16 = 5;
         let m: u16 = 3;
 
-        type R = Fin<N>;
-        let zn_canon: CanonModule<R> = CoeffTree::<R, ()>::all_torsion_coeffs(1)
-            .into_iter()
-            .map(|torsion_coeffs| CanonModule::new(torsion_coeffs))
-            .filter(|module| module.cardinality() == n.into())
-            .next()
+        let zn_canon: CanonModule<R, I> = CanonModule::all_by_dimension(0..=1)
+            .find(|module| module.cardinality() == n.into())
             .expect("there is a zn_module here");
 
-        let zm_canon: CanonModule<R> = CoeffTree::<R, ()>::all_torsion_coeffs(1)
-            .into_iter()
-            .map(|torsion_coeffs| CanonModule::new(torsion_coeffs))
-            .filter(|module| module.cardinality() == m.into())
-            .next()
+        let zm_canon: CanonModule<R, I> = CanonModule::all_by_dimension(0..=1)
+            .find(|module| module.cardinality() == m.into())
             .expect("there is a zm_module here");
 
         assert_eq!(
@@ -220,18 +188,12 @@ mod test {
             vec![3, 5]
         );
 
-        let znxzn_canon: CanonModule<R> = CoeffTree::<R, ()>::all_torsion_coeffs(2)
-            .into_iter()
-            .map(|torsion_coeffs| CanonModule::new(torsion_coeffs))
-            .filter(|module| module.cardinality() == (n * n).into())
-            .next()
+        let znxzn_canon: CanonModule<R, I> = CanonModule::all_by_dimension(0..=2)
+            .find(|module| module.cardinality() == (n * n).into())
             .expect("there is a znxzn_module here");
 
-        let zmxzm_canon: CanonModule<R> = CoeffTree::<R, ()>::all_torsion_coeffs(2)
-            .into_iter()
-            .map(|torsion_coeffs| CanonModule::new(torsion_coeffs))
-            .filter(|module| module.cardinality() == (m * m).into())
-            .next()
+        let zmxzm_canon: CanonModule<R, I> = CanonModule::all_by_dimension(0..=2)
+            .find(|module| module.cardinality() == (m * m).into())
             .expect("there is a zmxzm_module here");
 
         assert_eq!(

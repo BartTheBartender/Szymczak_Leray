@@ -3,13 +3,23 @@
 #![feature(generic_const_exprs)]
 #![feature(let_chains)]
 #![feature(btree_extract_if)]
+#![feature(iterator_try_collect)]
 #![feature(extract_if)]
 #![feature(trait_alias)]
 #![feature(associated_type_bounds)]
 #![feature(arc_unwrap_or_clone)]
+#![feature(lint_reasons)]
+/* this feature is necessary to constrain matrices,
+however, a bug inside it prevents using type aliases for other types
+*/
+// #![feature(lazy_type_alias)]
+#![feature(slice_group_by)]
 // visual separator
-#![allow(incomplete_features)]
-#![allow(dead_code)] // REMOVE THIS LATER
+#![allow(incomplete_features, reason = "we need nightly features")]
+#![allow(dead_code, reason = "to be removed later")] // REMOVE THIS LATER
+
+// - - -
+
 /* clippy begin */
 #![warn(
     // regular groups
@@ -87,37 +97,43 @@
     clippy::unneeded_field_pattern,
     clippy::unseparated_literal_suffix,
 )]
-#![allow(clippy::match_bool)]
+#![allow(clippy::match_bool, reason = "i find it more readable")]
+#![allow(clippy::module_name_repetitions, reason = "this is a dumb rule")]
 /* clippy end */
 
 mod category;
-mod error;
-mod rmodule;
-mod szymczak_category;
+mod ralg;
 mod util;
 
-#[allow(unused_imports)]
+// - - -
+
 use crate::{
-    category::{relation::Relation, Category},
-    rmodule::{canon::CanonModule, map::CanonToCanon, ring::Fin, torsion::CoeffTree},
-    szymczak_category::SzymczakCategory,
+    category::{relation::Relation, szymczak_functor::SzymczakCategory, Category},
+    ralg::{
+        cgroup::{ideal::CIdeal, C},
+        module::canon::object::Object as Module,
+    },
 };
 use std::time::{Duration, Instant};
-
-//parameters for the code
+// parameters for the code
 use typenum::U3 as N;
-pub const MAX_DIMENSION: Int = 2;
-pub type Int = u16;
+type Int = u16;
+type R = C<N>;
+type I = CIdeal<N>;
 
-type R = Fin<N>;
 fn main() {
     let category_time = Instant::now();
-    let category = Category::<CanonModule<R>, Relation<R>>::new(MAX_DIMENSION);
+    let category = Category::<Module<R, I>, Relation<R, I>>::new(1);
     println!("category generated after {:?}", category_time.elapsed());
     let szymczak_classes_time = Instant::now();
-    let szymczak_category = SzymczakCategory::szymczak_functor::<20>(&category);
+    let szymczak_category =
+        SzymczakCategory::<Module<R, I>, Relation<R, I>, Relation<R, I>>::szymczak_functor::<20>(
+            &category,
+        );
+    println!("{}", category);
     println!(
         "szymczak classes generated after {:?}",
         szymczak_classes_time.elapsed()
     );
+    println!("{}", szymczak_category);
 }
