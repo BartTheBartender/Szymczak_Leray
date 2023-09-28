@@ -116,7 +116,7 @@ use crate::{
 };
 use std::time::Instant;
 // parameters for the code
-use typenum::{Unsigned, U64 as N};
+use typenum::{Unsigned, U32 as N};
 type Int = u16;
 type R = C<N>;
 type I = CIdeal<N>;
@@ -131,19 +131,18 @@ fn main() {
             &category,
         );
 
-    //println!("{}", szymczak_category);
+    println!("{}", szymczak_category);
 
-    /*
     println!(
         "Szymczak classes generated after: {:?}.\nNumber of szymczak classes: {}",
         szymczak_classes_time.elapsed(),
         szymczak_category.szymczak_classes.len()
     );
-    */
-
+    /*
     println!(
         "Module: Z/{}, every class has a map: {}",
         N::to_usize(),
         szymczak_category.every_class_has_a_map()
     );
+    */
 }
