@@ -11,6 +11,7 @@ use crate::{
     },
 };
 use itertools::iproduct;
+use rayon::prelude::*;
 use std::sync::Arc;
 use typenum::{IsGreater, U1};
 
@@ -214,12 +215,12 @@ impl<R: FactorialRing, I: PrincipalIdeal<Parent = R> + Ord> Object<R, I> {
     }
 }
 
-impl<Period: Radix + IsGreater<U1>> Object<C<Period>, CIdeal<Period>> {
+impl<Period: Radix + IsGreater<U1> + Send + Sync> Object<C<Period>, CIdeal<Period>> {
     #[allow(
         clippy::expect_used,
         reason = "the compositions were tailor made by our skilled team of artisan mathematicians"
     )]
-    // i wish this did not require so many clones and collects,
+    // i wish this did not require so many collects,
     // but i am too dumb to do this right.
     // for now, let it be
     pub fn submodules_goursat(self) -> Vec<CanonToCanon<C<Period>, CIdeal<Period>>> {
@@ -227,14 +228,16 @@ impl<Period: Radix + IsGreater<U1>> Object<C<Period>, CIdeal<Period>> {
             Arc::unwrap_or_clone(self.left()).submodules(),
             Arc::unwrap_or_clone(self.right()).submodules()
         )
+        .par_bridge()
         .flat_map(|(left_sub, right_sub)| {
             let smol = Self::sumproduct(&left_sub.source(), &right_sub.source());
             Arc::unwrap_or_clone(right_sub.source())
                 .submodules()
-                .into_iter()
+                .into_par_iter()
                 .map(|sub| sub.cokernel())
                 .flat_map(|right_quot| {
                     CanonToCanon::hom(smol.left(), right_quot.target())
+                        .par_bridge()
                         .filter(|map| map.cokernel().is_zero())
                         .map(|phi| {
                             smol.left_projection
@@ -269,7 +272,7 @@ impl<Period: Radix + IsGreater<U1>> Object<C<Period>, CIdeal<Period>> {
         clippy::expect_used,
         reason = "the compositions were tailor made by our skilled team of artisan mathematicians"
     )]
-    // i wish this did not require so many clones and collects,
+    // i wish this did not require so many collects,
     // but i am too dumb to do this right.
     // for now, let it be
     pub fn quotients_goursat(&self) -> Vec<CanonToCanon<C<Period>, CIdeal<Period>>> {
@@ -277,42 +280,39 @@ impl<Period: Radix + IsGreater<U1>> Object<C<Period>, CIdeal<Period>> {
             Arc::unwrap_or_clone(self.left()).quotients(),
             Arc::unwrap_or_clone(self.right()).quotients()
         )
+        .par_bridge()
         .flat_map(|(left_quot, right_quot)| {
             let smol = Self::sumproduct(&left_quot.target(), &right_quot.target());
             Arc::unwrap_or_clone(left_quot.target())
                 .quotients()
-                .into_iter()
+                .into_par_iter()
                 .map(|quot| quot.kernel())
                 .flat_map(|left_sub| {
                     CanonToCanon::hom(smol.right(), left_sub.source())
+                        .par_bridge()
                         .filter(|map| map.kernel().is_zero())
                         .map(|phi| {
-                            smol.clone()
-                                .universal_in(
-                                    &self
-                                        .clone()
-                                        .left_projection
-                                        .try_compose(&left_quot)
-                                        .expect("left_quot after self.left_projection"),
-                                    &self
-                                        .clone()
-                                        .right_projection
-                                        .try_compose(&right_quot)
-                                        .expect("right_quot after self.right_projection"),
-                                )
-                                .try_compose(
-                                    //same remark as above
-                                    &phi.try_compose(&smol.clone().right_inclusion)
-                                        .expect("smol.right_inclusion after phi")
-                                        .try_coequaliser(
-                                            left_sub
-                                                .clone()
-                                                .try_compose(&smol.clone().left_inclusion)
-                                                .expect("smol.left_inclusion after left_sub"),
-                                        )
-                                        .expect("coequaliser"),
-                                )
-                                .expect("coequaliser after universal_in")
+                            smol.universal_in(
+                                &self
+                                    .left_projection
+                                    .try_compose(&left_quot)
+                                    .expect("left_quot after self.left_projection"),
+                                &self
+                                    .right_projection
+                                    .try_compose(&right_quot)
+                                    .expect("right_quot after self.right_projection"),
+                            )
+                            .try_compose(
+                                &phi.try_compose(&smol.right_inclusion)
+                                    .expect("smol.right_inclusion after phi")
+                                    .try_coequaliser(
+                                        left_sub
+                                            .try_compose(&smol.left_inclusion)
+                                            .expect("smol.left_inclusion after left_sub"),
+                                    )
+                                    .expect("coequaliser"),
+                            )
+                            .expect("coequaliser after universal_in")
                         })
                         .collect::<Vec<_>>() // necessary to force the closure to release borrowed variables
                 })
