@@ -3,7 +3,7 @@ use crate::category::{
     object::Object,
     Category, HomSet,
 };
-// use rayon;
+use rayon::prelude::*;
 use std::{
     borrow::Borrow,
     collections::HashMap,
@@ -70,7 +70,7 @@ impl<
 
         //step 3. clean up the szymczak classes
         let szymczak_classes: SzymczakClasses<O, E> = raw_szymczak_classes
-            .into_iter()
+            .into_par_iter()
             .map(Self::drop_cycles)
             .map(Self::sort_by_object)
             .collect();

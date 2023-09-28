@@ -116,7 +116,7 @@ use crate::{
 };
 use std::time::Instant;
 // parameters for the code
-use typenum::{Unsigned, U32 as N};
+use typenum::{Unsigned, U64 as N};
 type Int = u16;
 type R = C<N>;
 type I = CIdeal<N>;
