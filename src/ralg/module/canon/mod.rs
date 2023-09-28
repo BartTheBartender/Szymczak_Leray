@@ -44,7 +44,7 @@ impl<T: Ord + PartialEq> PartialEq for MarkTree<T> {
 impl<T: Ord + Eq> Eq for MarkTree<T> {}
 impl<T: Ord + Hash> Hash for MarkTree<T> {
     fn hash<H: Hasher>(&self, state: &mut H) {
-        let _ = self.buffer.iter().map(|mark| mark.thing.hash(state));
+        self.buffer.iter().for_each(|mark| mark.thing.hash(state));
     }
 }
 

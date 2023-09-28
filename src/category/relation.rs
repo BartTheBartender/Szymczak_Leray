@@ -630,28 +630,6 @@ mod test {
     }
 
     #[test]
-    #[ignore]
-    //ten test ma zle wygenrerowane obiekty w ralg
-    fn high_dimension_no_dupes() {
-        use typenum::{Unsigned, U2 as N};
-        type R = C<N>;
-        type I = CIdeal<N>;
-        let n = N::to_usize();
-
-        let z2xz2: CanonModule<R, I> = CanonModule::<R, I>::all_by_dimension(0..=2)
-            .find(|module| module.cardinality() == n * n)
-            .expect("there is module of dim two");
-
-        let category = Category::<CanonModule<R, I>, Relation<R, I>>::new(2);
-        println!("category;\n{},\nz2xz2:\n{:?}", category, z2xz2);
-
-        let hom_set_z2xz2 = category.hom_set(&z2xz2, &z2xz2);
-        let mut hom_set_z2xz2_no_dupes = hom_set_z2xz2.clone();
-        hom_set_z2xz2_no_dupes.dedup();
-        assert_eq!(hom_set_z2xz2, hom_set_z2xz2_no_dupes);
-    }
-
-    #[test]
     fn is_a_map() {
         use typenum::{Unsigned, U2 as N};
         type R = C<N>;

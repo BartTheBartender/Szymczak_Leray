@@ -407,7 +407,7 @@ pub fn quotients_of_cyclic_module<Period: Radix + IsGreater<U1>>(
 mod test {
     #![allow(non_snake_case, reason = "module names look this way")]
     use super::*;
-    use typenum::{U2, U3, U36, U4, U6, U64, U7, U8};
+    use typenum::{U2, U3, U30, U36, U4, U6, U64, U7, U8};
 
     /* ## building */
 
@@ -865,7 +865,7 @@ mod test {
         assert_eq!(
             submodules.len(),
             5,
-            "there should be 1 + 3 + 1  = 5 subgroups"
+            "there should be 1 + 3 + 1 = 5 subgroups"
         );
 
         for module in submodules.iter().combinations(2) {
@@ -874,7 +874,6 @@ mod test {
     }
 
     #[test]
-    #[ignore]
     fn submodules_of_Z2xZ2xZ2() {
         type R = C<U2>;
         type I = CIdeal<U2>;
@@ -885,7 +884,7 @@ mod test {
         assert_eq!(
             submodules.len(),
             16,
-            "there should be 1 + 7 + 7 + 1  = 16 subgroups"
+            "there should be 1 + 7 + 7 + 1 = 16 subgroups"
         );
 
         for module in submodules.iter().combinations(2) {
@@ -894,7 +893,44 @@ mod test {
     }
 
     #[test]
-    #[ignore]
+    fn submodules_of_Z2xZ3xZ5() {
+        type R = C<U30>;
+        type I = CIdeal<U30>;
+
+        let z = Object::<R, I>::from_iter([2, 3, 5]);
+        let submodules: Vec<CanonToCanon<R, I>> = z.submodules();
+
+        assert_eq!(
+            submodules.len(),
+            8,
+            "there should be 1 + 3 + 3 + 1 = 8 subgroups"
+        );
+
+        for module in submodules.iter().combinations(2) {
+            assert_ne!(module.get(0), module.get(1));
+        }
+    }
+
+    #[test]
+    fn submodules_of_Z2xZ4xZ8() {
+        type R = C<U8>;
+        type I = CIdeal<U8>;
+
+        let z = Object::<R, I>::from_iter([2, 4, 8]);
+        let submodules: Vec<CanonToCanon<R, I>> = z.submodules();
+
+        assert_eq!(
+            submodules.len(),
+            86,
+            "there should be 1 + ... + 1 = 86 subgroups"
+        );
+
+        for module in submodules.iter().combinations(2) {
+            assert_ne!(module.get(0), module.get(1));
+        }
+    }
+
+    #[test]
     fn submodules_of_Z2xZ2xZ2xZ2() {
         type R = C<U2>;
         type I = CIdeal<U2>;
@@ -905,7 +941,7 @@ mod test {
         assert_eq!(
             submodules.len(),
             67,
-            "there should be 1 + 15 + 35 + 15 + 1  = 67 subgroups"
+            "there should be 1 + 15 + 35 + 15 + 1 = 67 subgroups"
         );
 
         for module in submodules.iter().combinations(2) {
@@ -914,7 +950,6 @@ mod test {
     }
 
     #[test]
-    #[ignore]
     fn submodules_of_Z2xZ2xZ2xZ2xZ2() {
         type R = C<U2>;
         type I = CIdeal<U2>;
@@ -925,7 +960,7 @@ mod test {
         assert_eq!(
             submodules.len(),
             374,
-            "there should be 1 + 31 + 155 + + 155 + 31 + 1  = 374 subgroups"
+            "there should be 1 + 31 + 155 + + 155 + 31 + 1 = 374 subgroups"
         );
 
         for module in submodules.iter().combinations(2) {

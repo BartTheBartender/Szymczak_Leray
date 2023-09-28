@@ -183,7 +183,7 @@ impl<R: FactorialRing, I: PrincipalIdeal<Parent = R> + Ord> Object<R, I> {
             left_projection: CanonToCanon::new(
                 &module,
                 left,
-                Matrix::from_rows_custom(
+                Matrix::from_cols_custom(
                     module.iter().map(|mark| match left.contains(mark) {
                         true => left.versor(mark).into_values().collect(),
                         false => left
@@ -198,7 +198,7 @@ impl<R: FactorialRing, I: PrincipalIdeal<Parent = R> + Ord> Object<R, I> {
             right_projection: CanonToCanon::new(
                 &module,
                 right,
-                Matrix::from_rows_custom(
+                Matrix::from_cols_custom(
                     module.iter().map(|mark| match right.contains(mark) {
                         true => right.versor(mark).into_values().collect(),
                         false => right
@@ -228,50 +228,35 @@ impl<Period: Radix + IsGreater<U1>> Object<C<Period>, CIdeal<Period>> {
             Arc::unwrap_or_clone(self.right()).submodules()
         )
         .flat_map(|(left_sub, right_sub)| {
-            //println!("- - -");
-            //println!("entering first loop:\n   {left_sub:?}\n   {right_sub:?}");
             let smol = Self::sumproduct(&left_sub.source(), &right_sub.source());
             Arc::unwrap_or_clone(right_sub.source())
                 .submodules()
                 .into_iter()
                 .map(|sub| sub.cokernel())
                 .flat_map(|right_quot| {
-                    //println!("entering second loop:\n   {right_quot:?}");
                     CanonToCanon::hom(smol.left(), right_quot.target())
                         .filter(|map| map.cokernel().is_zero())
                         .map(|phi| {
-                            //println!("entering third loop:\n   {phi:?}");
-                            let l = smol
-                                .clone()
-                                .left_projection
+                            smol.left_projection
                                 .try_compose(&phi)
-                                .expect("phi after smol.left_projection");
-                            let r = smol
-                                .clone()
-                                .right_projection
-                                .try_compose(&right_quot)
-                                .expect("right_quot after smol.right_projection");
-                            //dbg!(&l);
-                            //dbg!(&r);
-                            let equaliser = l.try_equaliser(r).expect("equaliser");
-                            let univout = smol.universal_out(
-                                &left_sub
-                                    .clone()
-                                    //i don't really know if the clone is still necessary, please check it yourself
-                                    .try_compose(&self.clone().left_inclusion)
-                                    .expect("self.left_inclusion after left_sub"),
-                                &right_sub
-                                    .clone()
-                                    .try_compose(&self.clone().right_inclusion)
-                                    .expect("self.right_inclusion after right_sub"),
-                            );
-                            //dbg!(&equaliser);
-                            //dbg!(&univout);
-                            let submodule = equaliser
-                                .try_compose(&univout)
-                                .expect("universal_out after equaliser");
-                            //dbg!(&submodule);
-                            submodule
+                                .expect("phi after smol.left_projection")
+                                .try_equaliser(
+                                    smol.right_projection
+                                        .try_compose(&right_quot)
+                                        .expect("right_quot after smol.right_projection"),
+                                )
+                                .expect("equaliser")
+                                .try_compose(
+                                    &smol.universal_out(
+                                        &left_sub
+                                            .try_compose(&self.left_inclusion)
+                                            .expect("self.left_inclusion after left_sub"),
+                                        &right_sub
+                                            .try_compose(&self.right_inclusion)
+                                            .expect("self.right_inclusion after right_sub"),
+                                    ),
+                                )
+                                .expect("universal_out after equaliser")
                         })
                         .collect::<Vec<_>>() // necessary to force the closure to release borrowed variables
                 })
@@ -497,6 +482,57 @@ mod test {
                 &z4,
                 Matrix::from_buffer([1, 0].map(R::from), 2, 1),
             )
+        );
+    }
+
+    #[test]
+    #[allow(non_snake_case, reason = "module names look this way")]
+    fn sumproduct_of_split() {
+        type R = C<U4>;
+        type I = CIdeal<U4>;
+        let z2sq = Arc::new(CanonModule::<R, I>::from_iter([2, 2]));
+        let z2to4 = Arc::new(CanonModule::<R, I>::from_iter([2, 2, 2, 2]));
+        let (l, r) = (*z2to4).clone().split();
+        let left = Arc::new(l);
+        let right = Arc::new(r);
+        let direct = Object::sumproduct(&left, &right);
+
+        assert_eq!(z2to4, direct.module());
+        assert_eq!(
+            direct.left_inclusion,
+            CanonToCanon::new(
+                &z2sq,
+                &z2to4,
+                Matrix::from_buffer([1, 0, 0, 0, 0, 1, 0, 0].map(R::from), 2, 4),
+            ),
+            "left inclusion"
+        );
+        assert_eq!(
+            direct.right_inclusion,
+            CanonToCanon::new(
+                &z2sq,
+                &z2to4,
+                Matrix::from_buffer([0, 0, 1, 0, 0, 0, 0, 1].map(R::from), 2, 4),
+            ),
+            "right inclusion"
+        );
+        assert_eq!(
+            direct.left_projection,
+            CanonToCanon::new(
+                &z2to4,
+                &z2sq,
+                Matrix::from_buffer([1, 0, 0, 0, 0, 0, 1, 0].map(R::from), 4, 2),
+            ),
+            "left projection"
+        );
+        assert_eq!(
+            direct.right_projection,
+            CanonToCanon::new(
+                &z2to4,
+                &z2sq,
+                Matrix::from_buffer([0, 1, 0, 0, 0, 0, 0, 1].map(R::from), 4, 2),
+            ),
+            "right projection"
         );
     }
 
