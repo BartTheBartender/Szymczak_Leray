@@ -61,18 +61,19 @@ impl<
                     })
             })
             .collect();
+        println!("classes generation started");
 
         //step 2. generate raw szymczak classes (by raw i mean they are unsorted by object and endomorphisms keep their cycles)
         let raw_szymczak_classes = Self::raw_szymczak_functor::<{ RECURSION_PARAMETER }>(
             endomorphisms,
             &category.hom_sets,
         );
+        println!("now cleaning");
 
         //step 3. clean up the szymczak classes
         let szymczak_classes: SzymczakClasses<O, E> = raw_szymczak_classes
             .into_par_iter()
-            .map(Self::drop_cycles)
-            .map(Self::sort_by_object)
+            .map(Self::clean)
             .collect();
 
         Self {
@@ -129,18 +130,20 @@ impl<
             RawSzymczakClasses::<M, E>::new(),
             |mut raw_szymczak_classes, (endomorphism, cycle)| {
                 let maybe_raw_szymczak_class: Option<&mut RawSzymczakClass<M, E>> =
-                    raw_szymczak_classes.iter_mut().find(|raw_szymczak_class| {
-                        Self::are_szymczak_isomorphic(
-                            (&endomorphism, &cycle),
-                            transform(
-                                raw_szymczak_class
-                                    .iter()
-                                    .next()
-                                    .expect("szymczak classes are never empty"),
-                            ),
-                            hom_sets,
-                        )
-                    });
+                    raw_szymczak_classes
+                        .par_iter_mut()
+                        .find_any(|raw_szymczak_class| {
+                            Self::are_szymczak_isomorphic(
+                                (&endomorphism, &cycle),
+                                transform(
+                                    raw_szymczak_class
+                                        .iter()
+                                        .next()
+                                        .expect("szymczak classes are never empty"),
+                                ),
+                                hom_sets,
+                            )
+                        });
                 if let Some(raw_szymczak_class) = maybe_raw_szymczak_class {
                     raw_szymczak_class.push((endomorphism, cycle));
                 } else {
@@ -209,6 +212,24 @@ impl<
         merged_raw_szymczak_classes
     }
 
+    fn clean(raw_szymczak_class: RawSzymczakClass<M, E>) -> SzymczakClass<O, E> {
+        raw_szymczak_class
+            .into_iter()
+            .map(|(endomorphism, _)| endomorphism.into())
+            .fold(
+                SzymczakClass::<O, E>::new(),
+                |mut szymczak_class, endomorphism: E| {
+                    szymczak_class
+                        .entry(endomorphism.source().borrow().clone())
+                        .or_default()
+                        .push(endomorphism);
+                    szymczak_class
+                },
+            )
+    }
+
+    /*
+
     fn drop_cycles(raw_szymczak_class: RawSzymczakClass<M, E>) -> Vec<E> {
         raw_szymczak_class
             .into_iter()
@@ -228,6 +249,7 @@ impl<
 
         szymczak_class
     }
+    */
 
     //the endomorphism is casted to M on purpose, to make M::compose make sense
     fn are_szymczak_isomorphic(
@@ -543,13 +565,13 @@ mod test {
                         Relation<R, I>,
                         Relation<R, I>,
                     >::is_identity(
-                        &top_z1_to_top_z2.compose(&top_z2_to_top_z1), &top_z1_cycle
+                        &top_z1_to_top_z2.compose(top_z2_to_top_z1), &top_z1_cycle
                     ) && SzymczakCategory::<
                         CanonModule<R, I>,
                         Relation<R, I>,
                         Relation<R, I>,
                     >::is_identity(
-                        &top_z2_to_top_z1.compose(&top_z1_to_top_z2), &top_z2_cycle
+                        &top_z2_to_top_z1.compose(top_z1_to_top_z2), &top_z2_cycle
                     ) {
                         are_szymczak_isomorphic = true;
                     }
