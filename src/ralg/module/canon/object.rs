@@ -100,7 +100,7 @@ where
                     "{}",
                     self.buffer
                         .iter()
-                        .map(|mark| format!("Z{}", mark.thing.ideal))
+                        .map(|mark| format!("Z{}", mark.thing))
                         .collect::<Vec<_>>()
                         .join("x"),
                 )

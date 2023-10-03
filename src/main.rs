@@ -32,15 +32,15 @@ however, a bug inside it prevents using type aliases for other types
 
     // debugging remnants
     clippy::dbg_macro,
-    clippy::expect_used,
-    clippy::panic,
+    //clippy::expect_used,
+    //clippy::panic,
     clippy::print_stderr,
-    clippy::print_stdout,
+    //clippy::print_stdout,
     clippy::todo,
     clippy::unimplemented,
     clippy::unreachable,
     clippy::use_debug,
-    clippy::unwrap_used,
+    //clippy::unwrap_used,
 
     // restricions
     clippy::arithmetic_side_effects,
@@ -116,14 +116,14 @@ use crate::{
 };
 use std::time::Instant;
 // parameters for the code
-use typenum::{Unsigned, U32 as N};
+use typenum::{Unsigned, U2 as N};
 type Int = u16;
 type R = C<N>;
 type I = CIdeal<N>;
 
 fn main() {
     let category_time = Instant::now();
-    let category = Category::<Module<R, I>, Relation<R, I>>::new(1);
+    let category = Category::<Module<R, I>, Relation<R, I>>::new(2);
     //println!("Category generated after {:?}.", category_time.elapsed());
     let szymczak_classes_time = Instant::now();
     let szymczak_category =
@@ -133,11 +133,13 @@ fn main() {
 
     println!("{}", szymczak_category);
 
-    println!(
+    /*
+       println!(
         "Szymczak classes generated after: {:?}.\nNumber of szymczak classes: {}",
         szymczak_classes_time.elapsed(),
         szymczak_category.szymczak_classes.len()
     );
+    */
     /*
     println!(
         "Module: Z/{}, every class has a map: {}",

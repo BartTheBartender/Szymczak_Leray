@@ -61,14 +61,14 @@ impl<
                     })
             })
             .collect();
-        println!("classes generation started");
+        //println!("classes generation started");
 
         //step 2. generate raw szymczak classes (by raw i mean they are unsorted by object and endomorphisms keep their cycles)
         let raw_szymczak_classes = Self::raw_szymczak_functor::<{ RECURSION_PARAMETER }>(
             endomorphisms,
             &category.hom_sets,
         );
-        println!("now cleaning");
+        //println!("now cleaning");
 
         //step 3. clean up the szymczak classes
         let szymczak_classes: SzymczakClasses<O, E> = raw_szymczak_classes
@@ -118,15 +118,12 @@ impl<
         endomorphisms: EndoMorphisms<E>,
         hom_sets: &HomSet<O, M>,
     ) -> RawSzymczakClasses<M, E> {
-        let endomorphisms_with_cycles: EndoMorphismsWithCycles<M, E> = endomorphisms
-            .into_iter()
-            .map(|endomorphism| {
-                let cycle: Vec<E> = endomorphism.cycle();
-                (endomorphism.into(), cycle)
-            })
-            .collect();
+        let endomorphisms_with_cycles = endomorphisms.into_iter().map(|endomorphism| {
+            let cycle: Vec<E> = endomorphism.cycle();
+            (endomorphism.into(), cycle)
+        });
 
-        let raw_szymczak_classes = endomorphisms_with_cycles.into_iter().fold(
+        endomorphisms_with_cycles.fold(
             RawSzymczakClasses::<M, E>::new(),
             |mut raw_szymczak_classes, (endomorphism, cycle)| {
                 let maybe_raw_szymczak_class: Option<&mut RawSzymczakClass<M, E>> =
@@ -137,8 +134,7 @@ impl<
                                 (&endomorphism, &cycle),
                                 transform(
                                     raw_szymczak_class
-                                        .iter()
-                                        .next()
+                                        .get(0)
                                         .expect("szymczak classes are never empty"),
                                 ),
                                 hom_sets,
@@ -147,16 +143,14 @@ impl<
                 if let Some(raw_szymczak_class) = maybe_raw_szymczak_class {
                     raw_szymczak_class.push((endomorphism, cycle));
                 } else {
-                    let mut new_raw_szymczak_class = RawSzymczakClass::<M, E>::new();
-                    new_raw_szymczak_class.push((endomorphism, cycle));
+                    let new_raw_szymczak_class: RawSzymczakClass<M, E> =
+                        vec![(endomorphism, cycle)];
                     raw_szymczak_classes.push(new_raw_szymczak_class);
                 }
 
                 raw_szymczak_classes
             },
-        );
-
-        raw_szymczak_classes
+        )
     }
 
     fn merge_raw_szymczak_classes(
@@ -227,29 +221,6 @@ impl<
                 },
             )
     }
-
-    /*
-
-    fn drop_cycles(raw_szymczak_class: RawSzymczakClass<M, E>) -> Vec<E> {
-        raw_szymczak_class
-            .into_iter()
-            .map(|(endomorphism, _)| endomorphism.into())
-            .collect::<Vec<E>>()
-    }
-
-    fn sort_by_object(raw_szymczak_class_without_cycle: Vec<E>) -> SzymczakClass<O, E> {
-        let mut szymczak_class = SzymczakClass::<O, E>::new();
-
-        for endomorphism in raw_szymczak_class_without_cycle.into_iter() {
-            szymczak_class
-                .entry(endomorphism.source().borrow().clone()) //this clone is needed to be stored as a key for the hashmap
-                .or_default()
-                .push(endomorphism);
-        }
-
-        szymczak_class
-    }
-    */
 
     //the endomorphism is casted to M on purpose, to make M::compose make sense
     fn are_szymczak_isomorphic(
@@ -327,11 +298,12 @@ impl<O: Object + Display + Debug, M: Morphism<O>, E: EndoMorphism<O> + Display +
 {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         let mut string = String::new();
+        string.push_str("SZYMCZAK\nZn Module\nRELATION\n===\n");
 
         for szymczak_class in &self.szymczak_classes {
             string.push_str("---\n");
             for (object, endomorphisms) in szymczak_class {
-                string.push_str(&format!("-\n{object:?}:\n"));
+                string.push_str(&format!("-\n{object}:\n"));
                 for endomorphism in endomorphisms {
                     string.push_str(&format!("{endomorphism:?}"));
                     string.push('\n');
