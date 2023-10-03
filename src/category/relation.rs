@@ -203,7 +203,8 @@ impl<R: Ring + Clone + hash::Hash, I: Ideal<Parent = R> + Ord + hash::Hash>
 {
 }
 
-impl<Period: Radix + IsGreater<U1>> EnumerableMorphism<CanonModule<C<Period>, CIdeal<Period>>>
+impl<Period: Radix + IsGreater<U1> + Send + Sync>
+    EnumerableMorphism<CanonModule<C<Period>, CIdeal<Period>>>
     for Relation<C<Period>, CIdeal<Period>>
 {
     fn hom(source: Self::B, target: Self::B) -> impl Iterator<Item = Self> + Clone {
