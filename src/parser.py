@@ -1,8 +1,10 @@
 import numpy as np
 import math
 import matplotlib.pyplot as plt
-from PIL import Image
+from PIL import Image, ImageDraw, ImageFont 
 import io
+import cv
+import PyPDF2
 #-------------------------------------------------------------------
 #-------------------------------------------------------------------
 
@@ -81,13 +83,101 @@ def parse_relation(raw_relation):
 
 #-------------------------------------------------------------------
 #-------------------------------------------------------------------
-def plot_endo(endo, elements, color):
+
+
+def plot_endo(endo, elements, color, endo_type):
+    if endo_type == 'RELATION':
+        return plot_adj_matrix(endo, elements, color)
+    raise ValueError('wrong endo_type!')
+
+def plot_obj(obj, obj_type):
+    if obj_type == 'Zn Module':
+        return plot_Zn_module(obj)
+    raise ValueError('wrong object_type!')
+
+def plot_class_fixed_obj(class_fixed_obj, color, obj_type, endo_type):
+    obj = class_fixed_obj[0]
+    endos = class_fixed_obj[1]
+    torsion_coefficients = obj[0]
+    elements = obj[1]
+
+    row = 7
+    plotted_endos_1d = [plot_endo(endo, elements, color, endo_type) for endo in endos]
+    plotted_endos = [plotted_endos_1d[i:i+row] for i in range(0, len(plotted_endos_1d), row)]
+    col = len(plotted_endos)
+
+    width, height = plotted_endos_1d[0].size
+    image_class_fixed_obj = Image.new('RGB', (row*width, (col+1)*height), 'white')
+    
+    for i in range(len(plotted_endos)):
+        for j in range(len(plotted_endos[i])):
+            image_class_fixed_obj.paste(plotted_endos[i][j], (j*width, (i+1)*height))
+
+    image_obj = plot_obj(obj, obj_type)
+    image_class_fixed_obj.paste(image_obj, (row*width//2, height // 3))
+    image_class_fixed_obj.show()
+    
+
+def plot_class(class_, color, obj_type, endo_type):
+
+    plotted_class = [plot_class_fixed_obj(class_fixed_obj, color, obj_type, endo_type) for class_fixed_obj in class_]
+
+    for x in plotted_class:
+        plt.show()
+
+    #pdf_class = [PyPDF2.PdfReader(open(plotted_class_fixed_obj), 'rb') for plotted_class_fixed_object in plotted_class]
+
+
+    #for pdf_class_fixed_obj in pdf_class:
+        result.add(pdf_class)
+
+    #return result
+
+def plot(classes):
+
+    pdf_classes = [PyPDF2.PdfReader(open(plot_class(class_), 'rb')) for class_ in classes]
+    result = PyPDF2.PdfWriter()
+
+    for pdf_class in pdf_classes:
+        result.add(pdf_class)
+
+    with open("result.pdf", "wb") as out_pdf:
+        result.write(out_pdf)
+
+#-------------------------------------------------------------------
+def plot_Zn_module(obj):
+    
+    if obj[0] == 0:
+        latex = '0'
+
+    else:
+        latex =''
+        latex += '\mathbb{Z} \slash ' + str(obj[0][0])
+
+        for i in range(1, len(obj[0])):
+            latex += ' \oplus \mathbb{Z} \slash ' + str(obj[0][i])
+
+    latex = '$' + latex + '$'
+
+    fig, ax = plt.subplots(figsize=(10, 5))
+    fig.text(0.5, 0.5, latex, size=75, ha='center', va='center')
+    ax.set_axis_off()
+    plt.tight_layout()
+
+    buf = io.BytesIO()
+    plt.gcf().savefig(buf, format='png')
+    buf.seek(0)
+    img = Image.open(buf)
+    return img
+
+
+def plot_adj_matrix(adj_matrix, elements, color):
     fig, ax = plt.subplots(figsize=(8, 8))
-    n = int(math.sqrt(endo.size))
+    n = int(math.sqrt(adj_matrix.size))
 
     for i in range(n):
         for j in range(n):
-            color_ = color if endo[i][j] == 1 else 'white'
+            color_ = color if adj_matrix[i][j] == 1 else 'white'
             rect = plt.Rectangle((j, i), 1, 1, facecolor=color_, edgecolor='black', linewidth=2)
             ax.add_patch(rect)
 
@@ -102,46 +192,20 @@ def plot_endo(endo, elements, color):
     ax.set_xlim(0, n)
     ax.set_ylim(0, n)
 
-    return plt.gcf()
-
-def plot_class_fixed_obj(class_fixed_obj, color):
-
-    obj = class_fixed_obj[0]
-    endos = class_fixed_obj[1]
-    torsion_coefficients = obj[0]
-    elements = obj[1]
-    
-    row = 7
-
-    plotted_endos_1d = [plot_endo(endo, elements, color) for endo in endos]
-    plotted_endos = [plotted_endos_1d[i:i+row] for i in range(0, len(plotted_endos_1d), row)]
-
-    col = 1
-
-    fig, axs = plt.subplots(row, col, figsize = (10, 10))
-
-    for i in range(5):
-        for j in range(5):
-
-            plotted_endo = plotted_endos[i][j]
-            renderer = plotted_endo.canvas.get_renderer()
-            plotted_endo.canvas.draw()
-            plotted_endo = np.frombuffer(renderer.buffer_rgba(), dtype=np.uint8).reshape(int(renderer.get_canvas_width_height()[0]), int(renderer.get_canvas_width_height()[1]), -1)
-
-            axs[i*col+j].imshow(plotted_endo)
-
-    plt.tight_layout()
-    plt.show()
-
-
-
+    buf = io.BytesIO()
+    plt.gcf().savefig(buf, format='png')
+    buf.seek(0)
+    img = Image.open(buf)
+    return img
 #-------------------------------------------------------------------
 #-------------------------------------------------------------------
-result = parse('out')
-test = result[0][0]
+parsed = parse('out')
+test = parsed[0][0]
 print(test)
 
-plot_class_fixed_obj(test, 'blue')
+plot_class_fixed_obj(test, 'red', 'Zn Module', 'RELATION')
+
+
 
 
 
