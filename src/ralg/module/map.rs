@@ -74,6 +74,7 @@ impl<R: Ring + fmt::Display, I: Ideal<Parent = R> + Ord + fmt::Display> fmt::Dis
     for CanonToCanon<R, I>
 where
     QuotObject<R, I>: fmt::Display,
+    CanonModule<R, I>: fmt::Display,
 {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         write!(f, "{} : {} -> {}", self.matrix, self.source, self.target)

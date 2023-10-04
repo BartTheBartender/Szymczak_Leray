@@ -86,6 +86,7 @@ where
     }
 }
 
+/*
 impl<R: Ring + fmt::Display, I: Ideal<Parent = R> + Ord + fmt::Display> fmt::Display
     for Object<R, I>
 where
@@ -101,6 +102,26 @@ where
                     self.buffer
                         .iter()
                         .map(|mark| format!("Z{}", mark.thing))
+                        .collect::<Vec<_>>()
+                        .join("x"),
+                )
+            }
+        }
+    }
+}
+*/
+
+impl<Period: Radix + IsGreater<U1>> fmt::Display for Object<C<Period>, CIdeal<Period>> {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        match self.is_empty() {
+            true => write!(f, "0"),
+            false => {
+                write!(
+                    f,
+                    "{}",
+                    self.buffer
+                        .iter()
+                        .map(|mark| format!("Z{}", u16::from(mark.thing.ideal.generator())))
                         .collect::<Vec<_>>()
                         .join("x"),
                 )
