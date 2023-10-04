@@ -1,10 +1,15 @@
 import numpy as np
 import math
 import matplotlib.pyplot as plt
-from PIL import Image, ImageDraw, ImageFont 
+from PIL import Image, ImageDraw, ImageFont, ImageOps
+from matplotlib.backends.backend_agg import FigureCanvasAgg
 import io
 import cv
-import PyPDF2
+from PyPDF2 import PdfReader, PdfWriter, PdfMerger, PageObject
+from reportlab.pdfgen import canvas
+from reportlab.lib.pagesizes import letter
+from reportlab.lib.utils import ImageReader
+import img2pdf
 #-------------------------------------------------------------------
 #-------------------------------------------------------------------
 
@@ -115,34 +120,54 @@ def plot_class_fixed_obj(class_fixed_obj, color, obj_type, endo_type):
 
     image_obj = plot_obj(obj, obj_type)
     image_class_fixed_obj.paste(image_obj, (row*width//2, height // 3))
-    image_class_fixed_obj.show()
-    
+    image_class_fixed_obj = ImageOps.expand(image_class_fixed_obj, 10, fill ='black')
+    image_class_fixed_obj = ImageOps.expand(image_class_fixed_obj, 70, fill ='white')
+
+    buf = io.BytesIO()
+    image_class_fixed_obj.save(buf, format='pdf')
+    buf.seek(0)
+    return PdfWriter(buf)
 
 def plot_class(class_, color, obj_type, endo_type):
 
-    plotted_class = [plot_class_fixed_obj(class_fixed_obj, color, obj_type, endo_type) for class_fixed_obj in class_]
+    pdfs_class = [plot_class_fixed_obj(class_fixed_obj, color, obj_type, endo_type) for class_fixed_obj in class_]
 
-    for x in plotted_class:
-        plt.show()
+    print(len(pdfs_class), len(pdfs_class[0].pages))
 
-    #pdf_class = [PyPDF2.PdfReader(open(plotted_class_fixed_obj), 'rb') for plotted_class_fixed_object in plotted_class]
+    '''
+    width_ = pdfs_class[0].pages[0].mediabox.width
+    height_ = sum([float(pdf.pages[0].mediabox.width) for pdf in pdfs_class])
+    '''
+
+    merged_page = PageObject.create_blank_page('''width = width_, height = height_''')
+    i = 0
+    for page in pdfs_class:
+
+        with open(f"problematic_{i}.pdf", "wb") as output_pdf:
+            page.write(output_pdf)
+        merged_page.merge_page(page.pages[0])
+        i += 1
+    
+    pdf_writer = PdfWriter()
+    pdf_writer.add_page(merged_page)
+    
+    return pdf_writer
+
+def plot(classes, colors, obj_type, endo_type):
+
+    if len(classes) > len(colors):
+        raise ValueError('not enought colors!')
+
+    pdf_writer = PdfWriter()
+
+    for i in range(len(classes)):
+        pdf_class = plot_class(classes[i], colors[i], obj_type, endo_type).pages[0]
+        pdf_writer.add_page(pdf_class)
+
+    with open("final.pdf", "wb") as output_pdf:
+        pdf_writer.write(output_pdf)
 
 
-    #for pdf_class_fixed_obj in pdf_class:
-        result.add(pdf_class)
-
-    #return result
-
-def plot(classes):
-
-    pdf_classes = [PyPDF2.PdfReader(open(plot_class(class_), 'rb')) for class_ in classes]
-    result = PyPDF2.PdfWriter()
-
-    for pdf_class in pdf_classes:
-        result.add(pdf_class)
-
-    with open("result.pdf", "wb") as out_pdf:
-        result.write(out_pdf)
 
 #-------------------------------------------------------------------
 def plot_Zn_module(obj):
@@ -164,11 +189,10 @@ def plot_Zn_module(obj):
     ax.set_axis_off()
     plt.tight_layout()
 
-    buf = io.BytesIO()
-    plt.gcf().savefig(buf, format='png')
-    buf.seek(0)
-    img = Image.open(buf)
-    return img
+    canvas = FigureCanvasAgg(fig)
+    canvas.draw()
+    plt.close()
+    return Image.frombytes('RGB', canvas.get_width_height(), canvas.tostring_rgb())
 
 def plot_adj_matrix(adj_matrix, elements, color):
     fig, ax = plt.subplots(figsize=(8, 8))
@@ -191,23 +215,23 @@ def plot_adj_matrix(adj_matrix, elements, color):
     ax.set_xlim(0, n)
     ax.set_ylim(0, n)
 
-    buf = io.BytesIO()
-    plt.gcf().savefig(buf, format='png')
-    buf.seek(0)
-    img = Image.open(buf)
-    return img
+    canvas = FigureCanvasAgg(fig)
+    canvas.draw()
+    plt.close()
+    return Image.frombytes('RGB', canvas.get_width_height(), canvas.tostring_rgb())
 #-------------------------------------------------------------------
 #-------------------------------------------------------------------
+colors = ['red', 'green', 'blue', 'purple', 'magenta', 'cyan']
 parsed = parse('out')
-test = parsed[0][0]
+test = parsed[1]
 print(test)
 
-plot_class_fixed_obj(test, 'red', 'Zn Module', 'RELATION')
+#result = plot_obj(test, 'Zn Module')
+#result = plot_class_fixed_obj(test, 'red', 'Zn Module', 'RELATION')
+result = plot_class(test, 'red', 'Zn Module', 'RELATION')
+#result = plot(test, colors, 'Zn Module', 'RELATION')
 
-
-
-
-
-
+#with open("problematic.pdf", "wb") as output_pdf:
+#    result.write(output_pdf)
 
 

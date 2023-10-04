@@ -116,14 +116,14 @@ use crate::{
 };
 use std::time::Instant;
 // parameters for the code
-use typenum::{Unsigned, U2 as N};
+use typenum::{Unsigned, U4 as N};
 type Int = u16;
 type R = C<N>;
 type I = CIdeal<N>;
 
 fn main() {
     let category_time = Instant::now();
-    let category = Category::<Module<R, I>, Relation<R, I>>::new(2);
+    let category = Category::<Module<R, I>, Relation<R, I>>::new(1);
     //println!("Category generated after {:?}.", category_time.elapsed());
     let szymczak_classes_time = Instant::now();
     let szymczak_category =
