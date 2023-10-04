@@ -293,13 +293,20 @@ pub const fn transform<L, R>(reference_to_tuple: &(L, R)) -> (&L, &R) {
     (&left, &right)
 }
 
-impl<O: Object + Display + Debug, M: Morphism<O>, E: EndoMorphism<O> + Display + Debug> Display
-    for SzymczakCategory<O, M, E>
+impl<
+        O: Object + Display + Debug,
+        M: Morphism<O>,
+        E: EndoMorphism<O> + Display + Debug + ToMap<O>,
+    > Display for SzymczakCategory<O, M, E>
 {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         let mut string = String::new();
-        string.push_str("SZYMCZAK\nZn Module\nRELATION\n===\n");
-
+        string.push_str("SZYMCZAK\nZn Module\nRELATION\n");
+        if self.every_class_has_a_map() {
+            string.push_str("EVERY CLASS HAS A MAP\n===\n");
+        } else {
+            string.push_str("A CLAS WITHOUT A MAP WAS FOUND\n===\n");
+        }
         for szymczak_class in &self.szymczak_classes {
             string.push_str("---\n");
             for (object, endomorphisms) in szymczak_class {

@@ -10,6 +10,7 @@ from reportlab.pdfgen import canvas
 from reportlab.lib.pagesizes import letter
 from reportlab.lib.utils import ImageReader
 import img2pdf
+import random
 #-------------------------------------------------------------------
 #-------------------------------------------------------------------
 
@@ -20,15 +21,17 @@ def parse(filepath):
 
     preamble = [parameter for parameter in raw_preamble.split('\n') if parameter.strip()]
 
-    if len(preamble) != 3:
+    if len(preamble) != 6:
        raise ValueError('incorrect preamble!')
+    
+    functor_type = preamble[2]
+    obj_type = preamble[3]
+    endo_type = preamble[4]
 
-    functor_type = preamble[0]
-    obj_type = preamble[1]
-    endo_type = preamble[2]
 
+    classes = [parse_class(raw_class, obj_type, endo_type) for raw_class in raw_classes.split('---\n') if raw_class.strip()]
 
-    return [parse_class(raw_class, obj_type, endo_type) for raw_class in raw_classes.split('---\n') if raw_class.strip()]
+    return (classes, preamble)
 
 
 def parse_class(raw_class, obj_type, endo_type):
@@ -66,7 +69,7 @@ def parse_Zn_module(raw_Zn_module):
 
     def generate_elements(torsion_coeffs, index, element):
         if index == len(torsion_coeffs):
-            elements.append(''.join([str(x) for x in element]))
+            elements.append(' '.join([str(x) for x in element]))
 
         else:
             for x in range(torsion_coeffs[index]):
@@ -80,11 +83,19 @@ def parse_Zn_module(raw_Zn_module):
 
 def parse_relation(raw_relation):
 
+    def is_a_map(relation,dim):
+        for j in range(dim):
+            if sum([relation[i][j] for i in range(dim)]) != 1:
+                return False
+        return True
+
     dim = int(math.sqrt(len(raw_relation)))
     if dim**2 != len(raw_relation):
         raise ValueError('raw_endo was not a nxn matrix!')
 
-    return np.array([[int(raw_relation[j*dim+i]) for i in range(dim)] for j in range(dim)])
+    relation = np.array([[int(raw_relation[j*dim+i]) for i in range(dim)] for j in range(dim)])
+
+    return (relation, is_a_map(relation,dim))
 
 #-------------------------------------------------------------------
 #-------------------------------------------------------------------
@@ -92,7 +103,7 @@ def parse_relation(raw_relation):
 
 def plot_endo(endo, elements, color, endo_type):
     if endo_type == 'RELATION':
-        return plot_adj_matrix(endo, elements, color)
+        return plot_relation(endo, elements, color)
     raise ValueError('wrong endo_type!')
 
 def plot_obj(obj, obj_type):
@@ -117,9 +128,11 @@ def plot_class_fixed_obj(class_fixed_obj, color, obj_type, endo_type):
     for i in range(len(plotted_endos)):
         for j in range(len(plotted_endos[i])):
             image_class_fixed_obj.paste(plotted_endos[i][j], (j*width, (i+1)*height))
-
+    
     image_obj = plot_obj(obj, obj_type)
-    image_class_fixed_obj.paste(image_obj, (row*width//2, height // 3))
+    obj_width, obj_height = image_obj.size
+
+    image_class_fixed_obj.paste(image_obj, (0, 0))
     image_class_fixed_obj = ImageOps.expand(image_class_fixed_obj, 10, fill ='black')
     image_class_fixed_obj = ImageOps.expand(image_class_fixed_obj, 70, fill ='white')
 
@@ -135,66 +148,107 @@ def plot_class(class_, color, obj_type, endo_type):
 
     pdfs_class = [plot_class_fixed_obj(class_fixed_obj, color, obj_type, endo_type).pages[0] for class_fixed_obj in class_]
 
-    width_ = pdfs_class[0].mediabox.width
-    height_ = sum([pdf.mediabox.width for pdf in pdfs_class])
-
-    merged_page = PageObject.create_blank_page(width = width_, height = 2*height_)
-    for page in pdfs_class:
-        merged_page.merge_page(page)
     
     pdf_writer = PdfWriter()
-    pdf_writer.add_page(merged_page)
-    
+
+    for pdf in pdfs_class:
+        pdf_writer.add_page(pdf)
+
     return pdf_writer
 
-def plot(classes, colors, obj_type, endo_type):
+def plot_preamble(preamble, no_of_classes):
+
+    base = preamble[0]
+    dim = preamble[1]
+    functor_name = preamble[2]
+    obj_type = preamble[3]
+    endo_type = preamble[4]
+    map_found = preamble[5]
+
+    output = f'Isomorphism classes of the Szymczak Functor\nCategory: LinRel(Z{base[-1]}-mod), max dimension is {dim[-1]}.\nThere are {no_of_classes} classes.'
+
+    if map_found == 'EVERY CLASS HAS A MAP':
+        output += 'Every class has a map.'
+    else:
+        output += 'A class without a map was found.'
+
+    
+    fig = plt.figure()
+    plt.rc('text')
+    plt.rc('font', family='serif')
+    plt.text(0.5, 0.5, output, va='center', ha='center')
+    plt.axis('off')
+    plt.tight_layout()
+
+    buf = io.BytesIO()
+    fig.savefig(buf, format='pdf')
+    return PdfReader(buf)
+
+    
+
+
+def plot(parsed_input, colors, obj_type, endo_type):
+    
+    classes = parsed_input[0]
+    preamble = parsed_input[1]
+
+    base = preamble[0][-1]
+    max_dim = preamble[1][-1]
 
     if len(classes) > len(colors):
         raise ValueError('not enought colors!')
 
     pdf_writer = PdfWriter()
-
+    pdf_writer.add_page(plot_preamble(preamble, len(classes)).pages[0])
+    
     for i in range(len(classes)):
-        pdf_class = plot_class(classes[i], colors[i], obj_type, endo_type).pages[0]
-        pdf_writer.add_page(pdf_class)
+        pdf_writer_class = plot_class(classes[i], colors[i], obj_type, endo_type)
 
-    with open("final.pdf", "wb") as output_pdf:
+        for page in pdf_writer_class.pages:
+            pdf_writer.add_page(page)
+
+
+    with open(f"results/pdf/Z{base}-dim-{max_dim}.pdf", "wb") as output_pdf:
         pdf_writer.write(output_pdf)
 
 
 
 #-------------------------------------------------------------------
 def plot_Zn_module(obj):
-    
-    if len(obj[0]) == 1 and obj[0] == 0:
+    if obj[0][0] == 0:
         latex = '0'
-
     else:
-        latex =''
-        latex += '\mathbb{Z} \slash ' + str(obj[0][0])
-
+        latex = '\mathbb{Z} \slash ' + str(obj[0][0])
         for i in range(1, len(obj[0])):
             latex += ' \oplus \mathbb{Z} \slash ' + str(obj[0][i])
-
-    latex = '$' + latex + '$'
-
-    fig, ax = plt.subplots(figsize=(10, 5))
-    fig.text(0.5, 0.5, latex, size=75, ha='center', va='center')
-    ax.set_axis_off()
+    latex = '$' + latex + ':$'
+    
+    # Set a custom figure size (in inches)
+    fig = plt.figure(figsize = (20,8))
+    plt.rc('text', usetex=True)
+    plt.rc('text.latex', preamble=r'\usepackage{amsfonts}')
+    plt.rc('font', family='serif')
+    plt.text(0.5, 0.5, latex, fontsize=160, va='center', ha='center')
+    plt.axis('off')
     plt.tight_layout()
 
-    canvas = FigureCanvasAgg(fig)
+    canvas = FigureCanvasAgg(plt.gcf())
     canvas.draw()
     plt.close()
-    return Image.frombytes('RGB', canvas.get_width_height(), canvas.tostring_rgb())
+    img = Image.frombytes('RGB', canvas.get_width_height(), canvas.tostring_rgb())
+    return img
 
-def plot_adj_matrix(adj_matrix, elements, color):
+def plot_relation(relation, elements, color):
+
+    adj_matrix = relation[0]
+    is_a_map = relation[1]
+
     fig, ax = plt.subplots(figsize=(8, 8))
     n = int(math.sqrt(adj_matrix.size))
 
     for i in range(n):
         for j in range(n):
-            color_ = color if adj_matrix[i][j] == 1 else 'white'
+            color_ = color[int(is_a_map)] if adj_matrix[i][j] == 1 else 'white'
             rect = plt.Rectangle((j, i), 1, 1, facecolor=color_, edgecolor='black', linewidth=2)
             ax.add_patch(rect)
 
@@ -215,17 +269,76 @@ def plot_adj_matrix(adj_matrix, elements, color):
     return Image.frombytes('RGB', canvas.get_width_height(), canvas.tostring_rgb())
 #-------------------------------------------------------------------
 #-------------------------------------------------------------------
-colors = ['red', 'green', 'blue', 'purple', 'magenta', 'cyan']
-parsed = parse('out')
-test = parsed[1]
-print(test)
 
-#result = plot_obj(test, 'Zn Module')
-#result = plot_class_fixed_obj(test, 'red', 'Zn Module', 'RELATION')
-result = plot_class(test, 'blue', 'Zn Module', 'RELATION')
-#result = plot(test, colors, 'Zn Module', 'RELATION')
+colors = [
+        ('lightgray', 'dimgray'),
+        ('gold', 'darkgoldenrod'),
+        ('lime', 'forestgreen'),
+        ('salmon', 'red'),
+        ('darkblue', 'blue'),
+        ('darkolivegreen','yellowgreen'),
+        ('lightseagreen', 'turquoise'),
+        ('darkorange','bisque'),
+        ('darkmagenta', 'orchid'),
+        ('maroon','salmon'),
+        ('lightgray', 'dimgray'),
+        ('gold', 'darkgoldenrod'),
+        ('lime', 'forestgreen'),
+        ('salmon', 'red'),
+        ('darkblue', 'blue'),
+        ('darkolivegreen','yellowgreen'),
+        ('lightseagreen', 'turquoise'),
+        ('darkorange','bisque'),
+        ('darkmagenta', 'orchid'),
+        ('maroon','salmon'),
+        ('lightgray', 'dimgray'),
+        ('gold', 'darkgoldenrod'),
+        ('lime', 'forestgreen'),
+        ('salmon', 'red'),
+        ('darkblue', 'blue'),
+        ('darkolivegreen','yellowgreen'),
+        ('lightseagreen', 'turquoise'),
+        ('darkorange','bisque'),
+        ('darkmagenta', 'orchid'),
+        ('maroon','salmon'),
+        ('lightgray', 'dimgray'),
+        ('gold', 'darkgoldenrod'),
+        ('lime', 'forestgreen'),
+        ('salmon', 'red'),
+        ('darkblue', 'blue'),
+        ('darkolivegreen','yellowgreen'),
+        ('lightseagreen', 'turquoise'),
+        ('darkorange','bisque'),
+        ('darkmagenta', 'orchid'),
+        ('maroon','salmon'),
+        ('lightgray', 'dimgray'),
+        ('gold', 'darkgoldenrod'),
+        ('lime', 'forestgreen'),
+        ('salmon', 'red'),
+        ('darkblue', 'blue'),
+        ('darkolivegreen','yellowgreen'),
+        ('lightseagreen', 'turquoise'),
+        ('darkorange','bisque'),
+        ('darkmagenta', 'orchid'),
+        ('maroon','salmon'),
+        ('lightgray', 'dimgray'),
+        ('gold', 'darkgoldenrod'),
+        ('lime', 'forestgreen'),
+        ('salmon', 'red'),
+        ('darkblue', 'blue'),
+        ('darkolivegreen','yellowgreen'),
+        ('lightseagreen', 'turquoise'),
+        ('darkorange','bisque'),
+        ('darkmagenta', 'orchid'),
+        ('maroon','salmon'),
+        ]
+#-------------------------------------------------------------------
+#result = plot_class(parse('out')[1],'purple', 'Zn Module', 'RELATION')
 
-with open("problematicasasd.pdf", "wb") as output_pdf:
-    result.write(output_pdf)
+plot(parse('out'), colors, 'Zn Module', 'RELATION')
+
+
+
+
 
 
