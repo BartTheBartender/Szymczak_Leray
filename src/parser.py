@@ -126,27 +126,21 @@ def plot_class_fixed_obj(class_fixed_obj, color, obj_type, endo_type):
     buf = io.BytesIO()
     image_class_fixed_obj.save(buf, format='pdf')
     buf.seek(0)
-    return PdfWriter(buf)
+    pdf_reader = PdfReader(buf)
+    pdf_writer = PdfWriter()
+    pdf_writer.add_page(pdf_reader.pages[0])
+    return pdf_writer
 
 def plot_class(class_, color, obj_type, endo_type):
 
-    pdfs_class = [plot_class_fixed_obj(class_fixed_obj, color, obj_type, endo_type) for class_fixed_obj in class_]
+    pdfs_class = [plot_class_fixed_obj(class_fixed_obj, color, obj_type, endo_type).pages[0] for class_fixed_obj in class_]
 
-    print(len(pdfs_class), len(pdfs_class[0].pages))
+    width_ = pdfs_class[0].mediabox.width
+    height_ = sum([pdf.mediabox.width for pdf in pdfs_class])
 
-    '''
-    width_ = pdfs_class[0].pages[0].mediabox.width
-    height_ = sum([float(pdf.pages[0].mediabox.width) for pdf in pdfs_class])
-    '''
-
-    merged_page = PageObject.create_blank_page('''width = width_, height = height_''')
-    i = 0
+    merged_page = PageObject.create_blank_page(width = width_, height = 2*height_)
     for page in pdfs_class:
-
-        with open(f"problematic_{i}.pdf", "wb") as output_pdf:
-            page.write(output_pdf)
-        merged_page.merge_page(page.pages[0])
-        i += 1
+        merged_page.merge_page(page)
     
     pdf_writer = PdfWriter()
     pdf_writer.add_page(merged_page)
@@ -172,7 +166,7 @@ def plot(classes, colors, obj_type, endo_type):
 #-------------------------------------------------------------------
 def plot_Zn_module(obj):
     
-    if obj[0] == 0:
+    if len(obj[0]) == 1 and obj[0] == 0:
         latex = '0'
 
     else:
@@ -228,10 +222,10 @@ print(test)
 
 #result = plot_obj(test, 'Zn Module')
 #result = plot_class_fixed_obj(test, 'red', 'Zn Module', 'RELATION')
-result = plot_class(test, 'red', 'Zn Module', 'RELATION')
+result = plot_class(test, 'blue', 'Zn Module', 'RELATION')
 #result = plot(test, colors, 'Zn Module', 'RELATION')
 
-#with open("problematic.pdf", "wb") as output_pdf:
-#    result.write(output_pdf)
+with open("problematicasasd.pdf", "wb") as output_pdf:
+    result.write(output_pdf)
 
 
