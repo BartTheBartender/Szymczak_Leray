@@ -115,3 +115,31 @@ pub trait IsMatching<O: Object>: Morphism<O> {
 pub trait IsWide<O: Object>: Morphism<O> {
     fn is_wide(&self) -> bool;
 }
+
+pub trait PreAbelianEndo<O: Object>: Morphism<O> + PreAbelian<O> {
+    fn high_kernel(self) -> Self {
+        let mut last_self = self.clone();
+        let mut last_kernel = last_self.kernel();
+
+        loop {
+            let new_self = unsafe { last_self.compose_unchecked(&self) };
+            let new_kernel = new_self.kernel();
+            if new_kernel == last_kernel {
+                return new_kernel;
+            }
+
+            last_self = new_self;
+            last_kernel = new_kernel;
+        }
+    }
+
+    /*
+    fn high_cokernel(&self) -> Self {
+        // probably not the fastest, but will work consistently
+        self.cycle()
+            .pop()
+            .expect("cycle will contain at least one iteration")
+            .cokernel()
+    }
+    */
+}

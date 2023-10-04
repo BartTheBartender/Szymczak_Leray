@@ -6,7 +6,11 @@ use crate::ralg::{
     },
 };
 use itertools::Itertools;
-use std::{cmp, collections::BTreeSet, fmt};
+use std::{
+    cmp,
+    collections::{BTreeSet, VecDeque},
+    fmt,
+};
 
 /* # two dimensional container */
 
@@ -252,6 +256,7 @@ where
                             .zip(self.col(col))
                             .map(|(r, c)| *r & *c)
                             .reduce(|acc, nxt| acc | nxt)
+                            // this is not neccesarily true and could be replaced by an `unwrap_or_else` call
                             .expect("matrices are not empty")
                     })
                 })
@@ -402,6 +407,39 @@ impl<R: Ring + Copy> Matrix<R> {
                 })
                 .collect(),
         }
+    }
+}
+
+/* ## characteristic polynomial */
+
+impl<R: Ring + Copy> Matrix<R> {
+    /**
+    produces a square toeplitz matrix with zeros above the diagonal.
+    toeplitz means every diagonal is constant
+    */
+    pub fn toeplitz_lower_triangular<I: Iterator<Item = R>>(first_col: I, nof_cols: usize) -> Self {
+        let first_col_deq: VecDeque<R> = first_col.collect();
+        Self::from_cols(
+            (0..nof_cols).map(|col_index| {
+                let mut col = first_col_deq.clone();
+                for _j in 0..col_index {
+                    col.pop_back();
+                    col.push_front(R::zero());
+                }
+                col.into()
+            }),
+            nof_cols,
+        )
+    }
+
+    /**
+    will only produce defined behaviour for square matrices.
+    may panic otherwise.
+
+    uses Berkowitz's algorithm
+    */
+    pub fn characteristic_polynomial(&self) -> Option<Vec<R>> {
+        (self.nof_cols == self.nof_rows).then_some(todo!())
     }
 }
 
@@ -721,6 +759,17 @@ mod test {
         m.add_muled_col_to_col(1, 0, R::from(2));
         let res = Matrix::<R>::from_buffer([5, 2, 0, 1, 0, 0].map(R::from), 3, 2);
         assert_eq!(m, res);
+    }
+
+    /* ## characteristic polynomial */
+
+    #[test]
+    fn toeplitz() {
+        type R = C<U32>;
+        assert_eq!(
+            Matrix::<R>::toeplitz_lower_triangular([1, 2, 3].map(R::from).into_iter(), 3),
+            Matrix::<R>::from_buffer([1, 0, 0, 2, 1, 0, 3, 2, 1].map(R::from), 3, 3),
+        );
     }
 
     /* ## smithing */
