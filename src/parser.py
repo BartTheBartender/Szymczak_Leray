@@ -170,7 +170,6 @@ def plot_Zn_module(obj):
     img = Image.open(buf)
     return img
 
-
 def plot_adj_matrix(adj_matrix, elements, color):
     fig, ax = plt.subplots(figsize=(8, 8))
     n = int(math.sqrt(adj_matrix.size))
@@ -204,8 +203,6 @@ test = parsed[0][0]
 print(test)
 
 plot_class_fixed_obj(test, 'red', 'Zn Module', 'RELATION')
-
-
 
 
 
