@@ -11,25 +11,18 @@ from reportlab.lib.pagesizes import letter
 from reportlab.lib.utils import ImageReader
 import img2pdf
 import random
+import re
 #-------------------------------------------------------------------
 #-------------------------------------------------------------------
 
 def parse(filepath):
+    obj_type = 'Zn Module'
+    endo_type = 'RELATION'
     file = open(filepath, 'r')
-    raw_data = file.read()
-    print(len(tuple([data for data in raw_data.split('===\n') if data.strip()])))
-    (raw_preamble, raw_classes) = tuple([data for data in raw_data.split('===\n') if data.strip()])
 
-    preamble = [parameter for parameter in raw_preamble.split('\n') if parameter.strip()]
-    print(preamble)
+    (raw_preamble, raw_classes) = file.read().split('\n===\n')
 
-    if len(preamble) != 6:
-       raise ValueError('incorrect preamble!')
-    
-    functor_type = preamble[2]
-    obj_type = preamble[3]
-    endo_type = preamble[4]
-
+    preamble = parse_preamble(raw_preamble)
 
     classes = [parse_class(raw_class, obj_type, endo_type) for raw_class in raw_classes.split('---\n') if raw_class.strip()]
 
@@ -61,6 +54,12 @@ def parse_endo(raw_endo, endo_type):
         return parse_relation(raw_endo)
     
     raise ValueError('wrong endo_type!')
+
+def parse_preamble(raw_preamble):
+    raw_preamble = raw_preamble.split('\n')
+    return raw_preamble
+
+
 
 #-------------------------------------------------------------------
 def parse_Zn_module(raw_Zn_module):
@@ -335,10 +334,14 @@ colors = [
         ('maroon','salmon'),
         ]
 #-------------------------------------------------------------------
-#result = plot_class(parse('out')[1],'purple', 'Zn Module', 'RELATION')
-for base in range(2,31):
-    txt_file = f'results/txt/dim1/Z{base}-dim-1'
-    plot(parse(txt_file), colors, 'Zn Module', 'RELATION')
+#-------------------------------------------------------------------
+res = parse('out')[0][0][0]
+print(res[0][1], res[1][0])
+
+output = plot_endo(res[0][1], res[1][0], colors[3], 'RELATION')
+
+
+
 
 
 
