@@ -17,9 +17,11 @@ import random
 def parse(filepath):
     file = open(filepath, 'r')
     raw_data = file.read()
-    (raw_preamble, raw_classes) = tuple(raw_data.split('===\n'))
+    print(len(tuple([data for data in raw_data.split('===\n') if data.strip()])))
+    (raw_preamble, raw_classes) = tuple([data for data in raw_data.split('===\n') if data.strip()])
 
     preamble = [parameter for parameter in raw_preamble.split('\n') if parameter.strip()]
+    print(preamble)
 
     if len(preamble) != 6:
        raise ValueError('incorrect preamble!')
@@ -334,8 +336,9 @@ colors = [
         ]
 #-------------------------------------------------------------------
 #result = plot_class(parse('out')[1],'purple', 'Zn Module', 'RELATION')
-
-plot(parse('out'), colors, 'Zn Module', 'RELATION')
+for base in range(2,31):
+    txt_file = f'results/txt/dim1/Z{base}-dim-1'
+    plot(parse(txt_file), colors, 'Zn Module', 'RELATION')
 
 
 

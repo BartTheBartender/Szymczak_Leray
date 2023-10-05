@@ -63,12 +63,12 @@ impl<
     }
 
     //why cant i use iterator?
-    pub fn objects(self) -> Vec<O> {
+    pub fn into_objects(self) -> Vec<O> {
         self.hom_sets.into_keys().collect::<Vec<O>>()
     }
 
     //why cant i use iterators? how to enforce the functions to take ownership?
-    pub fn morphisms(self) -> Vec<M> {
+    pub fn into_morphisms(self) -> Vec<M> {
         self.hom_sets
             .into_values()
             .fold(Vec::<M>::new(), |mut morphisms, hom_sets_fixed_source| {
@@ -94,31 +94,6 @@ impl<
     }
 }
 
-impl<O: Object + fmt::Display, M: Morphism<O> + fmt::Display> fmt::Display for Category<O, M> {
-    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-        let mut string = String::new();
-
-        for (source, hom_sets_fixed_object) in &self.hom_sets {
-            for (target, morphisms) in hom_sets_fixed_object {
-                string.push_str(
-                    &[
-                        "source:",
-                        &source.to_string(),
-                        "target:",
-                        &target.to_string(),
-                        "\n",
-                    ]
-                    .join(" "),
-                );
-                for morphism in morphisms {
-                    string.push_str(&[&morphism.to_string(), "\n"].join(""));
-                }
-            }
-        }
-
-        write!(f, "{string}")
-    }
-}
 impl<O: Object + fmt::Debug, M: Morphism<O> + fmt::Debug> fmt::Debug for Category<O, M> {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         let mut string = String::new();
@@ -145,6 +120,10 @@ impl<O: Object + fmt::Debug, M: Morphism<O> + fmt::Debug> fmt::Debug for Categor
     }
 }
 
+pub trait PrettyName {
+    const PRETTY_NAME: &'static str;
+}
+
 #[cfg(test)]
 mod test {
     use super::*;
@@ -160,6 +139,6 @@ mod test {
         type I = CIdeal<N>;
         let category = Category::<CanonModule<R, I>, Relation<R, I>>::new(1);
 
-        assert_eq!(category.objects().len(), 2);
+        assert_eq!(category.into_objects().len(), 2);
     }
 }

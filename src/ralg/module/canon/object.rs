@@ -1,7 +1,11 @@
 use crate::{
-    category::object::{
-        Concrete as ConcreteObject, Duplicable as DuplicableObject, Enumerable as EnumerableObject,
-        Object as CatObject, PartiallyEnumerable as PartiallyEnumerableObject,
+    category::{
+        object::{
+            Concrete as ConcreteObject, Duplicable as DuplicableObject,
+            Enumerable as EnumerableObject, Object as CatObject,
+            PartiallyEnumerable as PartiallyEnumerableObject,
+        },
+        PrettyName,
     },
     ralg::{
         cgroup::{ideal::CIdeal, Radix, C},
@@ -21,7 +25,7 @@ use crate::{
 };
 use itertools::Itertools;
 use std::{collections::BTreeSet, fmt, sync::Arc};
-use typenum::{IsGreater, U1};
+use typenum::{IsGreater, Unsigned, U1};
 
 /* # torsion coefficients object */
 
@@ -128,6 +132,10 @@ impl<Period: Radix + IsGreater<U1>> fmt::Display for Object<C<Period>, CIdeal<Pe
             }
         }
     }
+}
+
+impl<Period: Radix + IsGreater<U1> + Unsigned> PrettyName for Object<C<Period>, CIdeal<Period>> {
+    const PRETTY_NAME: &'static str = "Zn-Module";
 }
 
 /* ## functionality */

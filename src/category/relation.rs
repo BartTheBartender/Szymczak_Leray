@@ -1,7 +1,10 @@
 pub use crate::{
-    category::morphism::{
-        Concrete as ConcreteMorphism, Endo as EndoMorphism, Enumerable as EnumerableMorphism,
-        Morphism, ToMap,
+    category::{
+        morphism::{
+            Concrete as ConcreteMorphism, Endo as EndoMorphism, Enumerable as EnumerableMorphism,
+            Morphism, ToMap,
+        },
+        PrettyName,
     },
     ralg::{
         cgroup::{ideal::CIdeal, Radix, C},
@@ -228,6 +231,10 @@ impl<R: Ring, I: Ideal<Parent = R> + Ord> ToMap<CanonModule<R, I>> for Relation<
     }
 }
 
+impl<R: Ring, I: Ideal<Parent = R> + Ord> PrettyName for Relation<R, I> {
+    const PRETTY_NAME: &'static str = "Relation";
+}
+
 #[cfg(test)]
 mod test {
     use super::*;
@@ -252,13 +259,13 @@ mod test {
 
         println!("{:?}", category);
 
-        for object in category.clone().objects() {
+        for object in category.clone().into_objects() {
             println!("{:?}", object);
         }
 
         let zn = category
             .clone()
-            .objects()
+            .into_objects()
             .into_iter()
             .find(|module| module.cardinality() == N::to_usize())
             .expect("there is a zn module");
@@ -596,7 +603,7 @@ mod test {
         type I = CIdeal<N>;
 
         let category = Category::<CanonModule<R, I>, Relation<R, I>>::new(1);
-        print!("{}", category);
+        print!("{:?}", category);
 
         let hom_set_zn_zn: Vec<Relation<R, I>> = category
             .hom_sets

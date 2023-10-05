@@ -1,7 +1,7 @@
 use crate::category::{
     morphism::{Endo as EndoMorphism, Morphism, ToMap},
     object::Object,
-    Category, HomSet,
+    Category, HomSet, PrettyName,
 };
 use rayon::prelude::*;
 use std::{
@@ -30,15 +30,8 @@ pub struct SzymczakCategory<O: Object, M: Morphism<O>, E: EndoMorphism<O>> {
 
 impl<
         O: Object + Hash + Clone + Sync + Send,
-        M: Morphism<O> + Eq + Send + Sync + Clone + Debug, //to be removed in the future
-        E: EndoMorphism<O>
-            + Debug //to be removed in the future
-            + Clone
-            + Sync
-            + Send
-            + PartialEq
-            + From<M>
-            + Into<M>,
+        M: Morphism<O> + Eq + Send + Sync + Clone,
+        E: EndoMorphism<O> + Debug + Clone + Sync + Send + PartialEq + From<M> + Into<M>,
     > SzymczakCategory<O, M, E>
 {
     pub fn szymczak_functor<const RECURSION_PARAMETER: usize>(category: &Category<O, M>) -> Self {
@@ -61,14 +54,12 @@ impl<
                     })
             })
             .collect();
-        //println!("classes generation started");
 
         //step 2. generate raw szymczak classes (by raw i mean they are unsorted by object and endomorphisms keep their cycles)
         let raw_szymczak_classes = Self::raw_szymczak_functor::<{ RECURSION_PARAMETER }>(
             endomorphisms,
             &category.hom_sets,
         );
-        //println!("now cleaning");
 
         //step 3. clean up the szymczak classes
         let szymczak_classes: SzymczakClasses<O, E> = raw_szymczak_classes
@@ -132,7 +123,7 @@ impl<
                         .find_any(|raw_szymczak_class| {
                             Self::are_szymczak_isomorphic(
                                 (&endomorphism, &cycle),
-                                transform(
+                                util::transform(
                                     raw_szymczak_class
                                         .get(0)
                                         .expect("szymczak classes are never empty"),
@@ -165,13 +156,13 @@ impl<
                     if let Some(right_raw_szymczak_class) = right_raw_szymczak_classes
                         .iter_mut()
                         .find(|right_raw_szymczak_class| {
-                            let left_endo_with_cycle = transform(
+                            let left_endo_with_cycle = util::transform(
                                 left_raw_szymczak_class
                                     .iter()
                                     .next()
                                     .expect("szymczak classes are never empty"),
                             );
-                            let right_endo_with_cycle = transform(
+                            let right_endo_with_cycle = util::transform(
                                 right_raw_szymczak_class
                                     .iter()
                                     .next()
@@ -288,25 +279,27 @@ impl<
     }
 }
 
-pub const fn transform<L, R>(reference_to_tuple: &(L, R)) -> (&L, &R) {
-    let (left, right) = reference_to_tuple;
-    (&left, &right)
-}
-
 impl<
-        O: Object + Display + Debug,
+        O: Object + Display + PrettyName,
         M: Morphism<O>,
-        E: EndoMorphism<O> + Display + Debug + ToMap<O>,
+        E: EndoMorphism<O> + Debug + ToMap<O> + PrettyName,
     > Display for SzymczakCategory<O, M, E>
 {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        let number_of_endomorphisms =
+            self.szymczak_classes
+                .iter()
+                .fold(0, |curr_no_out, szymczak_class| {
+                    curr_no_out
+                        + szymczak_class
+                            .values()
+                            .fold(0, |curr_no_in, endos: &Vec<E>| curr_no_in + endos.len())
+                });
+
         let mut string = String::new();
-        string.push_str("SZYMCZAK\nZn Module\nRELATION\n");
-        if self.every_class_has_a_map() {
-            string.push_str("EVERY CLASS HAS A MAP\n===\n");
-        } else {
-            string.push_str("A CLAS WITHOUT A MAP WAS FOUND\n===\n");
-        }
+
+        string.push_str(&format!("Functor name: {}\nObject: {}\nEndomorphism: {}\nNumber of endomorphisms: {}\nNumber of classes: {}\nEvery class has a map: {}\n===\n", Self::PRETTY_NAME, O::PRETTY_NAME, E::PRETTY_NAME, number_of_endomorphisms, self.szymczak_classes.len(), self.every_class_has_a_map()));
+
         for szymczak_class in &self.szymczak_classes {
             string.push_str("---\n");
             for (object, endomorphisms) in szymczak_class {
@@ -318,6 +311,18 @@ impl<
             }
         }
         write!(f, "{string}")
+    }
+}
+
+impl<O: Object, M: Morphism<O>, E: EndoMorphism<O>> PrettyName for SzymczakCategory<O, M, E> {
+    const PRETTY_NAME: &'static str = "Szymczak";
+}
+
+mod util {
+
+    pub const fn transform<L, R>(reference_to_tuple: &(L, R)) -> (&L, &R) {
+        let (left, right) = reference_to_tuple;
+        (&left, &right)
     }
 }
 
@@ -351,7 +356,7 @@ mod test {
         let category = Category::<CanonModule<R, I>, Relation<R, I>>::new(1);
         let zn: CanonModule<R, I> = category
             .clone()
-            .objects()
+            .into_objects()
             .into_iter()
             .find(|object| object.cardinality() == N::to_usize())
             .expect("there is a module of given cardinality");
@@ -442,7 +447,7 @@ mod test {
         let category = Category::<CanonModule<R, I>, Relation<R, I>>::new(1);
         let zn: CanonModule<R, I> = category
             .clone()
-            .objects()
+            .into_objects()
             .into_iter()
             .find(|object| object.cardinality() == N::to_usize())
             .expect("there is a module of given cardinality");
@@ -489,7 +494,7 @@ mod test {
 
         let category = Category::<CanonModule<R, I>, Relation<R, I>>::new(1);
 
-        let all_objects = category.clone().objects();
+        let all_objects = category.clone().into_objects();
 
         let z1 = all_objects
             .iter()
@@ -571,7 +576,7 @@ mod test {
 
         let category = Category::<CanonModule<R, I>, Relation<R, I>>::new(1);
 
-        let all_objects = category.clone().objects();
+        let all_objects = category.clone().into_objects();
         assert_eq!(all_objects.len(), 2);
 
         let z1 = all_objects
@@ -703,7 +708,7 @@ mod test {
                 > = raw_szymczak_classes.iter_mut().find(|raw_szymczak_class| {
                     SzymczakCategory::are_szymczak_isomorphic(
                         (&endomorphism, &cycle),
-                        transform(
+                        util::transform(
                             raw_szymczak_class
                                 .iter()
                                 .next()

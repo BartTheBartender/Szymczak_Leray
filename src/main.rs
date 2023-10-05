@@ -114,26 +114,24 @@ use crate::{
         module::canon::object::Object as Module,
     },
 };
-use std::time::Instant;
+//use std::time::Instant;
 // parameters for the code
-use typenum::{Unsigned, U11 as N};
+use typenum::{Unsigned, U30 as N};
 type Int = u16;
 type R = C<N>;
 type I = CIdeal<N>;
-
+const DIM: Int = 1;
 fn main() {
-    let dim = 1;
-    let base = N::to_usize();
     //let category_time = Instant::now();
-    let category = Category::<Module<R, I>, Relation<R, I>>::new(dim);
+    let category = Category::<Module<R, I>, Relation<R, I>>::new(DIM);
     //println!("Category generated after {:?}.", category_time.elapsed());
-    let szymczak_classes_time = Instant::now();
+    //let szymczak_classes_time = Instant::now();
     let szymczak_category =
         SzymczakCategory::<Module<R, I>, Relation<R, I>, Relation<R, I>>::szymczak_functor::<5>(
             &category,
         );
 
-    println!("BASE:{base}\nDIM:{dim}\n{}", szymczak_category);
+    println!("{}", szymczak_category);
 
     /*
        println!(
