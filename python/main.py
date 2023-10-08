@@ -1,6 +1,11 @@
-import parser
+#import parser
 import launcher
-import benchmarker
+#import plotter
+#import benchmarker
+#import math_utils
+#import num_of_classes
 
-for base in range(2, 64):
-    benchmarker.benchmark(base,1)
+for base in range(16, 32):
+    launcher.launch(base,1)
+
+#math_utils.number_of_endos()

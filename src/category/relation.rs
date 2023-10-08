@@ -2,7 +2,7 @@ pub use crate::{
     category::{
         morphism::{
             Concrete as ConcreteMorphism, Endo as EndoMorphism, Enumerable as EnumerableMorphism,
-            Morphism, ToMap,
+            IsBij, IsMap, Morphism,
         },
         PrettyName,
     },
@@ -83,6 +83,10 @@ where
             self.target()
         )
     }
+}
+
+impl<R: Ring, I: Ideal<Parent = R> + Ord> PrettyName for Relation<R, I> {
+    const PRETTY_NAME: &'static str = "Relation";
 }
 
 //important code  - generation of the category of R-modules and relations
@@ -223,7 +227,7 @@ impl<Period: Radix + IsGreater<U1> + Send + Sync>
     }
 }
 
-impl<R: Ring, I: Ideal<Parent = R> + Ord> ToMap<CanonModule<R, I>> for Relation<R, I> {
+impl<R: Ring, I: Ideal<Parent = R> + Ord> IsMap<CanonModule<R, I>> for Relation<R, I> {
     fn is_a_map(&self) -> bool {
         self.matrix
             .cols()
@@ -231,8 +235,16 @@ impl<R: Ring, I: Ideal<Parent = R> + Ord> ToMap<CanonModule<R, I>> for Relation<
     }
 }
 
-impl<R: Ring, I: Ideal<Parent = R> + Ord> PrettyName for Relation<R, I> {
-    const PRETTY_NAME: &'static str = "Relation";
+impl<R: Ring, I: Ideal<Parent = R> + Ord> IsBij<CanonModule<R, I>> for Relation<R, I> {
+    fn is_a_bijection(&self) -> bool {
+        self.matrix
+            .cols()
+            .all(|col| col.filter(|entry| **entry).count() == 1)
+            && self
+                .matrix
+                .rows()
+                .all(|row| row.filter(|entry| **entry).count() == 1)
+    }
 }
 
 #[cfg(test)]

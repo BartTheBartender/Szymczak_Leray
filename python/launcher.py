@@ -2,7 +2,7 @@ import re
 import fileinput
 import subprocess
 
-def run(base, max_dim, recursion_parameter = None, output_type = 'file in results'):
+def launch(base, max_dim, recursion_parameter = None, output_type = 'file in results'):
 
     print(f'Program started: Z/{base} up to dimension {max_dim}')
 
@@ -21,17 +21,28 @@ def run(base, max_dim, recursion_parameter = None, output_type = 'file in result
     with open("../src/main.rs", "w") as file:
         file.writelines(lines)
     try:
-        result = subprocess.run(["cargo", "run", "-r"], text=True, capture_output=True, cwd='../src', check=True)
+        result = subprocess.run(["cargo", "run", "-r"], text=True, capture_output=True, cwd='../src', check=True).stdout
+
+        print(result)
 
         if output_type == 'file in results':
-            output_txt = f'../results/txt/dim{max_dim}/Z{base}-dim-{max_dim}'
+            
+            if re.search('Functor name: Szymczak', result) is not None:
+                output_txt = f'../results/szymczak/txt/dim{max_dim}/Z{base}-dim-{max_dim}'
+
+            else:
+                raise ValueError('Wrong functor name!')
+
             with open(output_txt, 'w') as outfile:
-                outfile.write(result.stdout)
+                outfile.write(result)
             print("Program finished succesfully")
 
         elif output_type == 'string':
             print("Program finished succesfully")
-            return result.stdout
+            return result
+
+        else:
+            raise ValueError('Wrong output type!')
 
     except subprocess.CalledProcessError as e:
         print(f"Error while running 'cargo run -r': {e}")

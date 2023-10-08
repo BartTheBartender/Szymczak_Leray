@@ -116,12 +116,12 @@ use crate::{
 };
 use std::time::Instant;
 // parameters for the code
-use typenum::U3 as N;
+use typenum::U31 as N;
 type Int = u16;
 type R = C<N>;
 type I = CIdeal<N>;
 const DIM: Int = 1;
-const RECURSION_PARAMETER: usize = 3;
+const RECURSION_PARAMETER: usize = 6;
 fn main() {
     //
     let category_time = Instant::now();

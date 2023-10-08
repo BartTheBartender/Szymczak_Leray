@@ -98,8 +98,12 @@ pub trait Abelian<O: Object>: PreAbelian<O> + AdditivePartialGroup {
     }
 }
 
-pub trait ToMap<O: Object>: Morphism<O> {
+pub trait IsMap<O: Object>: Morphism<O> {
     fn is_a_map(&self) -> bool;
+}
+
+pub trait IsBij<O: Object>: Morphism<O> {
+    fn is_a_bijection(&self) -> bool;
 }
 
 /*

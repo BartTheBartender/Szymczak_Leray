@@ -1,5 +1,5 @@
 use crate::category::{
-    morphism::{Endo as EndoMorphism, Morphism, ToMap},
+    morphism::{Endo as EndoMorphism, IsBij, IsMap, Morphism},
     object::Object,
     Category, HomSet, PrettyName,
 };
@@ -44,13 +44,15 @@ impl<
 
         let endomorphisms: EndoMorphisms<E> = category
             .hom_sets
-            .iter()
+            .par_iter()
             .flat_map(|(source, hom_sets_fixed_source)| {
                 hom_sets_fixed_source
-                    .iter()
+                    .par_iter()
                     .filter(move |(target, _)| *target == source)
                     .flat_map(|(_, morphisms)| {
-                        morphisms.iter().map(|morphism| E::from(morphism.clone()))
+                        morphisms
+                            .par_iter()
+                            .map(|morphism| E::from(morphism.clone()))
                     })
             })
             .collect();
@@ -282,7 +284,7 @@ impl<
 impl<
         O: Object + Display + PrettyName,
         M: Morphism<O>,
-        E: EndoMorphism<O> + Debug + ToMap<O> + PrettyName,
+        E: EndoMorphism<O> + Debug + IsMap<O> + IsBij<O> + PrettyName,
     > Display for SzymczakCategory<O, M, E>
 {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
@@ -298,7 +300,7 @@ impl<
 
         let mut string = String::new();
 
-        string.push_str(&format!("Functor name: {}\nObject: {}\nEndomorphism: {}\nNumber of endomorphisms: {}\nNumber of classes: {}\nEvery class has a map: {}\n===\n", Self::PRETTY_NAME, O::PRETTY_NAME, E::PRETTY_NAME, number_of_endomorphisms, self.szymczak_classes.len(), self.every_class_has_a_map()));
+        string.push_str(&format!("Functor name: {}\nObject: {}\nEndomorphism: {}\nNumber of endomorphisms: {}\nNumber of classes: {}\nEvery class has a map: {}\nEvery class has a bijection: {}\n===\n", Self::PRETTY_NAME, O::PRETTY_NAME, E::PRETTY_NAME, number_of_endomorphisms, self.szymczak_classes.len(), self.every_class_has_a_map(), self.every_class_has_a_bijection()));
 
         for szymczak_class in &self.szymczak_classes {
             string.push_str("---\n");
@@ -326,12 +328,22 @@ mod util {
     }
 }
 
-impl<O: Object, M: Morphism<O>, E: EndoMorphism<O> + ToMap<O>> SzymczakCategory<O, M, E> {
+impl<O: Object, M: Morphism<O>, E: EndoMorphism<O> + IsMap<O>> SzymczakCategory<O, M, E> {
     pub fn every_class_has_a_map(&self) -> bool {
         self.szymczak_classes.iter().all(|szymczak_class| {
             szymczak_class
                 .values()
-                .any(|endomorphisms| endomorphisms.iter().any(ToMap::<O>::is_a_map))
+                .any(|endomorphisms| endomorphisms.iter().any(IsMap::<O>::is_a_map))
+        })
+    }
+}
+
+impl<O: Object, M: Morphism<O>, E: EndoMorphism<O> + IsBij<O>> SzymczakCategory<O, M, E> {
+    pub fn every_class_has_a_bijection(&self) -> bool {
+        self.szymczak_classes.iter().all(|szymczak_class| {
+            szymczak_class
+                .values()
+                .any(|endomorphisms| endomorphisms.iter().any(IsBij::<O>::is_a_bijection))
         })
     }
 }
