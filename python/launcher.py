@@ -22,6 +22,9 @@ def launch(base, max_dim, recursion_parameter = None, output_type = 'file in res
         file.writelines(lines)
     try:
         result = subprocess.run(["cargo", "run", "-r"], text=True, capture_output=True, cwd='../src', check=True).stdout
+        
+        if re.search(r'Object: Zn-Module', result) is not None:
+            result = re.sub(r'Object: Zn-Module', f'Object: Z{base}-Module', result)
 
         print(result)
 

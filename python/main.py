@@ -1,8 +1,10 @@
+import os
+script_dir = os.path.dirname(os.path.abspath(__file__))
+os.chdir(script_dir)
+#-------------------------------------------------------------------
 from launcher import launch
 from plotter import plot
-#import benchmarker
-#import math_utils
-#import num_of_classes
+from hypotheses import check
 
 
 for base in range(2, 31):

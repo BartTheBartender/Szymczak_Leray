@@ -300,7 +300,7 @@ impl<
 
         let mut string = String::new();
 
-        string.push_str(&format!("Functor name: {}\nObject: {}\nEndomorphism: {}\nNumber of endomorphisms: {}\nNumber of classes: {}\nEvery class has a map: {}\nEvery class has a bijection: {}\n===\n", Self::PRETTY_NAME, O::PRETTY_NAME, E::PRETTY_NAME, number_of_endomorphisms, self.szymczak_classes.len(), self.every_class_has_a_map(), self.every_class_has_a_bijection()));
+        string.push_str(&format!("Functor name: {}\nObject: {}\nEndomorphism: {}\nNumber of endomorphisms: {}\nNumber of classes: {}\nEvery class has a map: {}\nEvery class has a bijection: {}\nEvery class has exactly one bijection: {}\n===\n", Self::PRETTY_NAME, O::PRETTY_NAME, E::PRETTY_NAME, number_of_endomorphisms, self.szymczak_classes.len(), self.map_in_every_class(), self.bijection_in_every_class(), self.one_bijection_in_every_class()));
 
         for szymczak_class in &self.szymczak_classes {
             string.push_str("---\n");
@@ -329,7 +329,7 @@ mod util {
 }
 
 impl<O: Object, M: Morphism<O>, E: EndoMorphism<O> + IsMap<O>> SzymczakCategory<O, M, E> {
-    pub fn every_class_has_a_map(&self) -> bool {
+    pub fn map_in_every_class(&self) -> bool {
         self.szymczak_classes.iter().all(|szymczak_class| {
             szymczak_class
                 .values()
@@ -339,11 +339,23 @@ impl<O: Object, M: Morphism<O>, E: EndoMorphism<O> + IsMap<O>> SzymczakCategory<
 }
 
 impl<O: Object, M: Morphism<O>, E: EndoMorphism<O> + IsBij<O>> SzymczakCategory<O, M, E> {
-    pub fn every_class_has_a_bijection(&self) -> bool {
+    pub fn bijection_in_every_class(&self) -> bool {
         self.szymczak_classes.iter().all(|szymczak_class| {
             szymczak_class
                 .values()
                 .any(|endomorphisms| endomorphisms.iter().any(IsBij::<O>::is_a_bijection))
+        })
+    }
+
+    pub fn one_bijection_in_every_class(&self) -> bool {
+        self.szymczak_classes.iter().all(|szymczak_class| {
+            szymczak_class.values().any(|endomorphisms| {
+                endomorphisms
+                    .iter()
+                    .filter(|endomorphism| endomorphism.is_a_bijection())
+                    .count()
+                    == 1
+            })
         })
     }
 }
@@ -453,8 +465,6 @@ mod test {
 
         type R = C<N>;
         type I = CIdeal<N>;
-
-        let category = Category::<CanonModule<R, I>, Relation<R, I>>::new(1);
 
         let category = Category::<CanonModule<R, I>, Relation<R, I>>::new(1);
         let zn: CanonModule<R, I> = category

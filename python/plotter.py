@@ -53,7 +53,7 @@ def parse_class_fix_obj(raw_class_fix_obj, obj_type, endo_type):
     return (obj, endos)
 
 def parse_obj(raw_obj, obj_type):
-    if obj_type == 'Zn-Module':
+    if re.search(r'Z\d+\-Module', obj_type) is not None:
         return parse_Zn_module(raw_obj)
 
     raise ValueError('wrong object_type!')
@@ -74,8 +74,9 @@ def parse_preamble(raw_preamble):
     num_of_classes = int(re.search(r'Number of classes: (.+)', raw_preamble).group(1))
     map_hypoth = (re.search(r'Every class has a map: (.+)', raw_preamble).group(1) == 'true')
     bij_hypoth = (re.search(r'Every class has a bijection: (.+)', raw_preamble).group(1) == 'true')
+    strong_bij_hypoth = (re.search(r'Every class has exactly one bijection: (.+)', raw_preamble).group(1) == 'true')
 
-    return [functor_name, obj_type, endo_type, num_of_endos, num_of_classes, map_hypoth, bij_hypoth]
+    return [functor_name, obj_type, endo_type, num_of_endos, num_of_classes, map_hypoth, bij_hypoth, strong_bij_hypoth]
 
 
 
@@ -139,7 +140,7 @@ def plot_endo(endo, elements, color, endo_type):
     raise ValueError('wrong endo_type!')
 
 def plot_obj(obj, obj_type):
-    if obj_type == 'Zn-Module':
+    if re.search(r'Z\d+\-Module', obj_type) is not None:
         return plot_Zn_module(obj)
     raise ValueError('wrong object_type!')
 
@@ -223,11 +224,12 @@ def plot_preamble(preamble):
     num_of_classes = preamble[4]
     map_hypoth = preamble[5]
     bij_hypoth = preamble[6]
+    strong_bij_hypoth = preamble[7]
 
     if obj_type == 'Zn-Module':
         pass
 
-    output = f'Functor name: {functor_name}\nObject: {obj_type}\nEndomorphism: {endo_type}\nNumber of endomorphisms: {num_of_endos}\nNumber of classes: {num_of_classes}\nEvery class has a map: {map_hypoth}\nEvery class has a bijection: {bij_hypoth}'
+    output = f'Functor name: {functor_name}\nObject: {obj_type}\nEndomorphism: {endo_type}\nNumber of endomorphisms: {num_of_endos}\nNumber of classes: {num_of_classes}\nEvery class has a map: {map_hypoth}\nEvery class has a bijection: {bij_hypoth}\nEvery class has exactly one bijection: {strong_bij_hypoth}'
     
     fig = plt.figure()
     plt.rc('text')
