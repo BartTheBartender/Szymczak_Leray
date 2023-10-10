@@ -116,12 +116,13 @@ use crate::{
 };
 use std::time::Instant;
 // parameters for the code
-use typenum::U29 as N;
+use typenum::U25 as N;
 type Int = u16;
 type R = C<N>;
 type I = CIdeal<N>;
 const DIM: Int = 1;
 const RECURSION_PARAMETER: usize = 6;
+
 fn main() {
     //
     let category_time = Instant::now();
@@ -134,5 +135,5 @@ fn main() {
             { RECURSION_PARAMETER },
         >(&category);
 
-    println!("{}\n===\nCategory generated after: {}\nIsomorphisms classes generated after: {}\nParameter of the recursion: {}", szymczak_category, category_time_elapsed.as_millis(), szymczak_classes_time.elapsed().as_millis(), RECURSION_PARAMETER);
+    println!("{}===\nCategory generated after: {}\nIsomorphisms classes generated after: {}\nParameter of the recursion: {}", szymczak_category, category_time_elapsed.as_millis(), szymczak_classes_time.elapsed().as_millis(), RECURSION_PARAMETER);
 }
