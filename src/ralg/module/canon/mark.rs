@@ -1,13 +1,10 @@
-use std::{
-    cmp,
-    sync::atomic::{AtomicU64, Ordering},
-};
+use std::sync::atomic::{AtomicU64, Ordering};
 
 /* # element with UUID */
 
 static COUNTER: AtomicU64 = AtomicU64::new(0);
 
-#[derive(Clone, Debug, PartialEq, Eq, Hash)]
+#[derive(Clone, Debug, PartialEq, Eq, Hash, PartialOrd, Ord)]
 pub struct Mark<T> {
     pub thing: T,
     index: u64,
@@ -62,29 +59,3 @@ impl<T> Mark<Option<T>> {
 
 unsafe impl<T: Send> Send for Mark<T> {}
 unsafe impl<T: Sync> Sync for Mark<T> {}
-
-/* ## order */
-
-impl<T: PartialOrd> PartialOrd for Mark<T> {
-    /// lexicographic order, reversed on thing
-    fn partial_cmp(&self, other: &Self) -> Option<cmp::Ordering> {
-        match (
-            self.thing.partial_cmp(&other.thing),
-            self.index.partial_cmp(&other.index),
-        ) {
-            (None, _) => None,
-            (Some(cmp::Ordering::Equal), ord) => ord,
-            (Some(ord), _) => Some(ord.reverse()),
-        }
-    }
-}
-
-impl<T: Ord> Ord for Mark<T> {
-    /// lexicographic order, reversed on thing
-    fn cmp(&self, other: &Self) -> cmp::Ordering {
-        match (self.thing.cmp(&other.thing), self.index.cmp(&other.index)) {
-            (cmp::Ordering::Equal, ord) => ord,
-            (ord, _) => ord.reverse(),
-        }
-    }
-}

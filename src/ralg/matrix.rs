@@ -415,10 +415,16 @@ impl<R: Copy + BezoutRing + Into<u16>> Matrix<R> {
     ) -> Option<(R, usize, usize)> {
         (0..self.nof_cols)
             .filter(|col| !done_cols.contains(col))
-            .cartesian_product((0..self.nof_rows).filter(|row| !done_rows.contains(row)))
+            .cartesian_product(
+                (0..self.nof_rows)
+                    .rev()
+                    .filter(|row| !done_rows.contains(row)),
+            )
             .map(|(col, row)| (*self.get(col, row).unwrap_or(&R::zero()), col, row))
             .filter(|&(v, _, _)| !v.is_zero())
-            .sorted_by_key(|&(v, _, _)| <R as Into<u16>>::into(v))
+            .sorted_by_key(|&(v, _, _)| {
+                <R as Into<u16>>::into(v).min(<R as Into<u16>>::into(v.neg()))
+            })
             .next()
     }
 
@@ -495,7 +501,7 @@ mod test {
 
     use super::*;
     use crate::ralg::cgroup::C;
-    use typenum::{U32, U54, U6, U7};
+    use typenum::{U32, U4, U54, U6, U7};
 
     /* # 2d container */
 
@@ -729,7 +735,7 @@ mod test {
         );
         assert_eq!(
             m.find_smallest_nonzero_entry(&BTreeSet::from_iter([0]), &BTreeSet::new()),
-            Some((R::from(3), 1, 1))
+            Some((R::from(5), 2, 0))
         );
         assert_eq!(
             m.find_smallest_nonzero_entry(&BTreeSet::from_iter([0]), &BTreeSet::from_iter([0])),
@@ -759,8 +765,8 @@ mod test {
         type R = C<U6>;
         let m = Matrix::<R>::from_buffer([1, 1, 1, 1].map(R::from), 2, 2);
         let (u, s, v) = m.pseudo_smith();
-        assert_eq!(s, Matrix::<R>::from_buffer([1, 0, 0, 0].map(R::from), 2, 2));
-        assert_eq!(u, Matrix::<R>::from_buffer([1, 0, 5, 1].map(R::from), 2, 2));
+        assert_eq!(s, Matrix::<R>::from_buffer([0, 0, 1, 0].map(R::from), 2, 2));
+        assert_eq!(u, Matrix::<R>::from_buffer([1, 5, 0, 1].map(R::from), 2, 2));
         assert_eq!(v, Matrix::<R>::from_buffer([1, 5, 0, 1].map(R::from), 2, 2));
     }
 
@@ -769,9 +775,49 @@ mod test {
         type R = C<U7>;
         let m = Matrix::<R>::from_buffer([6, 4].map(R::from), 2, 1);
         let (u, s, v) = m.pseudo_smith();
-        assert_eq!(s, Matrix::<R>::from_buffer([0, 4].map(R::from), 2, 1));
+        assert_eq!(s, Matrix::<R>::from_buffer([6, 0].map(R::from), 2, 1));
         assert_eq!(u, Matrix::<R>::from_buffer([1].map(R::from), 1, 1));
-        assert_eq!(v, Matrix::<R>::from_buffer([2, 0, 4, 1].map(R::from), 2, 2));
+        assert_eq!(v, Matrix::<R>::from_buffer([1, 5, 0, 3].map(R::from), 2, 2));
+    }
+
+    #[test]
+    fn smithing_ordering_really_matters_one() {
+        type R = C<U4>;
+        let m = Matrix::<R>::from_buffer([3, 3, 0, 0, 1, 0, 1, 3].map(R::from), 4, 2);
+        let (u, s, v) = m.pseudo_smith();
+        assert_eq!(
+            s,
+            Matrix::<R>::from_buffer([0, 3, 0, 0, 1, 0, 0, 0].map(R::from), 4, 2)
+        );
+        assert_eq!(u, Matrix::<R>::from_buffer([1, 1, 0, 1].map(R::from), 2, 2));
+        assert_eq!(
+            v,
+            Matrix::<R>::from_buffer(
+                [1, 0, 1, 1, 0, 1, 3, 3, 0, 0, 3, 0, 0, 0, 0, 1].map(R::from),
+                4,
+                4
+            )
+        );
+    }
+
+    #[test]
+    fn smithing_ordering_really_matters_two() {
+        type R = C<U4>;
+        let m = Matrix::<R>::from_buffer([3, 1, 1, 0, 0, 3, 2, 3].map(R::from), 4, 2);
+        let (u, s, v) = m.pseudo_smith();
+        assert_eq!(
+            s,
+            Matrix::<R>::from_buffer([3, 0, 0, 0, 0, 1, 0, 0].map(R::from), 4, 2)
+        );
+        assert_eq!(u, Matrix::<R>::from_buffer([1, 0, 0, 1].map(R::from), 2, 2));
+        assert_eq!(
+            v,
+            Matrix::<R>::from_buffer(
+                [1, 3, 1, 3, 0, 3, 2, 3, 0, 0, 3, 0, 0, 0, 0, 1].map(R::from),
+                4,
+                4
+            )
+        );
     }
 
     #[test]
@@ -781,7 +827,7 @@ mod test {
         let (u, s, v) = m.pseudo_smith();
         assert_eq!(
             s,
-            Matrix::<R>::from_buffer([2, 0, 0, 0, 18, 0].map(R::from), 3, 2)
+            Matrix::<R>::from_buffer([2, 0, 0, 0, 0, 27].map(R::from), 3, 2)
         );
         assert_eq!(
             u,
@@ -789,7 +835,7 @@ mod test {
         );
         assert_eq!(
             v,
-            Matrix::<R>::from_buffer([1, 27, 9, 0, 2, 26, 0, 0, 2].map(R::from), 3, 3),
+            Matrix::<R>::from_buffer([1, 23, 29, 0, 6, 0, 0, 30, 1].map(R::from), 3, 3),
         );
     }
 }
