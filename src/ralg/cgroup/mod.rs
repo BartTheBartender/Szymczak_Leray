@@ -253,7 +253,9 @@ pub struct Factors<Period: Radix> {
     marble: C<Period>,
 }
 
-const SMALL_PRIMES: &[u16] = &[2, 3, 5, 7, 11, 13, 17, 19, 23, 29];
+const SMALL_PRIMES: &[u16] = &[
+    2, 3, 5, 7, 11, 13, 17, 19, 23, 29, 31, 37, 41, 43, 47, 53, 59, 61, 67, 71, 73, 79, 83, 89, 97,
+];
 
 impl<Period: Radix + IsGreater<U1>> Iterator for Factors<Period> {
     type Item = C<Period>;

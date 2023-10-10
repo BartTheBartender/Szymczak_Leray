@@ -4,10 +4,7 @@ os.chdir(script_dir)
 #-------------------------------------------------------------------
 from launcher import launch
 from plotter import plot
-from hypotheses import check
+from hypotheses import find_special_representant
 
-
-for base in range(2, 31):
-    launch(base = base, max_dim = 1)
-    plot(base = base, max_dim = 1)
+launch(base = 2, max_dim = 1)
 

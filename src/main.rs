@@ -116,11 +116,11 @@ use crate::{
 };
 use std::time::Instant;
 // parameters for the code
-use typenum::U4 as N;
+use typenum::U2 as N;
 type Int = u16;
 type R = C<N>;
 type I = CIdeal<N>;
-const DIM: Int = 2;
+const DIM: Int = 1;
 const RECURSION_PARAMETER: usize = 6;
 
 fn main() {
