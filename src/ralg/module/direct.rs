@@ -335,17 +335,17 @@ mod test {
         let z2 = Arc::new(CanonModule::<R, I>::from_iter([2]));
         let z3 = Arc::new(CanonModule::<R, I>::from_iter([3]));
         let z4 = Arc::new(CanonModule::<R, I>::from_iter([4]));
-        let z43_canon = Arc::new(CanonModule::<R, I>::from_iter([4, 3]));
-        let z43_direct = Object::sumproduct(&z4, &z3);
+        let z34_canon = Arc::new(CanonModule::<R, I>::from_iter([3, 4]));
+        let z34_direct = Object::sumproduct(&z3, &z4);
         assert_eq!(
-            z43_direct.universal_in(
-                &CanonToCanon::new(&z2, &z4, Matrix::from_buffer([2, 0].map(R::from), 1, 2)),
+            z34_direct.universal_in(
                 &CanonToCanon::new(&z2, &z3, Matrix::from_buffer([0].map(R::from), 1, 1)),
+                &CanonToCanon::new(&z2, &z4, Matrix::from_buffer([2].map(R::from), 1, 1)),
             ),
             CanonToCanon::new(
                 &z2,
-                &z43_canon,
-                Matrix::from_buffer([2, 0].map(R::from), 1, 2),
+                &z34_canon,
+                Matrix::from_buffer([0, 2].map(R::from), 1, 2),
             )
         );
     }
@@ -354,31 +354,31 @@ mod test {
     fn universal_morphism_in_medium() {
         type R = C<U12>;
         type I = CIdeal<U12>;
-        let z43 = Arc::new(CanonModule::<R, I>::from_iter([4, 3]));
-        let z32 = Arc::new(CanonModule::<R, I>::from_iter([3, 2]));
-        let z4332_canon = Arc::new(CanonModule::<R, I>::from_iter([4, 3, 3, 2]));
-        let z4332_direct = Object::sumproduct(&z32, &z43);
-        let univ_in = z4332_direct.universal_in(
+        let z34 = Arc::new(CanonModule::<R, I>::from_iter([4, 3]));
+        let z23 = Arc::new(CanonModule::<R, I>::from_iter([3, 2]));
+        let z2334_canon = Arc::new(CanonModule::<R, I>::from_iter([4, 3, 3, 2]));
+        let z2334_direct = Object::sumproduct(&z23, &z34);
+        let univ_in = z2334_direct.universal_in(
             &CanonToCanon::new(
-                &z43,
-                &z32,
-                Matrix::from_buffer([0, 2, 1, 0].map(R::from), 2, 2),
+                &z34,
+                &z23,
+                Matrix::from_buffer([0, 1, 2, 0].map(R::from), 2, 2),
             ),
             &CanonToCanon::new(
-                &z43,
-                &z43,
-                Matrix::from_buffer([2, 0, 0, 1].map(R::from), 2, 2),
+                &z34,
+                &z34,
+                Matrix::from_buffer([1, 0, 0, 2].map(R::from), 2, 2),
             ),
         );
         let true_output_a = CanonToCanon::new(
-            &z43,
-            &z4332_canon,
-            Matrix::from_buffer([2, 0, 0, 1, 0, 2, 1, 0].map(R::from), 2, 4),
+            &z34,
+            &z2334_canon,
+            Matrix::from_buffer([1, 0, 0, 1, 2, 0, 0, 2].map(R::from), 2, 4),
         );
         let true_output_b = CanonToCanon::new(
-            &z43,
-            &z4332_canon,
-            Matrix::from_buffer([2, 0, 0, 2, 0, 1, 1, 0].map(R::from), 2, 4),
+            &z34,
+            &z2334_canon,
+            Matrix::from_buffer([0, 1, 1, 0, 2, 0, 0, 2].map(R::from), 2, 4),
         );
         // due to random id, one of those will be true
         assert!(univ_in == true_output_a || univ_in == true_output_b,);
@@ -391,17 +391,17 @@ mod test {
         let z2 = Arc::new(CanonModule::<R, I>::from_iter([2]));
         let z3 = Arc::new(CanonModule::<R, I>::from_iter([3]));
         let z4 = Arc::new(CanonModule::<R, I>::from_iter([4]));
-        let z43_canon = Arc::new(CanonModule::<R, I>::from_iter([4, 3]));
-        let z43_direct = Object::sumproduct(&z4, &z3);
+        let z34_canon = Arc::new(CanonModule::<R, I>::from_iter([4, 3]));
+        let z34_direct = Object::sumproduct(&z3, &z4);
         assert_eq!(
-            z43_direct.universal_out(
-                &CanonToCanon::new(&z4, &z2, Matrix::from_buffer([1, 0].map(R::from), 1, 2)),
+            z34_direct.universal_out(
                 &CanonToCanon::new(&z3, &z2, Matrix::from_buffer([0].map(R::from), 1, 1)),
+                &CanonToCanon::new(&z4, &z2, Matrix::from_buffer([1].map(R::from), 1, 1)),
             ),
             CanonToCanon::new(
-                &z43_canon,
+                &z34_canon,
                 &z2,
-                Matrix::from_buffer([1, 0].map(R::from), 2, 1),
+                Matrix::from_buffer([0, 1].map(R::from), 2, 1),
             )
         );
     }
@@ -410,31 +410,31 @@ mod test {
     fn universal_morphism_out_medium() {
         type R = C<U12>;
         type I = CIdeal<U12>;
-        let z43 = Arc::new(CanonModule::<R, I>::from_iter([4, 3]));
-        let z32 = Arc::new(CanonModule::<R, I>::from_iter([3, 2]));
-        let z4332_canon = Arc::new(CanonModule::<R, I>::from_iter([4, 3, 3, 2]));
-        let z4332_direct = Object::sumproduct(&z32, &z43);
-        let univ_out = z4332_direct.universal_out(
+        let z34 = Arc::new(CanonModule::<R, I>::from_iter([4, 3]));
+        let z23 = Arc::new(CanonModule::<R, I>::from_iter([3, 2]));
+        let z2334_canon = Arc::new(CanonModule::<R, I>::from_iter([4, 3, 3, 2]));
+        let z2334_direct = Object::sumproduct(&z23, &z34);
+        let univ_out = z2334_direct.universal_out(
             &CanonToCanon::new(
-                &z32,
-                &z43,
+                &z23,
+                &z34,
                 Matrix::from_buffer([0, 2, 2, 0].map(R::from), 2, 2),
             ),
             &CanonToCanon::new(
-                &z43,
-                &z43,
-                Matrix::from_buffer([3, 0, 0, 1].map(R::from), 2, 2),
+                &z34,
+                &z34,
+                Matrix::from_buffer([1, 0, 0, 3].map(R::from), 2, 2),
             ),
         );
         let true_output_a = CanonToCanon::new(
-            &z4332_canon,
-            &z43,
-            Matrix::from_buffer([3, 0, 0, 2, 0, 2, 1, 0].map(R::from), 4, 2),
+            &z2334_canon,
+            &z34,
+            Matrix::from_buffer([0, 1, 2, 0, 2, 0, 0, 3].map(R::from), 4, 2),
         );
         let true_output_b = CanonToCanon::new(
-            &z4332_canon,
-            &z43,
-            Matrix::from_buffer([3, 0, 0, 2, 0, 1, 2, 0].map(R::from), 4, 2),
+            &z2334_canon,
+            &z34,
+            Matrix::from_buffer([1, 0, 0, 2, 2, 0, 0, 3].map(R::from), 4, 2),
         );
         // due to random id, one of those will be true
         assert!(univ_out == true_output_a || univ_out == true_output_b);
@@ -447,40 +447,40 @@ mod test {
         type I = CIdeal<U4>;
         let z2 = Arc::new(CanonModule::<R, I>::from_iter([2]));
         let z4 = Arc::new(CanonModule::<R, I>::from_iter([4]));
-        let z42_canon = Arc::new(CanonModule::<R, I>::from_iter([4, 2]));
-        let z42_direct = Object::sumproduct(&z2, &z4);
+        let z24_canon = Arc::new(CanonModule::<R, I>::from_iter([4, 2]));
+        let z24_direct = Object::sumproduct(&z4, &z2);
 
-        assert_eq!(z42_canon, z42_direct.module());
+        assert_eq!(z24_canon, z24_direct.module());
         assert_eq!(
-            z42_direct.left_inclusion,
+            z24_direct.right_inclusion,
             CanonToCanon::new(
                 &z2,
-                &z42_canon,
-                Matrix::from_buffer([0, 1].map(R::from), 1, 2),
-            )
-        );
-        assert_eq!(
-            z42_direct.right_inclusion,
-            CanonToCanon::new(
-                &z4,
-                &z42_canon,
+                &z24_canon,
                 Matrix::from_buffer([1, 0].map(R::from), 1, 2),
             )
         );
         assert_eq!(
-            z42_direct.left_projection,
+            z24_direct.left_inclusion,
             CanonToCanon::new(
-                &z42_canon,
-                &z2,
-                Matrix::from_buffer([0, 1].map(R::from), 2, 1),
+                &z4,
+                &z24_canon,
+                Matrix::from_buffer([0, 1].map(R::from), 1, 2),
             )
         );
         assert_eq!(
-            z42_direct.right_projection,
+            z24_direct.right_projection,
             CanonToCanon::new(
-                &z42_canon,
-                &z4,
+                &z24_canon,
+                &z2,
                 Matrix::from_buffer([1, 0].map(R::from), 2, 1),
+            )
+        );
+        assert_eq!(
+            z24_direct.left_projection,
+            CanonToCanon::new(
+                &z24_canon,
+                &z4,
+                Matrix::from_buffer([0, 1].map(R::from), 2, 1),
             )
         );
     }

@@ -85,14 +85,17 @@ where
 
 impl<R: Ring + Copy, I: Ideal<Parent = R> + Ord> PartialEq for CanonToCanon<R, I> {
     fn eq(&self, other: &Self) -> bool {
-        self.matrix
-            .clone()
-            .try_add(other.matrix.clone().neg())
-            .is_some_and(|matrix| {
-                matrix
-                    .cols()
-                    .all(|col| self.target.element_from_iterator(col.copied()).is_zero())
-            })
+        self.source == other.source
+            && self.target == other.target
+            && self
+                .matrix
+                .clone()
+                .try_add(other.matrix.clone().neg())
+                .is_some_and(|matrix| {
+                    matrix
+                        .cols()
+                        .all(|col| self.target.element_from_iterator(col.copied()).is_zero())
+                })
     }
 }
 
@@ -250,7 +253,15 @@ impl<R: BezoutRing + FactorialRing + Into<u16>, I: PrincipalIdeal<Parent = R> + 
                     .copied()
                     .enumerate()
                     // there will be at most one nonzero element in the column
-                    .find(|&(_row, r)| !coeff.attach_element(r).is_zero())
+                    .find(|&(row, r)| {
+                        !self
+                            .target
+                            .things()
+                            .nth(row)
+                            .expect("row was taken from columns")
+                            .attach_element(r)
+                            .is_zero()
+                    })
                     .map_or_else(
                         || coeff.clone(),
                         |(row, r)| {
@@ -278,7 +289,6 @@ impl<R: BezoutRing + FactorialRing + Into<u16>, I: PrincipalIdeal<Parent = R> + 
                                     .clone()
                                     .generator()
                                     .try_divide(x.ideal.clone().generator())
-                                    // .find(|z| !z.is_zero())
                                     .next()
                                     .expect("smithing went wrong, second")
                             })
@@ -286,7 +296,7 @@ impl<R: BezoutRing + FactorialRing + Into<u16>, I: PrincipalIdeal<Parent = R> + 
                         .collect(),
                 ))
             })
-            .sorted_by(|a, b| Ord::cmp(&a.0.ideal, &b.0.ideal).reverse())
+            .sorted_by(|a, b| Ord::cmp(&a.0.ideal, &b.0.ideal))
             .unzip();
 
         let nof_cols: usize = columns.len();
@@ -319,7 +329,7 @@ impl<R: BezoutRing + FactorialRing + Into<u16>, I: PrincipalIdeal<Parent = R> + 
                     );
                 (!x.ideal.is_full()).then_some((x, u_row.copied().collect()))
             })
-            .sorted_by(|a, b| Ord::cmp(&a.0.ideal, &b.0.ideal).reverse())
+            .sorted_by(|a, b| Ord::cmp(&a.0.ideal, &b.0.ideal))
             .unzip();
 
         let nof_rows: usize = rows.len();
@@ -606,7 +616,7 @@ mod test {
             CanonToCanon::new(
                 &z6,
                 &z6,
-                Matrix::from_buffer([2, 0, 0, 1].map(R::from), 2, 2),
+                Matrix::from_buffer([1, 0, 0, 2].map(R::from), 2, 2),
             )
             .kernel(),
             CanonToCanon::new(&z1, &z6, Matrix::from_buffer([], 0, 2))
@@ -621,10 +631,10 @@ mod test {
             CanonToCanon::new(
                 &z6,
                 &z6,
-                Matrix::from_buffer([1, 0, 0, 2].map(R::from), 2, 2),
+                Matrix::from_buffer([2, 0, 0, 1].map(R::from), 2, 2),
             )
             .kernel(),
-            CanonToCanon::new(&z2, &z6, Matrix::from_buffer([0, 1].map(R::from), 1, 2))
+            CanonToCanon::new(&z2, &z6, Matrix::from_buffer([1, 0].map(R::from), 1, 2))
         );
     }
 
@@ -652,13 +662,11 @@ mod test {
         let z7sq = Arc::new(CanonModule::<R, I>::from_iter([0, 0]));
         assert_eq!(
             CanonToCanon::new(&z7sq, &z7, Matrix::from_buffer([6, 4].map(R::from), 2, 1)).kernel(),
-            CanonToCanon::new(&z7, &z7sq, Matrix::from_buffer([2, 4].map(R::from), 1, 2))
+            CanonToCanon::new(&z7, &z7sq, Matrix::from_buffer([5, 3].map(R::from), 1, 2))
         );
     }
 
     #[test]
-    #[ignore]
-    // this fails so far but i do not think it is too important right now
     fn kernel_asymetric() {
         let z2 = Arc::new(CanonModule::<R, I>::from_iter([2]));
         let z4 = Arc::new(CanonModule::<R, I>::from_iter([4]));
@@ -674,18 +682,17 @@ mod test {
     fn kernel_hard() {
         let z43 = Arc::new(CanonModule::<R, I>::from_iter([4, 3]));
         let z942 = Arc::new(CanonModule::<R, I>::from_iter([9, 4, 2]));
-        let z322 = Arc::new(CanonModule::<R, I>::from_iter([3, 2, 2]));
         assert_eq!(
             CanonToCanon::new(
                 &z942,
                 &z43,
-                Matrix::from_buffer([0, 2, 2, 1, 0, 0].map(R::from), 3, 2),
+                Matrix::from_buffer([0, 0, 1, 2, 2, 0].map(R::from), 3, 2),
             )
             .kernel(),
             CanonToCanon::new(
-                &z322,
+                &z43,
                 &z942,
-                Matrix::from_buffer([3, 0, 0, 0, 2, 3, 0, 0, 1].map(R::from), 3, 3),
+                Matrix::from_buffer([0, 35, 0, 1, 3, 0].map(R::from), 2, 3),
             )
         );
     }
@@ -712,7 +719,7 @@ mod test {
             CanonToCanon::new(
                 &z6,
                 &z6,
-                Matrix::from_buffer([2, 0, 0, 1].map(R::from), 2, 2),
+                Matrix::from_buffer([1, 0, 0, 2].map(R::from), 2, 2),
             )
             .cokernel(),
             CanonToCanon::new(&z6, &z1, Matrix::from_buffer([], 2, 0))
@@ -727,10 +734,10 @@ mod test {
             CanonToCanon::new(
                 &z6,
                 &z6,
-                Matrix::from_buffer([1, 0, 0, 2].map(R::from), 2, 2),
+                Matrix::from_buffer([2, 0, 0, 1].map(R::from), 2, 2),
             )
             .cokernel(),
-            CanonToCanon::new(&z6, &z2, Matrix::from_buffer([0, 1].map(R::from), 2, 1))
+            CanonToCanon::new(&z6, &z2, Matrix::from_buffer([1, 0].map(R::from), 2, 1))
         );
     }
 
@@ -750,6 +757,17 @@ mod test {
     }
 
     #[test]
+    fn cokernel_medium_other() {
+        let z2 = Arc::new(CanonModule::<R, I>::from_iter([2]));
+        let z4 = Arc::new(CanonModule::<R, I>::from_iter([4]));
+        let z24 = Arc::new(CanonModule::<R, I>::from_iter([2, 4]));
+        assert_eq!(
+            CanonToCanon::new(&z4, &z24, Matrix::from_buffer([1, 1].map(R::from), 1, 2)).cokernel(),
+            CanonToCanon::new(&z24, &z2, Matrix::from_buffer([35, 1].map(R::from), 2, 1))
+        );
+    }
+
+    #[test]
     fn cokernel_hard() {
         let z2 = Arc::new(CanonModule::<R, I>::from_iter([2]));
         let z43 = Arc::new(CanonModule::<R, I>::from_iter([4, 3]));
@@ -758,10 +776,10 @@ mod test {
             CanonToCanon::new(
                 &z942,
                 &z43,
-                Matrix::from_buffer([0, 2, 2, 1, 0, 0].map(R::from), 3, 2),
+                Matrix::from_buffer([0, 0, 1, 2, 2, 0].map(R::from), 3, 2),
             )
             .cokernel(),
-            CanonToCanon::new(&z43, &z2, Matrix::from_buffer([1, 0].map(R::from), 2, 1))
+            CanonToCanon::new(&z43, &z2, Matrix::from_buffer([0, 1].map(R::from), 2, 1))
         );
     }
 }

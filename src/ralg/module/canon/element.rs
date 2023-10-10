@@ -179,15 +179,15 @@ mod test {
     #[test]
     fn equality() {
         type N = U6;
-        let z6xz3 =
+        let z223 =
             Object::<C<N>, CIdeal<N>>::from_iter([0, 3].map(|j| CIdeal::principal(C::from(j))));
-        let z6sq =
+        let z2233 =
             Object::<C<N>, CIdeal<N>>::from_iter([0, 0].map(|j| CIdeal::principal(C::from(j))));
 
-        let a = z6xz3.element_from_iterator([1, 1, 1].into_iter().map(C::from));
-        let b = z6xz3.element_from_iterator([2, 1, 1].into_iter().map(C::from));
-        let c = z6xz3.element_from_iterator([4, 1, 1].into_iter().map(C::from));
-        let d = z6sq.element_from_iterator([1, 1, 1, 0].into_iter().map(C::from));
+        let a = z223.element_from_iterator([1, 1, 1].into_iter().map(C::from));
+        let b = z223.element_from_iterator([1, 1, 2].into_iter().map(C::from));
+        let c = z223.element_from_iterator([1, 1, 4].into_iter().map(C::from));
+        let d = z2233.element_from_iterator([1, 1, 1, 0].into_iter().map(C::from));
         assert_eq!(a.is_equal(&b), Some(false));
         assert_eq!(a.is_equal(&c), Some(true));
         assert_eq!(a.is_equal(&d), None);
@@ -197,18 +197,18 @@ mod test {
     #[allow(clippy::shadow_unrelated, reason = "useful in test")]
     fn addition() {
         type N = U6;
-        let z6xz3 =
+        let z223 =
             Object::<C<N>, CIdeal<N>>::from_iter([0, 3].map(|j| CIdeal::principal(C::from(j))));
 
-        let a = z6xz3.element_from_iterator([1, 1, 1].into_iter().map(C::from));
-        let b = z6xz3.element_from_iterator([2, 1, 1].into_iter().map(C::from));
-        let c = z6xz3.element_from_iterator([0, 2, 0].into_iter().map(C::from));
+        let a = z223.element_from_iterator([1, 1, 1].into_iter().map(C::from));
+        let b = z223.element_from_iterator([1, 0, 2].into_iter().map(C::from));
+        let c = z223.element_from_iterator([0, 1, 0].into_iter().map(C::from));
         assert_eq!(
             a.try_add(b.clone()).and_then(|e| e.is_equal(&c)),
             Some(true)
         );
 
-        let a = z6xz3.element_from_iterator([4, 7, 3].into_iter().map(C::from));
+        let a = z223.element_from_iterator([3, 7, 4].into_iter().map(C::from));
         assert_eq!(
             a.try_add(b.clone()).and_then(|e| e.is_equal(&c)),
             Some(true)

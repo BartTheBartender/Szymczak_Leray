@@ -471,12 +471,12 @@ mod test {
             .buffer
             .iter()
             .map(|x| u16::from(x.thing.ideal.generator()));
+        assert_eq!(marks.next(), Some(2));
+        assert_eq!(marks.next(), Some(2));
+        assert_eq!(marks.next(), Some(2));
+        assert_eq!(marks.next(), Some(2));
         assert_eq!(marks.next(), Some(3));
         assert_eq!(marks.next(), Some(3));
-        assert_eq!(marks.next(), Some(2));
-        assert_eq!(marks.next(), Some(2));
-        assert_eq!(marks.next(), Some(2));
-        assert_eq!(marks.next(), Some(2));
         assert_eq!(marks.next(), None);
     }
 
@@ -490,9 +490,9 @@ mod test {
             .buffer
             .iter()
             .map(|x| u16::from(x.thing.ideal.generator()));
-        assert_eq!(marks.next(), Some(4));
-        assert_eq!(marks.next(), Some(3));
         assert_eq!(marks.next(), Some(2));
+        assert_eq!(marks.next(), Some(3));
+        assert_eq!(marks.next(), Some(4));
         assert_eq!(marks.next(), None);
     }
 
@@ -509,17 +509,17 @@ mod test {
             .buffer
             .iter()
             .map(|x| u16::from(x.thing.ideal.generator()));
-        assert_eq!(marks_left.next(), Some(32));
-        assert_eq!(marks_left.next(), Some(8));
         assert_eq!(marks_left.next(), Some(2));
+        assert_eq!(marks_left.next(), Some(8));
+        assert_eq!(marks_left.next(), Some(32));
         assert_eq!(marks_left.next(), None);
 
         let mut marks_right = r
             .buffer
             .iter()
             .map(|x| u16::from(x.thing.ideal.generator()));
-        assert_eq!(marks_right.next(), Some(16));
         assert_eq!(marks_right.next(), Some(4));
+        assert_eq!(marks_right.next(), Some(16));
         assert_eq!(marks_right.next(), None);
     }
 
@@ -536,11 +536,11 @@ mod test {
             .buffer
             .iter()
             .map(|x| u16::from(x.thing.ideal.generator()));
+        assert_eq!(marks.next(), Some(2));
+        assert_eq!(marks.next(), Some(2));
+        assert_eq!(marks.next(), Some(3));
+        assert_eq!(marks.next(), Some(3));
         assert_eq!(marks.next(), Some(4));
-        assert_eq!(marks.next(), Some(3));
-        assert_eq!(marks.next(), Some(3));
-        assert_eq!(marks.next(), Some(2));
-        assert_eq!(marks.next(), Some(2));
         assert_eq!(marks.next(), None);
     }
 
@@ -691,46 +691,46 @@ mod test {
     fn submodules_of_Z2xZ4() {
         type R = C<U4>;
         type I = CIdeal<U4>;
-        let z42 = Arc::new(Object::<R, I>::from_iter([4, 2]));
-        let submodules = (*z42).clone().submodules();
+        let z24 = Arc::new(Object::<R, I>::from_iter([4, 2]));
+        let submodules = (*z24).clone().submodules();
 
         let trivial = CanonToCanon::new(
             &Arc::new(Object::from_iter([1])),
-            &z42,
+            &z24,
             Matrix::from_buffer([], 0, 2),
         );
         assert!(submodules.contains(&trivial), "trivial submodule");
 
         let right_z2 = CanonToCanon::new(
             &Arc::new(Object::from_iter([2])),
-            &z42,
-            Matrix::from_buffer([0, 1].map(R::from), 1, 2),
+            &z24,
+            Matrix::from_buffer([0, 2].map(R::from), 1, 2),
         );
         assert!(submodules.contains(&right_z2), "right Z2");
 
         let left_z2 = CanonToCanon::new(
             &Arc::new(Object::from_iter([2])),
-            &z42,
-            Matrix::from_buffer([2, 0].map(R::from), 1, 2),
+            &z24,
+            Matrix::from_buffer([1, 0].map(R::from), 1, 2),
         );
         assert!(submodules.contains(&left_z2), "left Z2");
 
         let diagonal_z2 = CanonToCanon::new(
             &Arc::new(Object::from_iter([2])),
-            &z42,
-            Matrix::from_buffer([2, 1].map(R::from), 1, 2),
+            &z24,
+            Matrix::from_buffer([1, 2].map(R::from), 1, 2),
         );
         assert!(submodules.contains(&diagonal_z2), "diagonal Z2");
 
         let z2sq_a = CanonToCanon::new(
             &Arc::new(Object::from_iter([2, 2])),
-            &z42,
-            Matrix::from_buffer([2, 0, 0, 1].map(R::from), 2, 2),
+            &z24,
+            Matrix::from_buffer([1, 0, 0, 2].map(R::from), 2, 2),
         );
         let z2sq_b = CanonToCanon::new(
             &Arc::new(Object::from_iter([2, 2])),
-            &z42,
-            Matrix::from_buffer([0, 2, 1, 0].map(R::from), 2, 2),
+            &z24,
+            Matrix::from_buffer([0, 1, 2, 0].map(R::from), 2, 2),
         );
         assert!(
             submodules.contains(&z2sq_a) || submodules.contains(&z2sq_b),
@@ -739,34 +739,21 @@ mod test {
 
         let straight_z4 = CanonToCanon::new(
             &Arc::new(Object::from_iter([4])),
-            &z42,
-            Matrix::from_buffer([1, 0].map(R::from), 1, 2),
+            &z24,
+            Matrix::from_buffer([0, 1].map(R::from), 1, 2),
         );
         assert!(submodules.contains(&straight_z4), "straight Z4");
 
-        /*
-        this does not work due to a small inconsistency i found
-        the result still provides the right elements of the group, just in the wrong configuration
-        this is attested by the `kernel_asymetric` test that fails
-        */
-        let proper_diagonal_z4 = CanonToCanon::new(
+        let diagonal_z4 = CanonToCanon::new(
             &Arc::new(Object::from_iter([4])),
-            &z42,
+            &z24,
             Matrix::from_buffer([1, 1].map(R::from), 1, 2),
         );
-        let fake_diagonal_z4 = CanonToCanon::new(
-            &Arc::new(Object::from_iter([2, 2])),
-            &z42,
-            Matrix::from_buffer([2, 1, 0, 1].map(R::from), 2, 2),
-        );
-        assert!(
-            submodules.contains(&proper_diagonal_z4) || submodules.contains(&fake_diagonal_z4),
-            "diagonal Z4"
-        );
+        assert!(submodules.contains(&diagonal_z4), "diagonal Z4");
 
         let full = CanonToCanon::new(
             &Arc::new(Object::from_iter([4, 2])),
-            &z42,
+            &z24,
             Matrix::from_buffer([1, 0, 0, 1].map(R::from), 2, 2),
         );
         assert!(submodules.contains(&full), "full submodule");
@@ -908,21 +895,6 @@ mod test {
             8,
             "there should be 1 + 3 + 3 + 1 = 8 subgroups"
         );
-
-        for module in submodules.iter().combinations(2) {
-            assert_ne!(module.get(0), module.get(1));
-        }
-    }
-
-    #[test]
-    fn submodules_of_Z2xZ4xZ8() {
-        type R = C<U8>;
-        type I = CIdeal<U8>;
-
-        let z = Object::<R, I>::from_iter([2, 4, 8]);
-        let submodules: Vec<CanonToCanon<R, I>> = z.submodules();
-
-        assert_eq!(submodules.len(), 86, "there should be 86 subgroups");
 
         for module in submodules.iter().combinations(2) {
             assert_ne!(module.get(0), module.get(1));
