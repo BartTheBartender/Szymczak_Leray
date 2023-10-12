@@ -28,10 +28,13 @@ pub trait Morphism<O: Object>: Sized {
     fn try_compose(&self, other: &Self) -> Option<Self> {
         (self.target().borrow() == other.source().borrow()).then_some(self.compose(other))
     }
+
+    fn try_cycle(&self) -> Option<Vec<Self>>;
 }
 
 pub trait Enumerable<O: Object>: Morphism<O> {
-    fn hom(source: Self::B, target: Self::B) -> impl Iterator<Item = Self> + Clone;
+    // fn hom(source: Self::B, target: Self::B) -> impl Iterator<Item = Self> + Clone;
+    fn hom(source: Self::B, target: Self::B) -> Vec<Self>;
 }
 
 pub trait Concrete<O: ConcreteObject>: Morphism<O>
@@ -49,6 +52,15 @@ where
             // this forces references to be returned and makes liftime managfement easier
             .collect::<Vec<_>>()
             .into_iter()
+    }
+}
+
+impl<T, O: Object> Morphism<O> for T
+where
+    T: Clone + Eq + Hash,
+{
+    default fn try_cycle(&self) -> Option<Vec<Self>> {
+        todo!()
     }
 }
 
