@@ -1,7 +1,9 @@
 use crate::category::{
-    morphism::{Endo as EndoMorphism, IsBij, IsMap, Morphism},
+    morphism::{Endo as Morphism, IsBij, IsMap}, //i leave to you implementation of try_cycle for arbitrry morphism, afterwards it will be removed. CanonToCanon should implement the Hash trait if we want to put it in the functor
     object::Object,
-    Category, HomSet, PrettyName,
+    Category,
+    HomSet,
+    PrettyName,
 };
 use rayon::prelude::*;
 use std::{

@@ -28,8 +28,6 @@ pub trait Morphism<O: Object>: Sized {
     fn try_compose(&self, other: &Self) -> Option<Self> {
         (self.target().borrow() == other.source().borrow()).then_some(self.compose(other))
     }
-
-    fn try_cycle(&self) -> Option<Vec<Self>>;
 }
 
 pub trait Enumerable<O: Object>: Morphism<O> {
@@ -55,35 +53,28 @@ where
     }
 }
 
-impl<T, O: Object> Morphism<O> for T
-where
-    T: Clone + Eq + Hash,
-{
-    default fn try_cycle(&self) -> Option<Vec<Self>> {
-        todo!()
-    }
-}
-
 pub trait Endo<O: Object>: Morphism<O> + Clone + Eq + Hash {
-    fn cycle(&self) -> Vec<Self> {
+    fn try_cycle(&self) -> Option<Vec<Self>> {
         // nie ma potrzeby trzymać całego morfizmu, wystarczy perfekcyjny hash
-        let mut seen_iterations = HashSet::new();
+        (self.source().borrow() == self.target.borrow()).then_some({
+            let mut seen_iterations = HashSet::new();
 
-        seen_iterations.insert(self.clone());
-        std::iter::successors(Some(self.clone()), |current_iteration| {
-            let next_iteration = current_iteration
-                .clone()
-                .try_compose(&self)
-                .expect("endo should be self composable");
-            match seen_iterations.contains(&next_iteration) {
-                true => None,
-                false => {
-                    seen_iterations.insert(next_iteration.clone());
-                    Some(next_iteration)
+            seen_iterations.insert(self.clone());
+            std::iter::successors(Some(self.clone()), |current_iteration| {
+                let next_iteration = current_iteration
+                    .clone()
+                    .try_compose(&self)
+                    .expect("endo should be self composable");
+                match seen_iterations.contains(&next_iteration) {
+                    true => None,
+                    false => {
+                        seen_iterations.insert(next_iteration.clone());
+                        Some(next_iteration)
+                    }
                 }
-            }
+            })
+            .collect()
         })
-        .collect()
     }
 }
 
