@@ -10,10 +10,10 @@ use crate::{
 };
 use std::{collections::HashMap, fmt, hash::Hash, sync::Arc};
 
+pub mod functors;
 pub mod morphism;
 pub mod object;
 pub mod relation;
-pub mod szymczak_functor;
 
 pub type HomSet<Object, M> = HashMap<Object, HashMap<Object, Vec<M>>>;
 

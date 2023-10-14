@@ -31,8 +31,7 @@ pub trait Morphism<O: Object>: Sized {
 }
 
 pub trait Enumerable<O: Object>: Morphism<O> {
-    // fn hom(source: Self::B, target: Self::B) -> impl Iterator<Item = Self> + Clone;
-    fn hom(source: Self::B, target: Self::B) -> Vec<Self>;
+    fn hom(source: Self::B, target: Self::B) -> impl Iterator<Item = Self> + Clone;
 }
 
 pub trait Concrete<O: ConcreteObject>: Morphism<O>
@@ -56,7 +55,7 @@ where
 pub trait Endo<O: Object>: Morphism<O> + Clone + Eq + Hash {
     fn try_cycle(&self) -> Option<Vec<Self>> {
         // nie ma potrzeby trzymać całego morfizmu, wystarczy perfekcyjny hash
-        (self.source().borrow() == self.target.borrow()).then_some({
+        (self.source().borrow() == self.target().borrow()).then_some({
             let mut seen_iterations = HashSet::new();
 
             seen_iterations.insert(self.clone());
