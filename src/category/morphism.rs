@@ -53,6 +53,9 @@ where
 }
 
 pub trait Endo<O: Object>: Morphism<O> + Clone + Eq + Hash {
+
+
+
     fn try_cycle(&self) -> Option<Vec<Self>> {
         // nie ma potrzeby trzymać całego morfizmu, wystarczy perfekcyjny hash
         (self.source().borrow() == self.target().borrow()).then_some({

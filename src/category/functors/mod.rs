@@ -15,10 +15,6 @@ use std::{
 
 pub mod szymczak;
 
-type Endos<M> = Vec<M>;
-type RawIsoClass<W> = Vec<W>;
-type IsoClass<O, E> = HashMap<O, Vec<E>>;
-
 //a trait to store the endomorphisms with additional structure used to determine if two endomorphisms are equivalent
 pub trait Wrapper<O: Object + Hash, M: Morphism<O>>: Sized {
     fn from_morphism(morphism: M) -> Option<Self>;
@@ -26,6 +22,10 @@ pub trait Wrapper<O: Object + Hash, M: Morphism<O>>: Sized {
 
     fn are_isomorphic(left: &Self, right: &Self, category: &Category<O, M>) -> bool;
 }
+
+type Endos<M> = Vec<M>;
+type RawIsoClass<W> = Vec<W>;
+type IsoClass<O, M> = HashMap<O, Vec<M>>;
 
 #[derive(Debug)]
 pub struct IsoClasses<O: Object + Hash, M: Morphism<O>, W: Wrapper<O, M>> {
@@ -93,10 +93,6 @@ impl<
 
     fn raw_functor_final_step(endos: Endos<M>, category: &Category<O, M>) -> Vec<RawIsoClass<W>> {
         let endos_wrapped = endos.into_iter().map(move |endo| {
-            /*
-            let cycle: Vec<M> = endo.try_cycle().expect("It should be an endomorphism"); //Wrapper::from(endo)
-            (endo, cycle)
-            */
             W::from_morphism(endo).expect("This morphism should be an endomorphism")
         });
 
@@ -105,18 +101,6 @@ impl<
             |mut raw_iso_classes, endo_wrapped /*Wrapper*/| {
                 let maybe_raw_iso_class: Option<&mut RawIsoClass<W>> =
                     raw_iso_classes.par_iter_mut().find_any(|raw_iso_class| {
-                        /*
-                        Self::are_szymczak_isomorphic(
-                            //Wrapper
-                            (&endo, &cycle),
-                            util::transform(
-                                raw_iso_class
-                                    .get(0)
-                                    .expect("szymczak classes are never empty"),
-                            ),
-                            category,
-                        )
-                        */
                         W::are_isomorphic(
                             &endo_wrapped,
                             raw_iso_class.get(0).expect("RawIsoClass is never empty"),
@@ -257,4 +241,132 @@ impl<O: Object + Hash, M: Morphism<O> + IsBij<O>, W: Wrapper<O, M>> IsoClasses<O
                 == 1
         })
     }
+}
+
+//-----------------------------------------------------------------------------------------
+pub trait WrapperAllIsos<O: Object + Hash, M: Morphism<O>>: Wrapper<O, M> + Clone {
+    fn all_isos(left: &Self, right: &Self, category: &Category<O, M>) -> Vec<(M, M)>;
+}
+
+pub struct IsomorphicPair<O: Object, M: Morphism<O>> {
+    pub left: M,
+    pub right: M,
+    pub isos: Vec<(M, M)>,
+    object_type: PhantomData<O>,
+}
+
+pub type IsoClassAllIsos<O, M> = Vec<IsomorphicPair<O, M>>;
+
+pub struct IsoClassesAllIsos<O: Object + Hash, M: Morphism<O>, W: WrapperAllIsos<O, M>> {
+    pub buffer: Vec<IsoClassAllIsos<O, M>>,
+    wrapper_all_isos: PhantomData<W>,
+}
+
+impl<
+        O: Object + Hash + Clone + Sync + Send,
+        M: Morphism<O> + Sync + Send + IsBij<O>,
+        W: WrapperAllIsos<O, M> + Sync + Send,
+    > IsoClassesAllIsos<O, M, W>
+{
+    pub fn all_isos(iso_classes: IsoClasses<O, M, W>, category: &Category<O, M>) -> Self {
+        let buffer: Vec<_> = iso_classes
+            .buffer
+            .into_iter()
+            .map(|iso_class: IsoClass<O, M>| Self::all_isos_class(iso_class, category))
+            .collect();
+
+        Self {
+            buffer,
+            wrapper_all_isos: PhantomData::<W>,
+        }
+    }
+
+    fn all_isos_class(
+        iso_class: IsoClass<O, M>,
+        category: &Category<O, M>,
+    ) -> IsoClassAllIsos<O, M> {
+        //
+        let endos: Vec<M> = iso_class
+            .into_values()
+            .flat_map(IntoIterator::into_iter)
+            .collect();
+
+        let bijs: Vec<M> = endos
+            .iter()
+            .filter(|endo| endo.is_a_bijection())
+            .map(Clone::clone)
+            .collect();
+
+        let endos_wrapped = endos
+            .into_par_iter()
+            .map(|endo| W::from_morphism(endo))
+            .map(|endo_wrapped| endo_wrapped.expect("This morphism should be an endomorphism"));
+
+        let bijs_wrapped: Vec<W> = bijs
+            .into_iter()
+            .map(|endo| W::from_morphism(endo))
+            .map(|endo_wrapped| endo_wrapped.expect("This morphism should be an endomorphism"))
+            .collect();
+
+        endos_wrapped
+            .flat_map(|endo_wrapped| {
+                bijs_wrapped
+                    .clone()
+                    .into_par_iter()
+                    .map(move |bij_wrapped| {
+                        let isos = W::all_isos(&endo_wrapped, &bij_wrapped, category);
+                        IsomorphicPair {
+                            left: W::into_morphism(endo_wrapped.clone()),
+                            right: W::into_morphism(bij_wrapped),
+                            isos,
+                            object_type: PhantomData::<O>,
+                        }
+                    })
+            })
+            .collect::<IsoClassAllIsos<O, M>>()
+    }
+}
+
+impl<
+        O: Object + Hash + Display + PrettyName,
+        M: Morphism<O> + Debug + PrettyName,
+        W: WrapperAllIsos<O, M>,
+    > Display for IsoClassesAllIsos<O, M, W>
+{
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        let mut string = String::new();
+
+        string.push_str(&format!(
+            "Functor name: {}\nObject: {}\nMorphism: {}\nNumber of classes: {}\n===\n",
+            Self::PRETTY_NAME,
+            O::PRETTY_NAME,
+            M::PRETTY_NAME,
+            self.buffer.len()
+        ));
+
+        for iso_class_all_isos in &self.buffer {
+            string.push_str("---\n");
+            for iso_pair in iso_class_all_isos {
+                string.push_str("--\n");
+                for iso_maps in &iso_pair.isos {
+                    string.push_str(&format!(
+                        "{}:{:?}-{}:{:?}--{:?}-{:?}\n",
+                        iso_pair.left.source().borrow(),
+                        iso_pair.left,
+                        iso_pair.right.source().borrow(),
+                        iso_pair.right,
+                        iso_maps.0,
+                        iso_maps.1
+                    ));
+                }
+            }
+        }
+        write!(f, "{string}")
+    }
+}
+
+impl<O: Object + Hash, M: Morphism<O>, W: WrapperAllIsos<O, M>> PrettyName
+    for IsoClassesAllIsos<O, M, W>
+{
+    default const PRETTY_NAME: &'static str = "Not specified";
 }

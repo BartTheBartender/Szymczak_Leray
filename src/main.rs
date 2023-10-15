@@ -108,7 +108,11 @@ mod util;
 // - - -
 
 use crate::{
-    category::{functors::szymczak::SzymczakClasses, relation::Relation, Category},
+    category::{
+        functors::szymczak::{SzymczakClasses, SzymczakClassesAllIsos},
+        relation::Relation,
+        Category,
+    },
     ralg::{
         cgroup::{ideal::CIdeal, C},
         module::canon::object::Object as Module,
@@ -116,7 +120,7 @@ use crate::{
 };
 use std::time::Instant;
 // parameters for the code
-use typenum::U2 as N;
+use typenum::U16 as N;
 type Int = u16;
 type R = C<N>;
 type I = CIdeal<N>;
@@ -133,5 +137,15 @@ fn main() {
     let szymczak_classes = SzymczakClasses::<Module<R, I>, Relation<R, I>>::functor::<
         { RECURSION_PARAMETER },
     >(&category);
+    println!("dupa");
+    let szymczak_classes_all_isos =
+        SzymczakClassesAllIsos::<Module<R, I>, Relation<R, I>>::all_isos(
+            szymczak_classes,
+            &category,
+        );
+
+    println!("{szymczak_classes_all_isos}");
+    /*
     println!("{}===\nCategory generated after: {}\nIsomorphisms classes generated after: {}\nParameter of the recursion: {}", szymczak_classes, category_time_elapsed.as_millis(), szymczak_classes_time.elapsed().as_millis(), RECURSION_PARAMETER);
+    */
 }

@@ -1,18 +1,18 @@
 use crate::category::{
-    functors::{IsoClasses, Wrapper},
+    functors::{IsoClasses, IsoClassesAllIsos, Wrapper, WrapperAllIsos},
     morphism::Endo as Morphism,
     object::Object,
     Category, PrettyName,
 };
 use std::{borrow::Borrow, hash::Hash, marker::PhantomData};
 
-pub struct SzymczakWrapper<O: Object + Hash, M: Morphism<O>> {
+pub struct Szymczak<O: Object + Hash, M: Morphism<O>> {
     morphism: M,
     cycle: Vec<M>,
     object_type: PhantomData<O>,
 }
 
-impl<O: Object + Hash, M: Morphism<O>> SzymczakWrapper<O, M> {
+impl<O: Object + Hash, M: Morphism<O>> Szymczak<O, M> {
     fn is_identity(morphism: &M, cycle: &Vec<M>) -> bool {
         for en in cycle {
             let en_morphism = morphism.compose(en);
@@ -28,7 +28,7 @@ impl<O: Object + Hash, M: Morphism<O>> SzymczakWrapper<O, M> {
     }
 }
 
-impl<O: Object + Hash, M: Morphism<O>> Wrapper<O, M> for SzymczakWrapper<O, M> {
+impl<O: Object + Hash, M: Morphism<O>> Wrapper<O, M> for Szymczak<O, M> {
     fn from_morphism(morphism: M) -> Option<Self> {
         morphism.try_cycle().map(|cycle| Self {
             morphism,
@@ -78,11 +78,72 @@ impl<O: Object + Hash, M: Morphism<O>> Wrapper<O, M> for SzymczakWrapper<O, M> {
     }
 }
 
-pub type SzymczakClasses<O, M> = IsoClasses<O, M, SzymczakWrapper<O, M>>;
+pub type SzymczakClasses<O, M> = IsoClasses<O, M, Szymczak<O, M>>;
 
 impl<O: Object + Hash, M: Morphism<O>> PrettyName for SzymczakClasses<O, M> {
     const PRETTY_NAME: &'static str = "Szymczak";
 }
+//-----------------------------------------------------------------------------------------
+
+impl<O: Object + Hash + Clone, M: Morphism<O> + Clone> Clone for Szymczak<O, M> {
+    fn clone(&self) -> Self {
+        Self {
+            morphism: self.morphism.clone(),
+            cycle: self.cycle.clone(),
+            object_type: PhantomData::<O>,
+        }
+    }
+}
+
+impl<O: Object + Hash + Clone, M: Morphism<O> + Clone> WrapperAllIsos<O, M> for Szymczak<O, M> {
+    fn all_isos(left: &Self, right: &Self, category: &Category<O, M>) -> Vec<(M, M)> {
+        let l: &M = &left.morphism;
+        let r: &M = &right.morphism;
+
+        let morphisms_l_to_r: &Vec<M> = category
+            .hom_sets
+            .get(l.target().borrow())
+            .expect("There are hom-sets with the given target")
+            .get(r.source().borrow())
+            .expect("There is a hom-set with a given source");
+
+        let morphisms_r_to_l: &Vec<M> = category
+            .hom_sets
+            .get(r.target().borrow())
+            .expect("There are hom-sets with the given target")
+            .get(l.source().borrow())
+            .expect("There is a hom-set with a given source");
+
+        morphisms_l_to_r
+            .iter()
+            .fold(Vec::<(M, M)>::new(), |mut isos: Vec<(M, M)>, l_to_r| {
+                let good_r_to_l: Vec<&M> = morphisms_r_to_l
+                    .iter()
+                    .filter(|r_to_l| {
+                        //l -> r
+                        l_to_r.compose(r) == l.compose(l_to_r)
+            //r -> l
+            && r_to_l.compose(l) == r.compose(r_to_l)
+            //identity on l
+            && Self::is_identity(&l_to_r.compose(r_to_l), &left.cycle)
+            //identity on r
+            && Self::is_identity(&r_to_l.compose(l_to_r), &right.cycle)
+                    })
+                    .collect();
+                for r_to_l in good_r_to_l {
+                    isos.push((l_to_r.clone(), r_to_l.clone()));
+                }
+                isos
+            })
+    }
+}
+
+pub type SzymczakClassesAllIsos<O, M> = IsoClassesAllIsos<O, M, Szymczak<O, M>>;
+
+impl<O: Object + Hash + Clone, M: Morphism<O>> PrettyName for SzymczakClassesAllIsos<O, M> {
+    const PRETTY_NAME: &'static str = "Szymczak (with all isomorphisms explicitly)";
+}
+//-----------------------------------------------------------------------------------------
 
 #[cfg(test)]
 mod test {
@@ -98,7 +159,7 @@ mod test {
 
     type R = C<N>;
     type I = CIdeal<N>;
-    type W = SzymczakWrapper<Module<R, I>, Relation<R, I>>;
+    type W = Szymczak<Module<R, I>, Relation<R, I>>;
 
     #[test]
     fn szymczak_isomorphism_is_equivalence() {
