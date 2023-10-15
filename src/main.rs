@@ -108,7 +108,7 @@ mod util;
 // - - -
 
 use crate::{
-    category::{relation::Relation, /*szymczak_functor::SzymczakCategory,*/ Category},
+    category::{functors::szymczak::SzymczakClasses, relation::Relation, Category},
     ralg::{
         cgroup::{ideal::CIdeal, C},
         module::canon::object::Object as Module,
@@ -124,18 +124,14 @@ const DIM: Int = 1;
 const RECURSION_PARAMETER: usize = 6;
 
 fn main() {
-    /*
     //
     let category_time = Instant::now();
     let category = Category::<Module<R, I>, Relation<R, I>>::new(DIM);
     let category_time_elapsed = category_time.elapsed();
 
     let szymczak_classes_time = Instant::now();
-    let szymczak_category =
-        SzymczakCategory::<Module<R, I>, Relation<R, I>, Relation<R, I>>::szymczak_functor::<
-            { RECURSION_PARAMETER },
-        >(&category);
-
-    println!("{}===\nCategory generated after: {}\nIsomorphisms classes generated after: {}\nParameter of the recursion: {}", szymczak_category, category_time_elapsed.as_millis(), szymczak_classes_time.elapsed().as_millis(), RECURSION_PARAMETER);
-    */
+    let szymczak_classes = SzymczakClasses::<Module<R, I>, Relation<R, I>>::functor::<
+        { RECURSION_PARAMETER },
+    >(&category);
+    println!("{}===\nCategory generated after: {}\nIsomorphisms classes generated after: {}\nParameter of the recursion: {}", szymczak_classes, category_time_elapsed.as_millis(), szymczak_classes_time.elapsed().as_millis(), RECURSION_PARAMETER);
 }
