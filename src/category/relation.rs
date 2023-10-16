@@ -112,10 +112,10 @@ impl<R: Ring, I: Ideal<Parent = R> + Ord> Morphism<CanonModule<R, I>> for Relati
     }
 }
 
-impl<R: Ring + Clone + hash::Hash, I: Ideal<Parent = R> + Ord + hash::Hash>
+impl<R: Ring + Copy + hash::Hash, I: Ideal<Parent = R> + Ord + hash::Hash>
     EndoMorphism<CanonModule<R, I>> for Relation<R, I>
 {
-    fn identity(object: &CanonModule<R, I>) -> Self {
+    fn identity(object: Arc<CanonModule<R, I>>) -> Self {
         let card = object.cardinality();
         todo!()
     }
