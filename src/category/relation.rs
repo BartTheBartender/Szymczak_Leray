@@ -4,6 +4,7 @@ pub use crate::{
             Concrete as ConcreteMorphism, Endo as EndoMorphism, Enumerable as EnumerableMorphism,
             IsBij, IsMap, Morphism,
         },
+        object::Concrete as ConcreteObject,
         PrettyName,
     },
     ralg::{
@@ -111,6 +112,15 @@ impl<R: Ring, I: Ideal<Parent = R> + Ord> Morphism<CanonModule<R, I>> for Relati
     }
 }
 
+impl<R: Ring + Clone + hash::Hash, I: Ideal<Parent = R> + Ord + hash::Hash>
+    EndoMorphism<CanonModule<R, I>> for Relation<R, I>
+{
+    fn identity(object: &CanonModule<R, I>) -> Self {
+        let card = object.cardinality();
+        todo!()
+    }
+}
+
 impl<R: Ring + Copy + Into<u16>, I: PrincipalIdeal<Parent = R> + Ord>
     From<(&DirectModule<R, I>, CanonToCanon<R, I>)> for Relation<R, I>
 {
@@ -205,11 +215,6 @@ impl<R: Ring + Copy + Into<u16>, I: PrincipalIdeal<Parent = R> + Ord>
             matrix: Matrix::from_buffer(buffer, cols.into(), rows.into()),
         }
     }
-}
-
-impl<R: Ring + Clone + hash::Hash, I: Ideal<Parent = R> + Ord + hash::Hash>
-    EndoMorphism<CanonModule<R, I>> for Relation<R, I>
-{
 }
 
 impl<Period: Radix + IsGreater<U1> + Send + Sync>
