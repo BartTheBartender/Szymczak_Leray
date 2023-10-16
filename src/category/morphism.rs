@@ -60,34 +60,11 @@ pub trait Endo<O: Object>: Morphism<O> + Clone + Eq + Hash {
         (self.source().borrow() == self.target().borrow()).then_some({
             let mut seen_iterations = HashSet::new();
 
-            seen_iterations.insert(self.clone());
-            std::iter::successors(Some(self.clone()), |current_iteration| {
-                let next_iteration = current_iteration
-                    .clone()
-                    .try_compose(&self)
-                    .expect("endo should be self composable");
-                match seen_iterations.contains(&next_iteration) {
-                    true => None,
-                    false => {
-                        seen_iterations.insert(next_iteration.clone());
-                        Some(next_iteration)
-                    }
-                }
-            })
-            .collect()
-        })
-    }
-
-    fn try_orbit(&self) -> Option<Vec<Self>> {
-        // nie ma potrzeby trzymać całego morfizmu, wystarczy perfekcyjny hash
-        (self.source().borrow() == self.target().borrow()).then_some({
-            let mut seen_iterations = HashSet::new();
-
             seen_iterations.insert(Self::identity(self.source()));
             std::iter::successors(Some(Self::identity(self.source())), |current_iteration| {
                 let next_iteration = current_iteration
                     .clone()
-                    .try_compose(&self)
+                    .try_compose(self)
                     .expect("endo should be self composable");
                 match seen_iterations.contains(&next_iteration) {
                     true => None,
