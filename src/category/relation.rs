@@ -117,7 +117,14 @@ impl<R: Ring + Copy + hash::Hash, I: Ideal<Parent = R> + Ord + hash::Hash>
 {
     fn identity(object: Arc<CanonModule<R, I>>) -> Self {
         let card = object.cardinality();
-        todo!()
+
+        let buffer = (0..card).flat_map(move |i| (0..card).map(move |j| j == i));
+
+        Self {
+            source: Arc::clone(&object),
+            target: Arc::clone(&object),
+            matrix: Matrix::<bool>::from_buffer(buffer, card, card),
+        }
     }
 }
 
@@ -675,5 +682,22 @@ mod test {
                 .filter(|relation| relation.is_a_map())
                 .count()
         );
+    }
+
+    #[test]
+    fn identity_morphism() {
+        use typenum::U2 as N;
+        type R = C<N>;
+        type I = CIdeal<N>;
+
+        let morphisms = Category::<CanonModule<R, I>, Relation<R, I>>::new(1).into_morphisms();
+
+        for morphism in morphisms {
+            let id_source = Relation::<R, I>::identity(morphism.source());
+            let id_target = Relation::<R, I>::identity(morphism.target());
+
+            assert_eq!(morphism, id_source.compose(&morphism));
+            assert_eq!(morphism, morphism.compose(&id_target));
+        }
     }
 }
