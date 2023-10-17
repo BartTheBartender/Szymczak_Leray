@@ -671,13 +671,13 @@ def plot_relation_mor(relation, source, target, width, color):
     image_matrix = Image.open(buffer_matrix)
     image_sig = Image.open(buffer_sig)
 
-    image_matrix.show()
     return (image_matrix, image_sig)
 
 
 #-------------------------------------------------------------------
 #-------------------------------------------------------------------
 def plot_all_isos(base, max_dim):
+    print('Plotting started...')
     input_path = f'../results/szymczak_all_isos/txt/dim{max_dim}/Z{base}-dim-{max_dim}'
     output_path = f'../results/szymczak_all_isos/pdf/dim{max_dim}/Z{base}-dim-{max_dim}.pdf'
     input_text = open(input_path, 'r').read()
@@ -685,3 +685,4 @@ def plot_all_isos(base, max_dim):
     output_writer = plot_classes_all_isos(input_parsed, colors = colors)
     with open(output_path, 'wb') as output:
         output_writer.write(output_path)
+    print('Plotting finished succesfully')

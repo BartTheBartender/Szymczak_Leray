@@ -6,7 +6,8 @@ from launcher import launch, launch_all_isos
 from plotter import plot, plot_all_isos
 from hypotheses import find_special_representant
 
-
-plot_all_isos(base = 2, max_dim = 1)
+for base in range(2, 63):
+    launch_all_isos(base = base, max_dim = 1)
+    plot_all_isos(base = base, max_dim = 1)
 
 

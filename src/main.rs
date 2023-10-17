@@ -120,7 +120,7 @@ use crate::{
 };
 use std::time::Instant;
 // parameters for the code
-use typenum::U2 as N;
+use typenum::U3 as N;
 type Int = u16;
 type R = C<N>;
 type I = CIdeal<N>;
