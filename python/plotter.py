@@ -39,6 +39,19 @@ def parse(raw_text):
     return (preamble, classes)
 
 
+def parse_preamble(raw_preamble):
+    
+    functor_name = re.search(r'Functor name: (.+)', raw_preamble).group(1)
+    obj_type = re.search(r'Object: (.+)', raw_preamble).group(1)
+    endo_type = re.search(r'Morphism: (.+)', raw_preamble).group(1)
+    num_of_endos = int(re.search(r'Number of endomorphisms: (.+)', raw_preamble).group(1))
+    num_of_classes = int(re.search(r'Number of classes: (.+)', raw_preamble).group(1))
+    map_hypoth = (re.search(r'Every class has a map: (.+)', raw_preamble).group(1) == 'true')
+    bij_hypoth = (re.search(r'Every class has a bijection: (.+)', raw_preamble).group(1) == 'true')
+    strong_bij_hypoth = (re.search(r'Every class has exactly one bijection: (.+)', raw_preamble).group(1) == 'true')
+
+    return [functor_name, obj_type, endo_type, num_of_endos, num_of_classes, map_hypoth, bij_hypoth, strong_bij_hypoth]
+
 def parse_class(raw_class, obj_type, endo_type):
 
     return [parse_class_fix_obj(raw_class_fix_obj, obj_type, endo_type) for raw_class_fix_obj in raw_class.split('-\n') if raw_class_fix_obj.strip()]
@@ -64,21 +77,6 @@ def parse_endo(raw_endo, endo_type):
         return parse_relation(raw_endo)
     
     raise ValueError('wrong endo_type!')
-
-def parse_preamble(raw_preamble):
-    
-    functor_name = re.search(r'Functor name: (.+)', raw_preamble).group(1)
-    obj_type = re.search(r'Object: (.+)', raw_preamble).group(1)
-    endo_type = re.search(r'Endomorphism: (.+)', raw_preamble).group(1)
-    num_of_endos = int(re.search(r'Number of endomorphisms: (.+)', raw_preamble).group(1))
-    num_of_classes = int(re.search(r'Number of classes: (.+)', raw_preamble).group(1))
-    map_hypoth = (re.search(r'Every class has a map: (.+)', raw_preamble).group(1) == 'true')
-    bij_hypoth = (re.search(r'Every class has a bijection: (.+)', raw_preamble).group(1) == 'true')
-    strong_bij_hypoth = (re.search(r'Every class has exactly one bijection: (.+)', raw_preamble).group(1) == 'true')
-
-    return [functor_name, obj_type, endo_type, num_of_endos, num_of_classes, map_hypoth, bij_hypoth, strong_bij_hypoth]
-
-
 
 #-------------------------------------------------------------------
 def parse_Zn_module(raw_Zn_module):
@@ -226,9 +224,6 @@ def plot_preamble(preamble):
     bij_hypoth = preamble[6]
     strong_bij_hypoth = preamble[7]
 
-    if obj_type == 'Zn-Module':
-        pass
-
     output = f'Functor name: {functor_name}\nObject: {obj_type}\nEndomorphism: {endo_type}\nNumber of endomorphisms: {num_of_endos}\nNumber of classes: {num_of_classes}\nEvery class has a map: {map_hypoth}\nEvery class has a bijection: {bij_hypoth}\nEvery class has exactly one bijection: {strong_bij_hypoth}'
     
     fig = plt.figure()
@@ -337,59 +332,356 @@ def plot(base, max_dim):
         output_writer.write(output_path)
 
 
-'''
-color = (20/255, 6/255, 182/255)
-color = (color, color, color)
-raw_text = open('out8', 'r').read()
+#-------------------------------------------------------------------
+#-------------------------------------------------------------------
+#-------------------------------------------------------------------
+#-------------------------------------------------------------------
+#-------------------------------------------------------------------
+#-------------------------------------------------------------------
+#-------------------------------------------------------------------
+#-------------------------------------------------------------------
+#-------------------------------------------------------------------
+#-------------------------------------------------------------------
+#-------------------------------------------------------------------
+#-------------------------------------------------------------------
+#-------------------------------------------------------------------
+#-------------------------------------------------------------------
+#-------------------------------------------------------------------
+#-------------------------------------------------------------------
+#-------------------------------------------------------------------
+#-------------------------------------------------------------------
+def parse_all_isos(raw_text):
 
-text_to_be_plotted = parse(raw_text)
-'''
+    raw_output = raw_text.split('\n===\n')
+    raw_preamble = raw_output[0]
+    raw_classes = raw_output[1]
 
-'''
-endo = text_to_be_plotted[1][3][0][1][0]
-elements = text_to_be_plotted[1][3][0][0][1]
-out = Image.open(plot_endo(endo, elements, color, 'Relation'))
-out.show()
-'''
+    preamble = parse_preamble_all_isos(raw_preamble)
+    obj_type = preamble[1]
+    mor_type = preamble[2]
 
-'''
-class_fix_obj = text_to_be_plotted[1][0][0]
-#print(class_fix_obj)
-out = plot_class_fix_obj(class_fix_obj, color, 'Zn-Module', 'Relation')
-pdf_reader = PdfReader(out)
-pdf_writer = PdfWriter()
-pdf_writer.add_page(pdf_reader.pages[0])
-out.close()
-with open(f"test.pdf", "wb") as output_pdf:
-    pdf_writer.write(output_pdf)
-'''
+    classes = [parse_class_all_isos(raw_class, obj_type, mor_type) for raw_class in raw_classes.split('---\n') if raw_class.strip()]
 
-'''
-class_ = text_to_be_plotted[1][0]
-#print(class_)
-out = plot_class(class_, color, 'Zn-Module', 'Relation')
-pdf_reader = PdfReader(out)
-pdf_writer = PdfWriter()
-pdf_writer.add_page(pdf_reader.pages[0])
-out.close()
-with open(f"test.pdf", "wb") as output_pdf:
-    pdf_writer.write(output_pdf)
-'''
+    return (preamble, classes)
 
-'''
-preamble = text_to_be_plotted[0]
-#print(preamble)
-out = plot_preamble(preamble)
-pdf_reader = PdfReader(out)
-pdf_writer = PdfWriter()
-pdf_writer.add_page(pdf_reader.pages[0])
-out.close()
-with open(f"test.pdf", "wb") as output_pdf:
-    pdf_writer.write(output_pdf)
-'''
 
-'''
-out = plot_classes(text_to_be_plotted, colors)
-with open(f"test.pdf", "wb") as output_pdf:
-    out.write(output_pdf)
-'''
+
+def parse_preamble_all_isos(raw_preamble):
+    
+    functor_name = re.search(r'Functor name: (.+)', raw_preamble).group(1)
+    obj_type = re.search(r'Object: (.+)', raw_preamble).group(1)
+    mor_type = re.search(r'Morphism: (.+)', raw_preamble).group(1)
+    num_of_classes = int(re.search(r'Number of classes: (.+)', raw_preamble).group(1))
+
+    return [functor_name, obj_type, mor_type, num_of_classes]
+
+
+
+def parse_class_all_isos(raw_class, obj_type, mor_type):
+
+    return [parse_class_fix_endo(raw_class_fix_endo, obj_type, mor_type) for raw_class_fix_endo in raw_class.split('--\n') if raw_class_fix_endo.strip()]
+
+
+
+def parse_class_fix_endo(raw_class_fix_endo, obj_type, mor_type):
+    return [parse_quadruple(raw_quadruple, obj_type, mor_type) for raw_quadruple in raw_class_fix_endo.split('\n') if raw_quadruple.strip()]
+
+
+def parse_quadruple(raw_quadruple, obj_type, mor_type):
+
+    (raw_endo_bij, raw_maps) = raw_quadruple.split('--')
+    
+    (raw_endo_obj, raw_bij) = raw_endo_bij.split('-')
+    (raw_endo_to_bij, raw_bij_to_endo) = raw_maps.split('-')
+
+    (raw_endo_obj, raw_endo) = raw_endo_obj.split(':')
+    (raw_bij_obj, raw_bij) = raw_bij.split(':')
+
+    endo = parse_endo(raw_endo, mor_type)[0]
+    bij = parse_endo(raw_bij, mor_type)[0]
+
+    endo_obj = parse_obj(raw_endo_obj, obj_type)
+    bij_obj = parse_obj(raw_bij_obj, obj_type)
+
+    endo_to_bij = parse_mor(raw_endo_to_bij, endo_obj, bij_obj, mor_type)
+    bij_to_endo = parse_mor(raw_bij_to_endo, bij_obj, endo_obj, mor_type)
+
+    return (endo_obj, endo, bij_obj, bij, endo_to_bij, bij_to_endo)
+
+
+def parse_mor(raw_mor, source, target, mor_type):
+    if mor_type == 'Relation':
+        return parse_relation_mor(raw_mor, source, target)
+    
+    raise ValueError('wrong mor_type!')
+
+
+
+#-------------------------------------------------------------------
+
+def parse_relation_mor(raw_relation, source, target):
+
+    return np.array([int(entry) for entry in raw_relation]).reshape(len(source[1]), len(target[1]))
+
+#-------------------------------------------------------------------
+#-------------------------------------------------------------------
+
+def plot_classes_all_isos(parsed_input, colors):
+
+    preamble = parsed_input[0]
+    classes_all_isos = parsed_input[1]
+
+    if len(colors) < len(classes_all_isos):
+        raise ValueError('Not enough colors!')
+
+
+    pdf_writer = PdfWriter()
+    pdf_writer.add_page(plot_preamble_all_isos(preamble))
+
+    mor_type = preamble[2]
+    pages_classes = [plot_class_all_isos(classes_all_isos[i], colors[i], mor_type) for i in range(len(classes_all_isos))]
+
+    for pages_class in pages_classes:
+        for page in pages_class:
+            pdf_writer.add_page(page)
+
+    return pdf_writer
+
+def plot_preamble_all_isos(preamble):
+
+    functor_name = preamble[0]
+    obj_type = preamble[1]
+    endo_type = preamble[2]
+    num_of_classes = preamble[3]
+
+    output = f'Functor name: {functor_name}\nObject: {obj_type}\nEndomorphism: {endo_type}\nNumber of classes: {num_of_classes}'
+
+    fig = plt.figure()
+    plt.rc('text')
+    plt.rc('font', family='serif')
+    plt.text(0.5, 0.5, output, va='center', ha='center')
+    plt.axis('off')
+    #plt.tight_layout()
+
+    buffer = BytesIO()
+    fig.savefig(buffer, format='pdf')
+    plt.close()
+
+    return PdfReader(buffer).pages[0]
+
+def plot_class_all_isos(class_all_isos, color, mor_type):
+
+    pages_class = [plot_class_fix_endo(class_fix_endo, color, mor_type) for class_fix_endo in class_all_isos]
+
+    pdf_writer = PdfWriter()
+
+    for page in pages_class:
+        pdf_writer.add_page(page)
+
+    return pdf_writer.pages
+
+def plot_class_fix_endo(class_fix_endo, color, mor_type):
+
+    images_quadruples = [plot_quadruple(quadruple, color, mor_type) for quadruple in class_fix_endo]
+
+    width, height = images_quadruples[0].size
+
+    image = Image.new('RGB', (width, height*len(images_quadruples)), 'white')
+
+    for i in range(len(images_quadruples)):
+
+        image.paste(images_quadruples[i], (0, i*height))
+        images_quadruples[i].close()
+
+    image = ImageOps.expand(image, border=2, fill='black')
+    image = ImageOps.expand(image, border=10, fill='white')
+
+    buffer = BytesIO()
+    image.save(buffer, format = 'pdf')
+    image.close()
+    return PdfReader(buffer).pages[0]
+
+def plot_quadruple(quadruple, color, mor_type):
+    
+    endo_obj = quadruple[0]
+    endo = quadruple[1]
+
+    bij_obj = quadruple[2]
+    bij = quadruple[3]
+
+    endo_to_bij = quadruple[4]
+    bij_to_endo = quadruple[5]
+    
+    width = len(endo_obj[1])*10
+
+    image_endo = plot_mor(endo, endo_obj, endo_obj, width, color[1], mor_type)
+    image_bij = plot_mor(bij, bij_obj, bij_obj, width, color[2], mor_type)
+    image_endo_to_bij = plot_mor(endo_to_bij, endo_obj, bij_obj, width, color[0], mor_type)
+    image_bij_to_endo = plot_mor(bij_to_endo, bij_obj, endo_obj, width, color[0], mor_type)
+    
+    width, height = image_endo[0].size
+
+    sig_width, sig_height = image_endo[1].size
+
+    image_endo_sig = image_endo[1].resize((width, (sig_height * width)//sig_width))
+    image_endo[1].close()
+
+    image_bij_sig = image_bij[1].resize((width, (sig_height * width)//sig_width))
+    image_bij[1].close()
+
+    image_endo_to_bij_sig = image_endo_to_bij[1].resize((width, (sig_height * width)//sig_width))
+    image_endo_to_bij[1].close()
+
+    image_bij_to_endo_sig = image_bij_to_endo[1].resize((width, (sig_height * width)//sig_width))
+    image_bij_to_endo[1].close()
+
+    sig_width, sig_height = image_endo_sig.size
+
+    image_endo_sq = image_endo[0]
+
+    ###
+    curr_width, curr_height = image_bij[0].size
+    image_bij[0].resize((width, (curr_height * width) // curr_width))
+    curr_width, curr_height = image_bij[0].size
+
+    image_bij_sq = Image.new('RGB', (width, height), 'white')
+    image_bij_sq.paste(image_bij[0], ((width - curr_width) // 2, height - curr_height))
+    image_bij[0].close()
+
+    ###
+    curr_width, curr_height = image_endo_to_bij[0].size
+    image_endo_to_bij[0].resize((width, (curr_height * width) // curr_width))
+    curr_width, curr_height = image_endo_to_bij[0].size
+
+    image_endo_to_bij_sq = Image.new('RGB', (width, height), 'white')
+    image_endo_to_bij_sq.paste(image_endo_to_bij[0], ((width - curr_width) // 2, height - curr_height))
+    image_endo_to_bij[0].close()
+
+    ###
+    curr_width, curr_height = image_bij_to_endo[0].size
+    image_bij_to_endo[0].resize((width, (curr_height * width) // curr_width))
+    curr_width, curr_height = image_bij_to_endo[0].size
+
+    image_bij_to_endo_sq = Image.new('RGB', (width, height), 'white')
+    image_bij_to_endo_sq.paste(image_bij_to_endo[0], ((width - curr_width) // 2, height - curr_height))
+    image_bij_to_endo[0].close()
+
+
+    image = Image.new('RGB', (4*width, height+sig_height), 'white')
+
+    image.paste(image_endo_sq, (0*width, 0))
+    image_endo_sq.close()
+
+    image.paste(image_bij_sq, (1*width, 0))
+    image_bij_sq.close()
+
+    image.paste(image_endo_to_bij_sq, (2*width, 0))
+    image_endo_to_bij_sq.close()
+
+    image.paste(image_bij_to_endo_sq, (3*width, 0))
+    image_bij_to_endo_sq.close()
+
+
+    image.paste(image_endo_sig, (0*width, height))
+    image_endo_sig.close()
+
+    image.paste(image_bij_sig, (1*width, height))
+    image_bij_sig.close()
+
+    image.paste(image_endo_to_bij_sig, (2*width, height))
+    image_endo_to_bij_sig.close()
+
+    image.paste(image_bij_to_endo_sig, (3*width, height))
+    image_bij_to_endo_sig.close()
+
+    return image
+
+def plot_mor(mor, source, target, width, color, mor_type):
+
+    if mor_type == 'Relation':
+        return plot_relation_mor(mor, source, target, width, color)
+    
+    raise ValueError('wrong mor_type!')
+
+    
+
+#-------------------------------------------------------------------
+def plot_relation_mor(relation, source, target, width, color):
+    
+    height = 5
+
+
+    source_len = len(source[1])
+    target_len = len(target[1])
+
+    fig, ax = plt.subplots(figsize=(source_len*1.8, target_len*1.8))
+    
+
+    for i in range(source_len):
+        for j in range(target_len):
+            color_ = color if relation[i][j] == 1 else 'white'
+            rect = plt.Rectangle((i, j), 1, 1, facecolor=color_, edgecolor='black', linewidth=1)
+            ax.add_patch(rect)
+
+    ax.set_xticks(np.arange(0.5, source_len, 1))
+    ax.set_yticks(np.arange(0.5, target_len, 1))
+    ax.set_xticklabels(source[1], fontsize=13)
+    ax.set_yticklabels(target[1], fontsize=13)
+    ax.tick_params(axis='both', which='both', length=0)
+
+    ax.set_xlim(0, source_len)
+    ax.set_ylim(0, target_len)
+
+    buffer_matrix = BytesIO()
+    plt.savefig(buffer_matrix, format = 'png')
+    plt.close()
+
+    source_latex = None
+    if source[0][0] == 0:
+        source_latex = '0'
+    else:
+        source_latex = '\mathbb{Z} \slash ' + str(source[0][0])
+        for i in range(1, len(source[0])):
+            source_latex += ' \oplus \mathbb{Z} \slash ' + str(source[0][i])
+    
+
+    target_latex = None
+    if target[0][0] == 0:
+        target_latex = '0'
+    else:
+        target_latex = '\mathbb{Z} \slash ' + str(target[0][0])
+        for i in range(1, len(target[0])):
+            target_latex += ' \oplus \mathbb{Z} \slash ' + str(target[0][i])
+
+    latex = '$' + source_latex + r' \rightarrow ' + target_latex + '$'
+    
+    fig = plt.figure(figsize = (width, height))
+    plt.rc('text', usetex=True)
+    plt.rc('text.latex', preamble=r'\usepackage{amsfonts}')
+    plt.rc('font', family='serif')
+    plt.text(0.5, 0.5, latex, fontsize=140, va='center', ha='center')
+    plt.axis('off')
+    plt.tight_layout()
+
+    buffer_sig = BytesIO()
+    plt.savefig(buffer_sig, format = 'png')
+    plt.close()
+
+
+    image_matrix = Image.open(buffer_matrix)
+    image_sig = Image.open(buffer_sig)
+
+    image_matrix.show()
+    return (image_matrix, image_sig)
+
+
+#-------------------------------------------------------------------
+#-------------------------------------------------------------------
+def plot_all_isos(base, max_dim):
+    input_path = f'../results/szymczak_all_isos/txt/dim{max_dim}/Z{base}-dim-{max_dim}'
+    output_path = f'../results/szymczak_all_isos/pdf/dim{max_dim}/Z{base}-dim-{max_dim}.pdf'
+    input_text = open(input_path, 'r').read()
+    input_parsed = parse_all_isos(input_text)
+    output_writer = plot_classes_all_isos(input_parsed, colors = colors)
+    with open(output_path, 'wb') as output:
+        output_writer.write(output_path)
