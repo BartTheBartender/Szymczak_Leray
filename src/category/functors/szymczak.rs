@@ -160,10 +160,17 @@ impl<O: Object + Hash + Clone + Send + Sync, M: Morphism<O> + Clone + Send + Syn
                         (
                             r_to_l,
                             Self::is_identity_full(&l_to_r.compose(r_to_l), &left.cycle),
+                        )
+                    })
+                    .filter(|(_, id_l)| id_l.is_some())
+                    .map(|(r_to_l, id_l)| {
+                        (
+                            r_to_l,
+                            id_l,
                             Self::is_identity_full(&r_to_l.compose(l_to_r), &right.cycle),
                         )
                     })
-                    .filter(|(_, id_l, id_r)| id_l.is_some() && id_r.is_some());
+                    .filter(|(_, _, id_r)| id_r.is_some());
                 for (r_to_l, id_l, id_r) in good_morphisms_r_to_l {
                     isos.push((
                         (l_to_r.clone(), r_to_l.clone()),
@@ -191,13 +198,20 @@ impl<O: Object + Hash + Display + Clone + Send + Sync, M: Morphism<O> + Debug + 
         let mut string = String::new();
         string.push_str(
             format!(
-                //add orbit
-                "{}-{}-{:?}--{}-{}-{:?}#\n",
+                "{}-{}-{}-{:?}--{}-{}-{}-{:?}#\n",
                 self.left.source().borrow(),
                 self.left.target().borrow(),
+                self.left
+                    .try_cycle()
+                    .expect("it should be an endomorphism")
+                    .len(),
                 self.left,
                 self.right.source().borrow(),
                 self.right.target().borrow(),
+                self.right
+                    .try_cycle()
+                    .expect("it should be an endomorphism")
+                    .len(),
                 self.right
             )
             .as_str(),

@@ -120,7 +120,7 @@ use crate::{
 };
 use std::{fs, time::Instant};
 // parameters for the code
-use typenum::{Unsigned, U10, U5 as N};
+use typenum::{Unsigned, U16 as N};
 type Int = u16;
 type R = C<N>;
 type I = CIdeal<N>;
