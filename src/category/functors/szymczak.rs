@@ -1,10 +1,15 @@
 use crate::category::{
-    functors::{IsoClasses, IsoClassesAllIsos, Wrapper, WrapperAllIsos},
+    functors::{IsoClasses, IsoClassesFull, IsoPair, Wrapper, WrapperFull},
     morphism::Endo as Morphism,
     object::Object,
     Category, PrettyName,
 };
-use std::{borrow::Borrow, hash::Hash, marker::PhantomData};
+use std::{
+    borrow::Borrow,
+    fmt::{self, Debug, Display},
+    hash::Hash,
+    marker::PhantomData,
+};
 
 pub struct Szymczak<O: Object + Hash, M: Morphism<O>> {
     morphism: M,
@@ -95,8 +100,35 @@ impl<O: Object + Hash + Clone, M: Morphism<O> + Clone> Clone for Szymczak<O, M> 
     }
 }
 
-impl<O: Object + Hash + Clone, M: Morphism<O> + Clone> WrapperAllIsos<O, M> for Szymczak<O, M> {
-    fn all_isos(left: &Self, right: &Self, category: &Category<O, M>) -> Vec<(M, M)> {
+impl<O: Object + Hash, M: Morphism<O>> Szymczak<O, M> {
+    fn is_identity_full(morphism: &M, cycle: &Vec<M>) -> Option<(usize, usize)> {
+        for (n, en) in cycle.iter().enumerate() {
+            let en_morphism = morphism.compose(en);
+
+            for (m, em) in cycle.iter().enumerate() {
+                if en_morphism == *em {
+                    return Some((n, m));
+                }
+            }
+        }
+
+        None
+    }
+}
+
+impl<O: Object + Hash + Clone + Send + Sync, M: Morphism<O> + Clone + Send + Sync> WrapperFull<O, M>
+    for Szymczak<O, M>
+{
+    /*
+       isos = Vec<((phi, psi), (k,l), (k', l'))> such that:
+       * phi left = right phi
+       * psi right = left psi
+       * psi phi left^k = left^l
+       * phi psi right^k' = right^l'
+       where (k,l), (k',l') are minimal for (phi, psi)
+    */
+    type Isos = Vec<((M, M), (usize, usize), (usize, usize))>;
+    fn all_isos(left: &Self, right: &Self, category: &Category<O, M>) -> Self::Isos {
         let l: &M = &left.morphism;
         let r: &M = &right.morphism;
 
@@ -116,33 +148,83 @@ impl<O: Object + Hash + Clone, M: Morphism<O> + Clone> WrapperAllIsos<O, M> for 
 
         morphisms_l_to_r
             .iter()
-            .fold(Vec::<(M, M)>::new(), |mut isos: Vec<(M, M)>, l_to_r| {
-                let good_r_to_l: Vec<&M> = morphisms_r_to_l
+            .fold(Self::Isos::new(), |mut isos: Self::Isos, l_to_r| {
+                let good_morphisms_r_to_l = morphisms_r_to_l
                     .iter()
                     .filter(|r_to_l| {
-                        //l -> r
-                        l_to_r.compose(r) == l.compose(l_to_r)
-            //r -> l
-            && r_to_l.compose(l) == r.compose(r_to_l)
-            //identity on l
-            && Self::is_identity(&l_to_r.compose(r_to_l), &left.cycle)
-            //identity on r
-            && Self::is_identity(&r_to_l.compose(l_to_r), &right.cycle)
+                        l.compose(l_to_r) == l_to_r.compose(r)
+                            && r.compose(r_to_l) == r_to_l.compose(l)
                     })
-                    .collect();
-                for r_to_l in good_r_to_l {
-                    isos.push((l_to_r.clone(), r_to_l.clone()));
+                    .map(|r_to_l| {
+                        //obvious optimalization will be needed later
+                        (
+                            r_to_l,
+                            Self::is_identity_full(&l_to_r.compose(r_to_l), &left.cycle),
+                            Self::is_identity_full(&r_to_l.compose(l_to_r), &right.cycle),
+                        )
+                    })
+                    .filter(|(_, id_l, id_r)| id_l.is_some() && id_r.is_some());
+                for (r_to_l, id_l, id_r) in good_morphisms_r_to_l {
+                    isos.push((
+                        (l_to_r.clone(), r_to_l.clone()),
+                        id_l.expect("I have just checked it"),
+                        id_r.expect("I have just checked it"),
+                    ));
                 }
                 isos
             })
     }
 }
 
-pub type SzymczakClassesAllIsos<O, M> = IsoClassesAllIsos<O, M, Szymczak<O, M>>;
+pub type SzymczakClassesFull<O, M> = IsoClassesFull<O, M, Szymczak<O, M>>;
 
-impl<O: Object + Hash + Clone, M: Morphism<O>> PrettyName for SzymczakClassesAllIsos<O, M> {
+impl<O: Object + Hash + Clone + Send + Sync, M: Morphism<O> + Send + Sync> PrettyName
+    for SzymczakClassesFull<O, M>
+{
     const PRETTY_NAME: &'static str = "Szymczak (with all isomorphisms explicitly)";
 }
+
+impl<O: Object + Hash + Display + Clone + Send + Sync, M: Morphism<O> + Debug + Send + Sync> Display
+    for IsoPair<O, M, Szymczak<O, M>>
+{
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        let mut string = String::new();
+        string.push_str(
+            format!(
+                //add orbit
+                "{}-{}-{:?}--{}-{}-{:?}#\n",
+                self.left.source().borrow(),
+                self.left.target().borrow(),
+                self.left,
+                self.right.source().borrow(),
+                self.right.target().borrow(),
+                self.right
+            )
+            .as_str(),
+        );
+
+        for tuple in &self.isos {
+            string.push_str(
+                format!(
+                    "{}-{}-{:?}--{}-{}-{:?}---{}-{}--{}-{}\n",
+                    tuple.0 .0.source().borrow(),
+                    tuple.0 .0.target().borrow(),
+                    tuple.0 .0,
+                    tuple.0 .1.source().borrow(),
+                    tuple.0 .1.target().borrow(),
+                    tuple.0 .1,
+                    tuple.1 .0,
+                    tuple.1 .1,
+                    tuple.2 .0,
+                    tuple.2 .1
+                )
+                .as_str(),
+            );
+        }
+        write!(f, "{string}")
+    }
+}
+
 //-----------------------------------------------------------------------------------------
 
 #[cfg(test)]

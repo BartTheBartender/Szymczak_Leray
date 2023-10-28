@@ -29,7 +29,6 @@ impl<
 {
     pub fn new(maximal_dimension: Int) -> Self {
         let all_objects: Vec<O> = O::all_by_dimension(0..=maximal_dimension.into()).collect();
-        assert_ne!(all_objects[0], all_objects[1]);
 
         let all_sources: Vec<Arc<O>> = all_objects
             .iter()

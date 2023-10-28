@@ -1,5 +1,5 @@
 use crate::category::{
-    morphism::{Endo as Morphism, IsBij, IsMap}, //i leave to you implementation of try_cycle for arbitrry morphism, afterwards it will be removed. CanonToCanon should implement the Hash trait if we want to put it in the functor
+    morphism::{Endo as Morphism, IsBij, IsMap, IsMatching}, //i leave to you implementation of try_cycle for arbitrary morphism, afterwards it will be removed. CanonToCanon should implement the Hash trait if we want to put it in the functor
     object::Object,
     Category,
     PrettyName,
@@ -54,9 +54,7 @@ impl<
                 hom_sets_fixed_source
                     .par_iter()
                     .filter(move |(target, _)| *target == source)
-                    .flat_map(|(_, morphisms)| {
-                        morphisms.par_iter().map(|morphism| morphism.clone())
-                    })
+                    .flat_map(|(_, morphisms)| morphisms.par_iter().map(M::clone))
             })
             .collect();
 
@@ -192,14 +190,14 @@ impl<
 
         let mut string = String::new();
 
-        string.push_str(&format!("Functor name: {}\nObject: {}\nMorphism: {}\nNumber of endomorphisms: {}\nNumber of classes: {}\nEvery class has a map: {}\nEvery class has a bijection: {}\nEvery class has exactly one bijection: {}\n===\n", Self::PRETTY_NAME, O::PRETTY_NAME, M::PRETTY_NAME, number_of_endos, self.buffer.len(), self.map_in_every_class(), self.bijection_in_every_class(), self.one_bijection_in_every_class()));
+        string.push_str(format!("Functor name: {}\nObject: {}\nMorphism: {}\nNumber of endomorphisms: {}\nNumber of classes: {}\nEvery class has a map: {}\nEvery class has a bijection: {}\nEvery class has exactly one bijection: {}\n===\n", Self::PRETTY_NAME, O::PRETTY_NAME, M::PRETTY_NAME, number_of_endos, self.buffer.len(), self.map_in_every_class(), self.bijection_in_every_class(), self.one_bijection_in_every_class()).as_str());
 
         for iso_class in &self.buffer {
             string.push_str("---\n");
             for (object, endomorphisms) in iso_class {
-                string.push_str(&format!("-\n{object}:\n"));
+                string.push_str(format!("-\n{object}:\n").as_str());
                 for endomorphism in endomorphisms {
-                    string.push_str(&format!("{endomorphism:?}"));
+                    string.push_str(format!("{endomorphism:?}").as_str());
                     string.push('\n');
                 }
             }
@@ -244,29 +242,39 @@ impl<O: Object + Hash, M: Morphism<O> + IsBij<O>, W: Wrapper<O, M>> IsoClasses<O
 }
 
 //-----------------------------------------------------------------------------------------
-pub trait WrapperAllIsos<O: Object + Hash, M: Morphism<O>>: Wrapper<O, M> + Clone {
-    fn all_isos(left: &Self, right: &Self, category: &Category<O, M>) -> Vec<(M, M)>;
+pub trait WrapperFull<O: Object + Hash + Clone, M: Morphism<O>>: Wrapper<O, M> + Clone {
+    type Isos: Send + Sync; //i cannot resolve this in any other way :(
+    fn all_isos(left: &Self, right: &Self, category: &Category<O, M>) -> Self::Isos;
 }
 
-pub struct IsomorphicPair<O: Object, M: Morphism<O>> {
+#[derive(Clone)]
+pub struct IsoPair<O: Object + Hash + Clone, M: Morphism<O>, W: WrapperFull<O, M>> {
     pub left: M,
     pub right: M,
-    pub isos: Vec<(M, M)>,
+    pub isos: W::Isos,
     object_type: PhantomData<O>,
 }
+unsafe impl<O: Object + Hash + Clone + Send, M: Morphism<O> + Send, W: WrapperFull<O, M> + Send>
+    Send for IsoPair<O, M, W>
+{
+}
 
-pub type IsoClassAllIsos<O, M> = Vec<IsomorphicPair<O, M>>;
+unsafe impl<O: Object + Hash + Clone + Sync, M: Morphism<O> + Sync, W: WrapperFull<O, M> + Sync>
+    Sync for IsoPair<O, M, W>
+{
+}
 
-pub struct IsoClassesAllIsos<O: Object + Hash, M: Morphism<O>, W: WrapperAllIsos<O, M>> {
-    pub buffer: Vec<IsoClassAllIsos<O, M>>,
-    wrapper_all_isos: PhantomData<W>,
+pub type IsoClassFull<O, M, W> = Vec<IsoPair<O, M, W>>;
+
+pub struct IsoClassesFull<O: Object + Hash + Clone, M: Morphism<O>, W: WrapperFull<O, M>> {
+    pub buffer: Vec<IsoClassFull<O, M, W>>,
 }
 
 impl<
         O: Object + Hash + Clone + Sync + Send,
         M: Morphism<O> + Sync + Send + IsBij<O>,
-        W: WrapperAllIsos<O, M> + Sync + Send,
-    > IsoClassesAllIsos<O, M, W>
+        W: WrapperFull<O, M> + Sync + Send,
+    > IsoClassesFull<O, M, W>
 {
     pub fn all_isos(iso_classes: IsoClasses<O, M, W>, category: &Category<O, M>) -> Self {
         let buffer: Vec<_> = iso_classes
@@ -275,16 +283,13 @@ impl<
             .map(|iso_class: IsoClass<O, M>| Self::all_isos_class(iso_class, category))
             .collect();
 
-        Self {
-            buffer,
-            wrapper_all_isos: PhantomData::<W>,
-        }
+        Self { buffer }
     }
 
     fn all_isos_class(
         iso_class: IsoClass<O, M>,
         category: &Category<O, M>,
-    ) -> IsoClassAllIsos<O, M> {
+    ) -> IsoClassFull<O, M, W> {
         //
         let endos: Vec<M> = iso_class
             .into_values()
@@ -313,60 +318,56 @@ impl<
                 bijs_wrapped
                     .clone()
                     .into_par_iter()
-                    .map(move |bij_wrapped| {
-                        let isos = W::all_isos(&endo_wrapped, &bij_wrapped, category);
-                        IsomorphicPair {
-                            left: W::into_morphism(endo_wrapped.clone()),
-                            right: W::into_morphism(bij_wrapped),
-                            isos,
-                            object_type: PhantomData::<O>,
-                        }
+                    .map(move |bij_wrapped| IsoPair {
+                        left: W::into_morphism(endo_wrapped.clone()),
+                        right: W::into_morphism(bij_wrapped.clone()),
+                        isos: W::all_isos(&endo_wrapped, &bij_wrapped, category),
+                        object_type: PhantomData::<O>,
                     })
             })
-            .collect::<IsoClassAllIsos<O, M>>()
+            .collect::<IsoClassFull<O, M, W>>()
+    }
+}
+
+impl<O: Object + Hash + Clone, M: Morphism<O> + Debug, W: WrapperFull<O, M>> Display
+    for IsoPair<O, M, W>
+{
+    default fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        write!(f, "Not specified")
     }
 }
 
 impl<
-        O: Object + Hash + Display + PrettyName,
+        O: Object + Hash + Display + Clone + PrettyName,
         M: Morphism<O> + Debug + PrettyName,
-        W: WrapperAllIsos<O, M>,
-    > Display for IsoClassesAllIsos<O, M, W>
+        W: WrapperFull<O, M>,
+    > Display for IsoClassesFull<O, M, W>
 {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         let mut string = String::new();
 
-        string.push_str(&format!(
-            "Functor name: {}\nObject: {}\nMorphism: {}\nNumber of classes: {}\n===\n",
-            Self::PRETTY_NAME,
-            O::PRETTY_NAME,
-            M::PRETTY_NAME,
-            self.buffer.len()
-        ));
+        string.push_str(
+            format!(
+                "Functor name: {}\nObject: {}\nMorphism: {}\nNumber of classes: {}\n===\n",
+                Self::PRETTY_NAME,
+                O::PRETTY_NAME,
+                M::PRETTY_NAME,
+                self.buffer.len()
+            )
+            .as_str(),
+        );
 
-        for iso_class_all_isos in &self.buffer {
+        for iso_class_full in &self.buffer {
             string.push_str("---\n");
-            for iso_pair in iso_class_all_isos {
-                string.push_str("--\n");
-                for iso_maps in &iso_pair.isos {
-                    string.push_str(&format!(
-                        "{}:{:?}-{}:{:?}--{:?}-{:?}\n",
-                        iso_pair.left.source().borrow(),
-                        iso_pair.left,
-                        iso_pair.right.source().borrow(),
-                        iso_pair.right,
-                        iso_maps.0,
-                        iso_maps.1
-                    ));
-                }
+            for iso_pair in iso_class_full {
+                string.push_str(format!("--\n{iso_pair}",).as_str());
             }
         }
         write!(f, "{string}")
     }
 }
-
-impl<O: Object + Hash, M: Morphism<O>, W: WrapperAllIsos<O, M>> PrettyName
-    for IsoClassesAllIsos<O, M, W>
+impl<O: Object + Hash + Clone, M: Morphism<O>, W: WrapperFull<O, M>> PrettyName
+    for IsoClassesFull<O, M, W>
 {
     default const PRETTY_NAME: &'static str = "Not specified";
 }

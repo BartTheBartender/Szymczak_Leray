@@ -106,9 +106,15 @@ pub trait IsMap<O: Object>: Morphism<O> {
     fn is_a_map(&self) -> bool;
 }
 
+pub trait IsMatching<O: Object>: Morphism<O> {
+    fn is_a_matching(&self) -> bool;
+}
+
 pub trait IsBij<O: Object>: Morphism<O> {
     fn is_a_bijection(&self) -> bool;
 }
+
+pub trait IsSpecial<O: Object>: IsMap<O> + IsMatching<O> + IsBij<O> {}
 
 /*
 pub trait AbelianEndoMorphism<R: Ring, Object: Module<R> + Eq>:

@@ -109,7 +109,7 @@ mod util;
 
 use crate::{
     category::{
-        functors::szymczak::{SzymczakClasses, SzymczakClassesAllIsos},
+        functors::szymczak::{SzymczakClasses, SzymczakClassesFull},
         relation::Relation,
         Category,
     },
@@ -118,16 +118,16 @@ use crate::{
         module::canon::object::Object as Module,
     },
 };
-use std::time::Instant;
+use std::{fs, time::Instant};
 // parameters for the code
-use typenum::U3 as N;
+use typenum::{Unsigned, U10, U5 as N};
 type Int = u16;
 type R = C<N>;
 type I = CIdeal<N>;
 const DIM: Int = 1;
 const RECURSION_PARAMETER: usize = 6;
 
-fn main() {
+fn main() -> std::io::Result<()> {
     //
     let category_time = Instant::now();
     let category = Category::<Module<R, I>, Relation<R, I>>::new(DIM);
@@ -139,17 +139,20 @@ fn main() {
     >(&category);
     let szymczak_classes_time_elapsed = szymczak_classes_time.elapsed();
 
-    let szymczak_classes_all_isos_time = Instant::now();
-    let szymczak_classes_all_isos =
-        SzymczakClassesAllIsos::<Module<R, I>, Relation<R, I>>::all_isos(
-            szymczak_classes,
-            &category,
-        );
-    let szymczak_classes_all_isos_time_elapsed = szymczak_classes_all_isos_time.elapsed();
-
     /*
-    println!("{}===\nCategory generated after: {}\nIsomorphisms classes generated after: {}\nParameter of the recursion: {}", szymczak_classes, category_time_elapsed.as_millis(), szymczak_classes_time.elapsed().as_millis(), RECURSION_PARAMETER);
+    //warning: it is assumed that the file is run from directory "szymczak_leray"
+    fs::write(format!("/results/szymczak/txt/dim{}/Z{}-dim-{}", DIM, N::to_usize(), DIM), format!("{}===\nCategory generated after: {}\nIsomorphisms classes generated after: {}\nParameter of the recursion: {}\n", szymczak_classes, category_time_elapsed.as_millis(), szymczak_classes_time.elapsed().as_millis(), RECURSION_PARAMETER))?;
     */
 
-    println!("{}===\nCategory generated after: {}\nIsomorphisms classes generated after: {}\nAll isomorphisms added after: {}\nParameter of the recursion: {}", szymczak_classes_all_isos, category_time_elapsed.as_millis(), szymczak_classes_time_elapsed.as_millis(), szymczak_classes_all_isos_time_elapsed.as_millis(), RECURSION_PARAMETER);
+    let szymczak_classes_full_time = Instant::now();
+    let szymczak_classes_full =
+        SzymczakClassesFull::<Module<R, I>, Relation<R, I>>::all_isos(szymczak_classes, &category);
+    let szymczak_classes_full_time_elapsed = szymczak_classes_full_time.elapsed();
+
+    println!("{szymczak_classes_full}");
+    /*
+    fs::write(format!("../results/szymczak_all_isos/txt/dim{}/Z{}-dim-{}", DIM, N::to_usize(), DIM), format!("{}===\nCategory generated after: {}\nIsomorphisms classes generated after: {}\nAll isomorphisms added after: {}\nParameter of the recursion: {}\n", szymczak_classes_full, category_time_elapsed.as_millis(), szymczak_classes_time_elapsed.as_millis(), szymczak_classes_full_time_elapsed.as_millis(), RECURSION_PARAMETER))?;
+    */
+
+    Ok(())
 }
