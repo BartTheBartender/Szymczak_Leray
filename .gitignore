@@ -4,5 +4,5 @@
 /results
 
 .DS_Store
-__pycache__/
+/python/__pycache__/
 .ipynb_checkpoints/
