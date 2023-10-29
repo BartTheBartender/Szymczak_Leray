@@ -123,7 +123,7 @@ use typenum::{Unsigned, U2 as N};
 type Int = u16;
 type R = C<N>;
 type I = CIdeal<N>;
-const DIM: Int = 1;
+const DIM: Int = 2;
 const RECURSION_PARAMETER: usize = 6;
 
 fn main() -> std::io::Result<()> {
@@ -146,7 +146,7 @@ fn main() -> std::io::Result<()> {
         SzymczakClassesFull::<Module<R, I>, Relation<R, I>>::all_isos(szymczak_classes, &category);
     let szymczak_classes_full_time_elapsed = szymczak_classes_full_time.elapsed();
 
-    fs::write(format!("results/szymczak_all_isos/txt/dim{}/Z{}-dim-{}", DIM, N::to_usize(), DIM), format!("{}===\nCategory generated after: {}\nIsomorphisms classes generated after: {}\nAll isomorphisms added after: {}\nParameter of the recursion: {}\n", szymczak_classes_full, category_time_elapsed.as_secs_f64(), szymczak_classes_time_elapsed.as_secs_f64(), szymczak_classes_full_time_elapsed.as_secs_f64(), RECURSION_PARAMETER))?;
+    fs::write(format!("results/szymczak_full/txt/dim{}/Z{}-dim-{}", DIM, N::to_usize(), DIM), format!("{}===\nCategory generated after: {}\nIsomorphisms classes generated after: {}\nAll isomorphisms added after: {}\nParameter of the recursion: {}\n", szymczak_classes_full, category_time_elapsed.as_secs_f64(), szymczak_classes_time_elapsed.as_secs_f64(), szymczak_classes_full_time_elapsed.as_secs_f64(), RECURSION_PARAMETER))?;
 
     println!("Category generated after: {}\nIsomorphisms classes generated after: {}\nAll isomorphisms added after: {}\nParameter of the recursion: {}", category_time_elapsed.as_secs_f64(), szymczak_classes_time_elapsed.as_secs_f64(), szymczak_classes_full_time_elapsed.as_secs_f64(), RECURSION_PARAMETER);
 

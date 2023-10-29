@@ -32,7 +32,7 @@ def launch(base, max_dim, recursion_parameter=None):
         ).stdout
 
         print(result)
-        print("Program finished succesfully!")
+        print("Program finished succesfully!\n-----------------------------------")
 
     except subprocess.CalledProcessError as e:
         print(f"Error while running 'cargo run --release': {e}")

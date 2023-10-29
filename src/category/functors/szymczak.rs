@@ -198,21 +198,21 @@ impl<O: Object + Hash + Display + Clone + Send + Sync, M: Morphism<O> + Debug + 
         let mut string = String::new();
         string.push_str(
             format!(
-                "{}-{}-{}-{:?}--{}-{}-{}-{:?}#\n",
+                "{}-{}-{:?}-{}--{}-{}-{:?}-{}#\n",
                 self.left.source().borrow(),
                 self.left.target().borrow(),
+                self.left,
                 self.left
                     .try_cycle()
                     .expect("it should be an endomorphism")
                     .len(),
-                self.left,
                 self.right.source().borrow(),
                 self.right.target().borrow(),
+                self.right,
                 self.right
                     .try_cycle()
                     .expect("it should be an endomorphism")
-                    .len(),
-                self.right
+                    .len()
             )
             .as_str(),
         );
