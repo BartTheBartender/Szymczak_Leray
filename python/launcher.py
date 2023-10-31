@@ -1,4 +1,4 @@
-import re
+import regex as re
 import subprocess
 
 
@@ -33,6 +33,7 @@ def launch(base, max_dim, recursion_parameter=None):
 
         print(result)
         print("Program finished succesfully!\n-----------------------------------")
+        return result
 
     except subprocess.CalledProcessError as e:
         print(f"Error while running 'cargo run --release': {e}")

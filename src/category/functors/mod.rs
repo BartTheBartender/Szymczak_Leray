@@ -176,7 +176,7 @@ impl<
 
 impl<
         O: Object + Hash + Display + PrettyName,
-        M: Morphism<O> + Debug + IsMap<O> + IsBij<O> + PrettyName,
+        M: Morphism<O> + Debug + IsMap<O> + IsBij<O> + IsMatching<O> + PrettyName,
         W: Wrapper<O, M>,
     > Display for IsoClasses<O, M, W>
 {
@@ -272,7 +272,7 @@ pub struct IsoClassesFull<O: Object + Hash + Clone, M: Morphism<O>, W: WrapperFu
 
 impl<
         O: Object + Hash + Clone + Sync + Send,
-        M: Morphism<O> + Sync + Send + IsBij<O>,
+        M: Morphism<O> + Sync + Send + IsMatching<O> + IsMap<O> + IsBij<O>,
         W: WrapperFull<O, M> + Sync + Send,
     > IsoClassesFull<O, M, W>
 {
@@ -294,11 +294,12 @@ impl<
         let endos: Vec<M> = iso_class
             .into_values()
             .flat_map(IntoIterator::into_iter)
+            .filter(|endo| endo.is_a_map())
             .collect();
 
         let bijs: Vec<M> = endos
             .iter()
-            .filter(|endo| endo.is_a_bijection())
+            .filter(|endo| endo.is_a_matching())
             .map(Clone::clone)
             .collect();
 

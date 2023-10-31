@@ -55,6 +55,23 @@ class IsoClassFull:
             if raw_iso_class_fix_endo.strip()
         ]
 
+        """
+        self.buffer = [
+            class_fix_endo
+            for class_fix_endo in self.buffer
+            if class_fix_endo.endo.matrix.shape == class_fix_endo.spec.matrix.shape
+        ]
+
+        if len(self.buffer) == 0:
+            raise ValueError("The hypothesis is false or there is a mistake")
+
+        self.buffer = [
+            class_fix_endo
+            for class_fix_endo in self.buffer
+            if not class_fix_endo.endo.is_a_matching()
+       ]
+       """
+
     def plot(self, colors):
         self.pages = []
         for iso_class_fix_endo in self.buffer:
@@ -92,12 +109,24 @@ class IsoClassFixEndo:
 
             self.isos = isos
 
+            """
+            self.isos = [
+                iso_pair
+                for iso_pair in self.isos
+                if iso_pair[0][0].is_a_partial_map()
+                and iso_pair[0][1].inverse_is_a_partial_map()
+            ]
+
+            if len(self.isos) == 0:
+                raise ValueError("The hypothesis is false or there is a mistake")
+            """
+
         else:
             raise TypeError("Unknown morphism type!")
 
     def plot(self, colors):
-        self.endo.plot(colors[0], r"\alpha")
-        self.spec.plot(colors[1], r"\beta")
+        self.endo.plot(colors[1], r"\alpha")
+        self.spec.plot(colors[2], r"\beta")
 
         alpha = Image.open(self.endo.matrix)
         beta = Image.open(self.spec.matrix)
@@ -131,8 +160,8 @@ class IsoClassFixEndo:
             descr = IsoClassFixEndo.plot_description(iso_pair[1], iso_pair[2])
             descr_im = Image.open(descr)
 
-            phi.plot(colors[2], r"\varphi")
-            psi.plot(colors[2], r"\psi")
+            phi.plot(colors[0], r"\varphi")
+            psi.plot(colors[0], r"\psi")
 
             phi_im = Image.open(phi.matrix)
             phi_sig = Image.open(phi.sig)
@@ -247,6 +276,7 @@ class IsoClassFixEndo:
 
         self.buffer = BytesIO()
         image.save(self.buffer, format="pdf")
+        gc.collect()
 
     @staticmethod
     def plot_description(pows_alpha, pows_beta):
@@ -289,6 +319,21 @@ class Mor:
     def plot(self, color, name, special_coloring=False):
         pass
 
+    def is_a_partial_map(self):
+        pass
+
+    def inverse_is_a_partial_map(self):
+        pass
+
+    def is_a_map(self):
+        pass
+
+    def is_a_matching(self):
+        pass
+
+    def is_a_bijection(self):
+        pass
+
 
 # --------------------------------------------------------------------------------
 class Relation(Mor):
@@ -312,13 +357,57 @@ class Relation(Mor):
             raise TypeError("Unknown object type!")
 
     def is_a_map(self):
-        pass
+        num_rows, num_cols = self.matrix.shape
+
+        for i in range(num_rows):
+            if sum(self.matrix[i][j] for j in range(num_cols)) != 1:
+                return False
+
+        return True
+
+    def is_a_partial_map(self):
+        num_rows, num_cols = self.matrix.shape
+
+        for i in range(num_rows):
+            if sum(self.matrix[i][j] for j in range(num_cols)) > 1:
+                return False
+
+        return True
+
+    def inverse_is_a_partial_map(self):
+        num_rows, num_cols = self.matrix.shape
+
+        for j in range(num_cols):
+            if sum(self.matrix[i][j] for i in range(num_rows)) > 1:
+                return False
+
+        return True
 
     def is_a_matching(self):
-        pass
+        num_rows, num_cols = self.matrix.shape
+
+        for i in range(num_rows):
+            if sum(self.matrix[i][j] for j in range(num_cols)) > 1:
+                return False
+
+        for j in range(num_cols):
+            if sum(self.matrix[i][j] for i in range(num_rows)) > 1:
+                return False
+
+        return True
 
     def is_a_bijection(self):
-        pass
+        num_rows, num_cols = self.matrix.shape
+
+        for i in range(num_rows):
+            if sum(self.matrix[i][j] for j in range(num_cols)) != 1:
+                return False
+
+        for j in range(num_cols):
+            if sum(self.matrix[i][j] for i in range(num_rows)) != 1:
+                return False
+
+        return True
 
     def plot(
         self,
@@ -490,10 +579,15 @@ def plot(base, max_dim, functor_name, full):
 
     print("Plotting started...")
     output_full = OutputFull(open(in_filepath).read())
-    output_full.plot(colors)
-    print("Plotting finished!\n-----------------------------------")
-
-    output_full.pdf_writer.write(out_filepath)
+    print("Parsing finished!")
+    try:
+        output_full.plot(colors)
+        print("Plotting finished!\n-----------------------------------")
+        output_full.pdf_writer.write(out_filepath)
+    except KeyboardInterrupt:
+        print("Keyboard interrupt!\n-----------------------------------")
+    except:
+        print("File was too big!\n-----------------------------------")
 
 
 # --------------------------------------------------------------------------------
