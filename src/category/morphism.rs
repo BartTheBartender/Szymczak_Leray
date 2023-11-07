@@ -110,11 +110,13 @@ pub trait IsMatching<O: Object>: Morphism<O> {
     fn is_a_matching(&self) -> bool;
 }
 
+pub trait IsWide<O: Object>: Morphism<O> {
+    fn is_wide(&self) -> bool;
+}
+
 pub trait IsBij<O: Object>: Morphism<O> {
     fn is_a_bijection(&self) -> bool;
 }
-
-pub trait IsSpecial<O: Object>: IsMap<O> + IsMatching<O> + IsBij<O> {}
 
 /*
 pub trait AbelianEndoMorphism<R: Ring, Object: Module<R> + Eq>:

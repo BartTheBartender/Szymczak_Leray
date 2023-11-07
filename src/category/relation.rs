@@ -2,7 +2,7 @@ pub use crate::{
     category::{
         morphism::{
             Concrete as ConcreteMorphism, Endo as EndoMorphism, Enumerable as EnumerableMorphism,
-            IsBij, IsMap, IsMatching, Morphism,
+            IsBij, IsMap, IsMatching, IsWide, Morphism,
         },
         object::Concrete as ConcreteObject,
         PrettyName,
@@ -256,6 +256,18 @@ impl<R: Ring, I: Ideal<Parent = R> + Ord> IsMatching<CanonModule<R, I>> for Rela
                 .matrix
                 .rows()
                 .all(|row| row.filter(|entry| **entry).count() <= 1)
+    }
+}
+
+impl<R: Ring, I: Ideal<Parent = R> + Ord> IsWide<CanonModule<R, I>> for Relation<R, I> {
+    fn is_wide(&self) -> bool {
+        self.matrix
+            .cols()
+            .all(|col| col.filter(|entry| **entry).count() > 0)
+            && self
+                .matrix
+                .rows()
+                .all(|row| row.filter(|entry| **entry).count() > 0)
     }
 }
 

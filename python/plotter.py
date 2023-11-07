@@ -65,12 +65,12 @@ class IsoClassFull:
         if len(self.buffer) == 0:
             raise ValueError("The hypothesis is false or there is a mistake")
 
+       """
         self.buffer = [
             class_fix_endo
             for class_fix_endo in self.buffer
-            if not class_fix_endo.endo.is_a_matching()
-       ]
-       """
+            if not class_fix_endo.endo.is_a_bijection()
+        ]
 
     def plot(self, colors):
         self.pages = []
@@ -567,13 +567,13 @@ def plot(base, max_dim, functor_name, full):
     in_filepath = (
         "results/"
         + functor_name
-        + ("_full/" if full else "/")
+        + ("-full/" if full else "/")
         + f"txt/dim{max_dim}/Z{base}-dim-{max_dim}"
     )
     out_filepath = (
         "results/"
         + functor_name
-        + ("_full/" if full else "/")
+        + ("-full/" if full else "/")
         + f"pdf/dim{max_dim}/Z{base}-dim-{max_dim}.pdf"
     )
 

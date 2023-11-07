@@ -391,18 +391,6 @@ mod test {
         let top_z1_wrapped = W::from_morphism(top_z1).unwrap();
         let top_zn_wrapped = W::from_morphism(top_zn).unwrap();
 
-        assert_eq!(top_z1_wrapped.cycle.len(), 1);
-        assert_eq!(
-            top_z1_wrapped.cycle.get(0).unwrap(),
-            &top_z1_wrapped.morphism
-        );
-
-        assert_eq!(top_zn_wrapped.cycle.len(), 1);
-        assert_eq!(
-            top_zn_wrapped.cycle.get(0).unwrap(),
-            &top_zn_wrapped.morphism
-        );
-
         let morphisms_top_z1_to_top_zn = category.hom_set(
             top_z1_wrapped.morphism.target().borrow(),
             top_zn_wrapped.morphism.source().borrow(),

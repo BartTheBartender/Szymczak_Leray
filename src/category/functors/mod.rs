@@ -1,5 +1,5 @@
 use crate::category::{
-    morphism::{Endo as Morphism, IsBij, IsMap, IsMatching}, //i leave to you implementation of try_cycle for arbitrary morphism, afterwards it will be removed. CanonToCanon should implement the Hash trait if we want to put it in the functor
+    morphism::{Endo as Morphism, IsBij, IsMap, IsMatching, IsWide}, //i leave to you implementation of try_cycle for arbitrary morphism, afterwards it will be removed. CanonToCanon should implement the Hash trait if we want to put it in the functor
     object::Object,
     Category,
     PrettyName,
@@ -35,7 +35,7 @@ pub struct IsoClasses<O: Object + Hash, M: Morphism<O>, W: Wrapper<O, M>> {
 
 impl<
         O: Object + Hash + Clone + Sync + Send,
-        M: Morphism<O> + Sync + Send,
+        M: Morphism<O> + Sync + Send + IsWide<O>,
         W: Wrapper<O, M> + Sync + Send,
     > IsoClasses<O, M, W>
 {
@@ -56,6 +56,8 @@ impl<
                     .filter(move |(target, _)| *target == source)
                     .flat_map(|(_, morphisms)| morphisms.par_iter().map(M::clone))
             })
+            //temporary!!!!!
+            .filter(|morphism| morphism.is_wide())
             .collect();
 
         //step 2. generate raw szymczak classes (by raw i mean they are unsorted by object and endomorphisms keep their cycles)
@@ -294,12 +296,11 @@ impl<
         let endos: Vec<M> = iso_class
             .into_values()
             .flat_map(IntoIterator::into_iter)
-            .filter(|endo| endo.is_a_map())
             .collect();
 
         let bijs: Vec<M> = endos
             .iter()
-            .filter(|endo| endo.is_a_matching())
+            .filter(|endo| endo.is_a_bijection())
             .map(Clone::clone)
             .collect();
 
