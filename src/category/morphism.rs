@@ -53,25 +53,30 @@ where
 }
 
 pub trait Endo<O: Object>: Morphism<O> + Clone + Eq + Hash {
-    fn cycle(&self) -> Vec<Self> {
-        // nie ma potrzeby trzymać całego morfizmu, wystarczy perfekcyjny hash
-        let mut seen_iterations = HashSet::new();
+    // get rid of this trait, incorporate into Morphism
+    fn identity(object: Self::B) -> Self;
 
-        seen_iterations.insert(self.clone());
-        std::iter::successors(Some(self.clone()), |current_iteration| {
-            let next_iteration = current_iteration
-                .clone()
-                .try_compose(&self)
-                .expect("endo should be self composable");
-            match seen_iterations.contains(&next_iteration) {
-                true => None,
-                false => {
-                    seen_iterations.insert(next_iteration.clone());
-                    Some(next_iteration)
+    fn try_cycle(&self) -> Option<Vec<Self>> {
+        // nie ma potrzeby trzymać całego morfizmu, wystarczy perfekcyjny hash
+        (self.source().borrow() == self.target().borrow()).then_some({
+            let mut seen_iterations = HashSet::new();
+
+            seen_iterations.insert(Self::identity(self.source()));
+            std::iter::successors(Some(Self::identity(self.source())), |current_iteration| {
+                let next_iteration = current_iteration
+                    .clone()
+                    .try_compose(self)
+                    .expect("endo should be self composable");
+                match seen_iterations.contains(&next_iteration) {
+                    true => None,
+                    false => {
+                        seen_iterations.insert(next_iteration.clone());
+                        Some(next_iteration)
+                    }
                 }
-            }
+            })
+            .collect()
         })
-        .collect()
     }
 }
 
@@ -100,6 +105,14 @@ pub trait Abelian<O: Object>: PreAbelian<O> + AdditivePartialGroup {
 
 pub trait IsMap<O: Object>: Morphism<O> {
     fn is_a_map(&self) -> bool;
+}
+
+pub trait IsMatching<O: Object>: Morphism<O> {
+    fn is_a_matching(&self) -> bool;
+}
+
+pub trait IsWide<O: Object>: Morphism<O> {
+    fn is_wide(&self) -> bool;
 }
 
 pub trait IsBij<O: Object>: Morphism<O> {

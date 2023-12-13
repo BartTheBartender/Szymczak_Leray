@@ -2,8 +2,9 @@ pub use crate::{
     category::{
         morphism::{
             Concrete as ConcreteMorphism, Endo as EndoMorphism, Enumerable as EnumerableMorphism,
-            IsBij, IsMap, Morphism,
+            IsBij, IsMap, IsMatching, IsWide, Morphism,
         },
+        object::Concrete as ConcreteObject,
         PrettyName,
     },
     ralg::{
@@ -111,6 +112,22 @@ impl<R: Ring, I: Ideal<Parent = R> + Ord> Morphism<CanonModule<R, I>> for Relati
     }
 }
 
+impl<R: Ring + Copy + hash::Hash, I: Ideal<Parent = R> + Ord + hash::Hash>
+    EndoMorphism<CanonModule<R, I>> for Relation<R, I>
+{
+    fn identity(object: Arc<CanonModule<R, I>>) -> Self {
+        let card = object.cardinality();
+
+        let buffer = (0..card).flat_map(move |i| (0..card).map(move |j| j == i));
+
+        Self {
+            source: Arc::clone(&object),
+            target: Arc::clone(&object),
+            matrix: Matrix::<bool>::from_buffer(buffer, card, card),
+        }
+    }
+}
+
 impl<R: Ring + Copy + Into<u16>, I: PrincipalIdeal<Parent = R> + Ord>
     From<(&DirectModule<R, I>, CanonToCanon<R, I>)> for Relation<R, I>
 {
@@ -207,11 +224,6 @@ impl<R: Ring + Copy + Into<u16>, I: PrincipalIdeal<Parent = R> + Ord>
     }
 }
 
-impl<R: Ring + Clone + hash::Hash, I: Ideal<Parent = R> + Ord + hash::Hash>
-    EndoMorphism<CanonModule<R, I>> for Relation<R, I>
-{
-}
-
 impl<Period: Radix + IsGreater<U1> + Send + Sync>
     EnumerableMorphism<CanonModule<C<Period>, CIdeal<Period>>>
     for Relation<C<Period>, CIdeal<Period>>
@@ -232,6 +244,30 @@ impl<R: Ring, I: Ideal<Parent = R> + Ord> IsMap<CanonModule<R, I>> for Relation<
         self.matrix
             .cols()
             .all(|collumn| collumn.filter(|entry| **entry).count() == 1)
+    }
+}
+
+impl<R: Ring, I: Ideal<Parent = R> + Ord> IsMatching<CanonModule<R, I>> for Relation<R, I> {
+    fn is_a_matching(&self) -> bool {
+        self.matrix
+            .cols()
+            .all(|col| col.filter(|entry| **entry).count() <= 1)
+            && self
+                .matrix
+                .rows()
+                .all(|row| row.filter(|entry| **entry).count() <= 1)
+    }
+}
+
+impl<R: Ring, I: Ideal<Parent = R> + Ord> IsWide<CanonModule<R, I>> for Relation<R, I> {
+    fn is_wide(&self) -> bool {
+        self.matrix
+            .cols()
+            .all(|col| col.filter(|entry| **entry).count() > 0)
+            && self
+                .matrix
+                .rows()
+                .all(|row| row.filter(|entry| **entry).count() > 0)
     }
 }
 
@@ -670,5 +706,22 @@ mod test {
                 .filter(|relation| relation.is_a_map())
                 .count()
         );
+    }
+
+    #[test]
+    fn identity_morphism() {
+        use typenum::U2 as N;
+        type R = C<N>;
+        type I = CIdeal<N>;
+
+        let morphisms = Category::<CanonModule<R, I>, Relation<R, I>>::new(1).into_morphisms();
+
+        for morphism in morphisms {
+            let id_source = Relation::<R, I>::identity(morphism.source());
+            let id_target = Relation::<R, I>::identity(morphism.target());
+
+            assert_eq!(morphism, id_source.compose(&morphism));
+            assert_eq!(morphism, morphism.compose(&id_target));
+        }
     }
 }

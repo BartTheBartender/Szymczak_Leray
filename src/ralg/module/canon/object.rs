@@ -26,6 +26,7 @@ use crate::{
 use itertools::Itertools;
 use std::{collections::BTreeSet, fmt, sync::Arc};
 use typenum::{IsGreater, Unsigned, U1};
+
 /* # torsion coefficients object */
 
 /**
@@ -130,12 +131,6 @@ impl<Period: Radix + IsGreater<U1>> fmt::Display for Object<C<Period>, CIdeal<Pe
                 )
             }
         }
-    }
-}
-
-impl<Period: Radix + IsGreater<U1> + Unsigned> Object<C<Period>, CIdeal<Period>> {
-    pub const fn pretty_name() -> &'static str {
-        todo!()
     }
 }
 
