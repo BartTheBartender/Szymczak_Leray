@@ -1,6 +1,6 @@
 use crate::category::{
     functors::{IsoClasses, IsoClassesFull, IsoPair, Wrapper, WrapperFull},
-    morphism::Endo as Morphism,
+    morphism::Morphism,
     object::Object,
     Category, PrettyName,
 };
@@ -20,7 +20,7 @@ pub struct Szymczak<O: Object + Hash, M: Morphism<O>> {
 impl<O: Object + Hash, M: Morphism<O>> Szymczak<O, M> {
     fn is_identity(morphism: &M, cycle: &Vec<M>) -> bool {
         for en in cycle {
-            let en_morphism = morphism.compose(en);
+            let en_morphism = unsafe { morphism.compose_unchecked(en) };
 
             for em in cycle {
                 if en_morphism == *em {
@@ -63,19 +63,21 @@ impl<O: Object + Hash, M: Morphism<O>> Wrapper<O, M> for Szymczak<O, M> {
             .get(l.source().borrow())
             .expect("There is a hom-set with a given source");
 
-        for l_to_r in morphisms_l_to_r {
-            for r_to_l in morphisms_r_to_l {
-                if
-                //l -> r
-                l_to_r.compose(r) == l.compose(l_to_r)
+        unsafe {
+            for l_to_r in morphisms_l_to_r {
+                for r_to_l in morphisms_r_to_l {
+                    if
+                    //l -> r
+                    l_to_r.compose_unchecked(r) == l.compose_unchecked(l_to_r)
             //r -> l
-            && r_to_l.compose(l) == r.compose(r_to_l)
+            && r_to_l.compose_unchecked(l) == r.compose_unchecked(r_to_l)
             //identity on l
-            && Self::is_identity(&l_to_r.compose(r_to_l), &left.cycle)
+            && Self::is_identity(&l_to_r.compose_unchecked(r_to_l), &left.cycle)
             //identity on r
-            && Self::is_identity(&r_to_l.compose(l_to_r), &right.cycle)
-                {
-                    return true;
+            && Self::is_identity(&r_to_l.compose_unchecked(l_to_r), &right.cycle)
+                    {
+                        return true;
+                    }
                 }
             }
         }
@@ -103,7 +105,7 @@ impl<O: Object + Hash + Clone, M: Morphism<O> + Clone> Clone for Szymczak<O, M> 
 impl<O: Object + Hash, M: Morphism<O>> Szymczak<O, M> {
     fn is_identity_full(morphism: &M, cycle: &Vec<M>) -> Option<(usize, usize)> {
         for (n, en) in cycle.iter().enumerate() {
-            let en_morphism = morphism.compose(en);
+            let en_morphism = unsafe { morphism.compose_unchecked(en) };
 
             for (m, em) in cycle.iter().enumerate() {
                 if en_morphism == *em {
@@ -149,28 +151,36 @@ impl<O: Object + Hash + Clone + Send + Sync, M: Morphism<O> + Clone + Send + Syn
         morphisms_l_to_r
             .iter()
             .fold(Self::Isos::new(), |mut isos: Self::Isos, l_to_r| {
-                let good_morphisms_r_to_l = morphisms_r_to_l
-                    .iter()
-                    .filter(|r_to_l| {
-                        l.compose(l_to_r) == l_to_r.compose(r)
-                            && r.compose(r_to_l) == r_to_l.compose(l)
-                    })
-                    .map(|r_to_l| {
-                        //obvious optimalization will be needed later
-                        (
-                            r_to_l,
-                            Self::is_identity_full(&l_to_r.compose(r_to_l), &left.cycle),
-                        )
-                    })
-                    .filter(|(_, id_l)| id_l.is_some())
-                    .map(|(r_to_l, id_l)| {
-                        (
-                            r_to_l,
-                            id_l,
-                            Self::is_identity_full(&r_to_l.compose(l_to_r), &right.cycle),
-                        )
-                    })
-                    .filter(|(_, _, id_r)| id_r.is_some());
+                let good_morphisms_r_to_l = unsafe {
+                    morphisms_r_to_l
+                        .iter()
+                        .filter(|r_to_l| {
+                            l.compose_unchecked(l_to_r) == l_to_r.compose_unchecked(r)
+                                && r.compose_unchecked(r_to_l) == r_to_l.compose_unchecked(l)
+                        })
+                        .map(|r_to_l| {
+                            //obvious optimalization will be needed later
+                            (
+                                r_to_l,
+                                Self::is_identity_full(
+                                    &l_to_r.compose_unchecked(r_to_l),
+                                    &left.cycle,
+                                ),
+                            )
+                        })
+                        .filter(|(_, id_l)| id_l.is_some())
+                        .map(|(r_to_l, id_l)| {
+                            (
+                                r_to_l,
+                                id_l,
+                                Self::is_identity_full(
+                                    &r_to_l.compose_unchecked(l_to_r),
+                                    &right.cycle,
+                                ),
+                            )
+                        })
+                        .filter(|(_, _, id_r)| id_r.is_some())
+                };
                 for (r_to_l, id_l, id_r) in good_morphisms_r_to_l {
                     isos.push((
                         (l_to_r.clone(), r_to_l.clone()),
@@ -405,21 +415,23 @@ mod test {
 
         for top_z1_to_top_zn in &morphisms_top_z1_to_top_zn {
             for top_zn_to_top_z1 in &morphisms_top_zn_to_top_z1 {
-                if top_z1_wrapped.morphism.compose(top_z1_to_top_zn)
-                    == top_z1_to_top_zn.compose(&top_zn_wrapped.morphism)
-                    && top_zn_wrapped.morphism.compose(top_zn_to_top_z1)
-                        == top_zn_to_top_z1.compose(&top_z1_wrapped.morphism)
-                {
-                    are_there_morphisms = true;
+                unsafe {
+                    if top_z1_wrapped.morphism.compose_unchecked(top_z1_to_top_zn)
+                        == top_z1_to_top_zn.compose_unchecked(&top_zn_wrapped.morphism)
+                        && top_zn_wrapped.morphism.compose_unchecked(top_zn_to_top_z1)
+                            == top_zn_to_top_z1.compose_unchecked(&top_z1_wrapped.morphism)
+                    {
+                        are_there_morphisms = true;
 
-                    if W::is_identity(
-                        &top_z1_to_top_zn.compose(top_zn_to_top_z1),
-                        &top_z1_wrapped.cycle,
-                    ) && W::is_identity(
-                        &top_zn_to_top_z1.compose(top_z1_to_top_zn),
-                        &top_zn_wrapped.cycle,
-                    ) {
-                        are_szymczak_isomorphic = true;
+                        if W::is_identity(
+                            &top_z1_to_top_zn.compose_unchecked(top_zn_to_top_z1),
+                            &top_z1_wrapped.cycle,
+                        ) && W::is_identity(
+                            &top_zn_to_top_z1.compose_unchecked(top_z1_to_top_zn),
+                            &top_zn_wrapped.cycle,
+                        ) {
+                            are_szymczak_isomorphic = true;
+                        }
                     }
                 }
             }

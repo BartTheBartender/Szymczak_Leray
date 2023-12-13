@@ -331,7 +331,7 @@ impl<R: Ring> AdditivePartialGroup for Matrix<R> {
 /* ## matrix operations */
 
 impl<R: Ring> Matrix<R> {
-    fn identity(nof_cols: usize, nof_rows: usize) -> Self {
+    pub fn identity(nof_cols: usize, nof_rows: usize) -> Self {
         Self::from_buffer(
             (0..nof_rows).flat_map(|r| {
                 (0..nof_cols).map(move |c| match r == c {

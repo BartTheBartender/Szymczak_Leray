@@ -1,8 +1,8 @@
 pub use crate::{
     category::{
         morphism::{
-            Concrete as ConcreteMorphism, Endo as EndoMorphism, Enumerable as EnumerableMorphism,
-            IsBij, IsMap, IsMatching, IsWide, Morphism,
+            Concrete as ConcreteMorphism, Enumerable as EnumerableMorphism, IsMap, IsMatching,
+            IsWide, Morphism,
         },
         object::Concrete as ConcreteObject,
         PrettyName,
@@ -20,7 +20,7 @@ pub use crate::{
     },
 };
 
-use std::{fmt, hash, sync::Arc};
+use std::{fmt, sync::Arc};
 use typenum::{IsGreater, U1};
 
 #[derive(Clone, PartialEq, Eq, Hash)]
@@ -80,8 +80,7 @@ where
         write!(
             f,
             "source: {}, target: {}, matrix:\n{matrix_out}",
-            self.source(),
-            self.target()
+            self.source, self.target
         )
     }
 }
@@ -91,7 +90,7 @@ impl<R: Ring, I: Ideal<Parent = R> + Ord> PrettyName for Relation<R, I> {
 }
 
 //important code  - generation of the category of R-modules and relations
-impl<R: Ring, I: Ideal<Parent = R> + Ord> Morphism<CanonModule<R, I>> for Relation<R, I> {
+impl<R: Ring + Copy, I: Ideal<Parent = R> + Ord> Morphism<CanonModule<R, I>> for Relation<R, I> {
     type B = Arc<CanonModule<R, I>>;
 
     fn source(&self) -> Self::B {
@@ -102,20 +101,7 @@ impl<R: Ring, I: Ideal<Parent = R> + Ord> Morphism<CanonModule<R, I>> for Relati
         Arc::clone(&self.target)
     }
 
-    // other * self
-    fn compose(&self, other: &Self) -> Self {
-        Self {
-            source: Arc::clone(&self.source),
-            target: Arc::clone(&other.target),
-            matrix: self.matrix.compose_unchecked_bool(&other.matrix),
-        }
-    }
-}
-
-impl<R: Ring + Copy + hash::Hash, I: Ideal<Parent = R> + Ord + hash::Hash>
-    EndoMorphism<CanonModule<R, I>> for Relation<R, I>
-{
-    fn identity(object: Arc<CanonModule<R, I>>) -> Self {
+    fn identity(object: Self::B) -> Self {
         let card = object.cardinality();
 
         let buffer = (0..card).flat_map(move |i| (0..card).map(move |j| j == i));
@@ -124,6 +110,25 @@ impl<R: Ring + Copy + hash::Hash, I: Ideal<Parent = R> + Ord + hash::Hash>
             source: Arc::clone(&object),
             target: Arc::clone(&object),
             matrix: Matrix::<bool>::from_buffer(buffer, card, card),
+        }
+    }
+
+    fn is_iso(&self) -> bool {
+        self.matrix
+            .cols()
+            .all(|col| col.filter(|entry| **entry).count() == 1)
+            && self
+                .matrix
+                .rows()
+                .all(|row| row.filter(|entry| **entry).count() == 1)
+    }
+
+    // other * self
+    unsafe fn compose_unchecked(&self, other: &Self) -> Self {
+        Self {
+            source: Arc::clone(&self.source),
+            target: Arc::clone(&other.target),
+            matrix: self.matrix.compose_unchecked_bool(&other.matrix),
         }
     }
 }
@@ -239,7 +244,7 @@ impl<Period: Radix + IsGreater<U1> + Send + Sync>
     }
 }
 
-impl<R: Ring, I: Ideal<Parent = R> + Ord> IsMap<CanonModule<R, I>> for Relation<R, I> {
+impl<R: Ring + Copy, I: Ideal<Parent = R> + Ord> IsMap<CanonModule<R, I>> for Relation<R, I> {
     fn is_a_map(&self) -> bool {
         self.matrix
             .cols()
@@ -247,7 +252,7 @@ impl<R: Ring, I: Ideal<Parent = R> + Ord> IsMap<CanonModule<R, I>> for Relation<
     }
 }
 
-impl<R: Ring, I: Ideal<Parent = R> + Ord> IsMatching<CanonModule<R, I>> for Relation<R, I> {
+impl<R: Ring + Copy, I: Ideal<Parent = R> + Ord> IsMatching<CanonModule<R, I>> for Relation<R, I> {
     fn is_a_matching(&self) -> bool {
         self.matrix
             .cols()
@@ -259,7 +264,7 @@ impl<R: Ring, I: Ideal<Parent = R> + Ord> IsMatching<CanonModule<R, I>> for Rela
     }
 }
 
-impl<R: Ring, I: Ideal<Parent = R> + Ord> IsWide<CanonModule<R, I>> for Relation<R, I> {
+impl<R: Ring + Copy, I: Ideal<Parent = R> + Ord> IsWide<CanonModule<R, I>> for Relation<R, I> {
     fn is_wide(&self) -> bool {
         self.matrix
             .cols()
@@ -268,18 +273,6 @@ impl<R: Ring, I: Ideal<Parent = R> + Ord> IsWide<CanonModule<R, I>> for Relation
                 .matrix
                 .rows()
                 .all(|row| row.filter(|entry| **entry).count() > 0)
-    }
-}
-
-impl<R: Ring, I: Ideal<Parent = R> + Ord> IsBij<CanonModule<R, I>> for Relation<R, I> {
-    fn is_a_bijection(&self) -> bool {
-        self.matrix
-            .cols()
-            .all(|col| col.filter(|entry| **entry).count() == 1)
-            && self
-                .matrix
-                .rows()
-                .all(|row| row.filter(|entry| **entry).count() == 1)
     }
 }
 
@@ -408,57 +401,59 @@ mod test {
 
         //36 = 8 + 7 + 6 + 5 + 4 + 3 + 2 + 1
 
-        //8
-        assert_eq!(bottom.compose(&bottom), bottom);
-        assert_eq!(bottom.compose(&zero_dagger), zero_dagger);
-        assert_eq!(bottom.compose(&zero), bottom);
-        assert_eq!(bottom.compose(&one), bottom);
-        assert_eq!(bottom.compose(&two), bottom);
-        assert_eq!(bottom.compose(&three), bottom);
-        assert_eq!(bottom.compose(&four), bottom);
-        assert_eq!(bottom.compose(&top), zero_dagger);
+        unsafe {
+            //8
+            assert_eq!(bottom.compose_unchecked(&bottom), bottom);
+            assert_eq!(bottom.compose_unchecked(&zero_dagger), zero_dagger);
+            assert_eq!(bottom.compose_unchecked(&zero), bottom);
+            assert_eq!(bottom.compose_unchecked(&one), bottom);
+            assert_eq!(bottom.compose_unchecked(&two), bottom);
+            assert_eq!(bottom.compose_unchecked(&three), bottom);
+            assert_eq!(bottom.compose_unchecked(&four), bottom);
+            assert_eq!(bottom.compose_unchecked(&top), zero_dagger);
 
-        //7
-        assert_eq!(zero_dagger.compose(&zero_dagger), zero_dagger);
-        assert_eq!(zero_dagger.compose(&zero), bottom);
-        assert_eq!(zero_dagger.compose(&one), zero_dagger);
-        assert_eq!(zero_dagger.compose(&two), zero_dagger);
-        assert_eq!(zero_dagger.compose(&three), zero_dagger);
-        assert_eq!(zero_dagger.compose(&four), zero_dagger);
-        assert_eq!(zero_dagger.compose(&top), zero_dagger);
+            //7
+            assert_eq!(zero_dagger.compose_unchecked(&zero_dagger), zero_dagger);
+            assert_eq!(zero_dagger.compose_unchecked(&zero), bottom);
+            assert_eq!(zero_dagger.compose_unchecked(&one), zero_dagger);
+            assert_eq!(zero_dagger.compose_unchecked(&two), zero_dagger);
+            assert_eq!(zero_dagger.compose_unchecked(&three), zero_dagger);
+            assert_eq!(zero_dagger.compose_unchecked(&four), zero_dagger);
+            assert_eq!(zero_dagger.compose_unchecked(&top), zero_dagger);
 
-        //6
-        assert_eq!(zero.compose(&zero), zero);
-        assert_eq!(zero.compose(&one), zero);
-        assert_eq!(zero.compose(&two), zero);
-        assert_eq!(zero.compose(&three), zero);
-        assert_eq!(zero.compose(&four), zero);
-        assert_eq!(zero.compose(&top), top);
+            //6
+            assert_eq!(zero.compose_unchecked(&zero), zero);
+            assert_eq!(zero.compose_unchecked(&one), zero);
+            assert_eq!(zero.compose_unchecked(&two), zero);
+            assert_eq!(zero.compose_unchecked(&three), zero);
+            assert_eq!(zero.compose_unchecked(&four), zero);
+            assert_eq!(zero.compose_unchecked(&top), top);
 
-        //5
-        assert_eq!(one.compose(&one), one);
-        assert_eq!(one.compose(&two), two);
-        assert_eq!(one.compose(&three), three);
-        assert_eq!(one.compose(&four), four);
-        assert_eq!(one.compose(&top), top);
+            //5
+            assert_eq!(one.compose_unchecked(&one), one);
+            assert_eq!(one.compose_unchecked(&two), two);
+            assert_eq!(one.compose_unchecked(&three), three);
+            assert_eq!(one.compose_unchecked(&four), four);
+            assert_eq!(one.compose_unchecked(&top), top);
 
-        //4
-        assert_eq!(two.compose(&two), four);
-        assert_eq!(two.compose(&three), one);
-        assert_eq!(two.compose(&four), three);
-        assert_eq!(two.compose(&top), top);
+            //4
+            assert_eq!(two.compose_unchecked(&two), four);
+            assert_eq!(two.compose_unchecked(&three), one);
+            assert_eq!(two.compose_unchecked(&four), three);
+            assert_eq!(two.compose_unchecked(&top), top);
 
-        //3
-        assert_eq!(three.compose(&three), four);
-        assert_eq!(three.compose(&four), two);
-        assert_eq!(three.compose(&top), top);
+            //3
+            assert_eq!(three.compose_unchecked(&three), four);
+            assert_eq!(three.compose_unchecked(&four), two);
+            assert_eq!(three.compose_unchecked(&top), top);
 
-        //2
-        assert_eq!(four.compose(&four), one);
-        assert_eq!(four.compose(&top), top);
+            //2
+            assert_eq!(four.compose_unchecked(&four), one);
+            assert_eq!(four.compose_unchecked(&top), top);
 
-        //1
-        assert_eq!(top.compose(&top), top);
+            //1
+            assert_eq!(top.compose_unchecked(&top), top);
+        }
     }
 
     #[test]
@@ -720,8 +715,10 @@ mod test {
             let id_source = Relation::<R, I>::identity(morphism.source());
             let id_target = Relation::<R, I>::identity(morphism.target());
 
-            assert_eq!(morphism, id_source.compose(&morphism));
-            assert_eq!(morphism, morphism.compose(&id_target));
+            unsafe {
+                assert_eq!(morphism, id_source.compose_unchecked(&morphism));
+                assert_eq!(morphism, morphism.compose_unchecked(&id_target));
+            }
         }
     }
 }

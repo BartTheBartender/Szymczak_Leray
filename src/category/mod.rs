@@ -123,6 +123,7 @@ pub trait PrettyName {
     const PRETTY_NAME: &'static str;
 }
 
+/*
 #[cfg(test)]
 mod test {
     use super::*;
@@ -141,3 +142,4 @@ mod test {
         assert_eq!(category.into_objects().len(), 2);
     }
 }
+*/

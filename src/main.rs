@@ -1,5 +1,4 @@
 #![feature(specialization)]
-#![feature(return_position_impl_trait_in_trait)]
 #![feature(generic_const_exprs)]
 #![feature(let_chains)]
 #![feature(btree_extract_if)]
@@ -7,7 +6,6 @@
 #![feature(extract_if)]
 #![feature(trait_alias)]
 #![feature(associated_type_bounds)]
-#![feature(arc_unwrap_or_clone)]
 #![feature(lint_reasons)]
 /* this feature is necessary to constrain matrices,
 however, a bug inside it prevents using type aliases for other types
@@ -127,7 +125,6 @@ const DIM: Int = 2;
 const RECURSION_PARAMETER: usize = 8;
 
 fn main() -> std::io::Result<()> {
-    //
     let category_time = Instant::now();
     let category = Category::<Module<R, I>, Relation<R, I>>::new(DIM);
     let category_time_elapsed = category_time.elapsed();

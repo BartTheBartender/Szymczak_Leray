@@ -1,5 +1,5 @@
 use crate::category::{
-    morphism::{Endo as Morphism, IsBij, IsMap, IsMatching, IsWide}, //i leave to you implementation of try_cycle for arbitrary morphism, afterwards it will be removed. CanonToCanon should implement the Hash trait if we want to put it in the functor
+    morphism::{IsMap, IsMatching, IsWide, Morphism}, //i leave to you implementation of try_cycle for arbitrary morphism, afterwards it will be removed. CanonToCanon should implement the Hash trait if we want to put it in the functor
     // importowanie Endo as Morphism jest strasznie cursed
     object::Object,
     Category,
@@ -179,7 +179,7 @@ impl<
 
 impl<
         O: Object + Hash + Display + PrettyName,
-        M: Morphism<O> + Debug + IsMap<O> + IsBij<O> + IsMatching<O> + PrettyName,
+        M: Morphism<O> + Debug + IsMap<O> + IsMatching<O> + PrettyName,
         W: Wrapper<O, M>,
     > Display for IsoClasses<O, M, W>
 {
@@ -223,12 +223,12 @@ impl<O: Object + Hash, M: Morphism<O> + IsMap<O>, W: Wrapper<O, M>> IsoClasses<O
     }
 }
 
-impl<O: Object + Hash, M: Morphism<O> + IsBij<O>, W: Wrapper<O, M>> IsoClasses<O, M, W> {
+impl<O: Object + Hash, M: Morphism<O>, W: Wrapper<O, M>> IsoClasses<O, M, W> {
     pub fn bijection_in_every_class(&self) -> bool {
         self.buffer.iter().all(|iso_class| {
             iso_class
                 .values()
-                .any(|endos| endos.iter().any(IsBij::<O>::is_a_bijection))
+                .any(|endos| endos.iter().any(Morphism::<O>::is_iso))
         })
     }
 
@@ -237,7 +237,7 @@ impl<O: Object + Hash, M: Morphism<O> + IsBij<O>, W: Wrapper<O, M>> IsoClasses<O
             iso_class
                 .values()
                 .flat_map(|endos| endos.iter())
-                .filter(|endo| endo.is_a_bijection())
+                .filter(|endo| endo.is_iso())
                 .count()
                 == 1
         })
@@ -275,7 +275,7 @@ pub struct IsoClassesFull<O: Object + Hash + Clone, M: Morphism<O>, W: WrapperFu
 
 impl<
         O: Object + Hash + Clone + Sync + Send,
-        M: Morphism<O> + Sync + Send + IsMatching<O> + IsMap<O> + IsBij<O>,
+        M: Morphism<O> + Sync + Send + IsMatching<O> + IsMap<O>,
         W: WrapperFull<O, M> + Sync + Send,
     > IsoClassesFull<O, M, W>
 {
@@ -301,7 +301,7 @@ impl<
 
         let bijs: Vec<M> = endos
             .iter()
-            .filter(|endo| endo.is_a_bijection())
+            .filter(|endo| endo.is_iso())
             .map(Clone::clone)
             .collect();
 
