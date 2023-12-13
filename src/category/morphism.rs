@@ -53,6 +53,7 @@ where
 }
 
 pub trait Endo<O: Object>: Morphism<O> + Clone + Eq + Hash {
+    // get rid of this trait, incorporate into Morphism
     fn identity(object: Self::B) -> Self;
 
     fn try_cycle(&self) -> Option<Vec<Self>> {

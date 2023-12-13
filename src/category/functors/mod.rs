@@ -1,5 +1,6 @@
 use crate::category::{
     morphism::{Endo as Morphism, IsBij, IsMap, IsMatching, IsWide}, //i leave to you implementation of try_cycle for arbitrary morphism, afterwards it will be removed. CanonToCanon should implement the Hash trait if we want to put it in the functor
+    // importowanie Endo as Morphism jest strasznie cursed
     object::Object,
     Category,
     PrettyName,
