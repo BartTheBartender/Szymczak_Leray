@@ -103,7 +103,7 @@ impl<O: Object + Hash + Clone, M: Morphism<O> + Clone> Clone for Szymczak<O, M> 
 }
 
 impl<O: Object + Hash, M: Morphism<O>> Szymczak<O, M> {
-    fn is_identity_full(morphism: &M, cycle: &Vec<M>) -> Option<(usize, usize)> {
+    fn is_identity_full(morphism: &M, cycle: &[M]) -> Option<(usize, usize)> {
         for (n, en) in cycle.iter().enumerate() {
             let en_morphism = unsafe { morphism.compose_unchecked(en) };
 
@@ -281,8 +281,8 @@ mod test {
         let hom_set_zn_zn: Vec<Relation<R, I>> = category.hom_set(&zn, &zn);
 
         assert_eq!(
-            hom_set_zn_zn.get(0).unwrap().source().as_ref(),
-            hom_set_zn_zn.get(0).unwrap().target().as_ref()
+            hom_set_zn_zn.first().unwrap().source().as_ref(),
+            hom_set_zn_zn.first().unwrap().target().as_ref()
         );
 
         //reflexive

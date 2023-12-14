@@ -128,7 +128,9 @@ impl<R: Ring + Copy, I: Ideal<Parent = R> + Ord> Morphism<CanonModule<R, I>>
     }
 
     fn is_iso(&self) -> bool {
-        todo!()
+        // let zero = CanonModule::trivial();
+        // self.kernel().source() == zero && self.cokernel().target() == zero
+        todo!();
     }
 
     fn try_compose(&self, other: &Self) -> Option<Self> {

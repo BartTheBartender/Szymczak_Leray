@@ -36,7 +36,7 @@ impl<R: Ring + fmt::Debug, I: Ideal<Parent = R> + Ord + fmt::Debug> fmt::Debug f
 
         for ind_col in 0..self.matrix.nof_cols {
             for ind_row in 0..self.matrix.nof_rows {
-                match self
+                match *self
                     .matrix
                     .get(ind_col, ind_row)
                     .expect("the indices are in proper bounds")
@@ -67,7 +67,7 @@ where
 
         for ind_col in 0..self.matrix.nof_cols {
             for ind_row in 0..self.matrix.nof_rows {
-                match self
+                match *self
                     .matrix
                     .get(ind_col, ind_row)
                     .expect("the indices are in proper bounds")
@@ -284,7 +284,7 @@ mod test {
             object::{Concrete, PartiallyEnumerable},
             Category,
         },
-        util::category_of_relations::HelperData,
+        // util::category_of_relations::HelperData,
         Int,
     };
     // use bitvec::prelude::*;
@@ -292,17 +292,25 @@ mod test {
 
     #[test]
     #[allow(clippy::default_numeric_fallback, reason = "i ain't refactoring this")]
+    #[allow(clippy::too_many_lines, reason = "i ain't refactoring this")]
+    #[allow(clippy::cognitive_complexity, reason = "i ain't refactoring this")]
+    #[allow(
+        clippy::multiple_unsafe_ops_per_block,
+        reason = "i ain't refactoring this"
+    )]
     fn relation_composition_z5() {
         use typenum::{Unsigned, U5 as N};
         type R = C<N>;
         type I = CIdeal<N>;
         let category = Category::<CanonModule<R, I>, Relation<R, I>>::new(1);
 
-        println!("{:?}", category);
+        // println!("{:?}", category);
 
+        /*
         for object in category.clone().into_objects() {
             println!("{:?}", object);
         }
+        */
 
         let zn = category
             .clone()
@@ -474,22 +482,26 @@ mod test {
         );
 
         let submodules = direct.clone().submodules_goursat();
-        let helper_data = HelperData::<R>::new(&direct);
+        // let helper_data = HelperData::<R>::new(&direct);
 
         let relations_zn_out: Vec<Relation<R, I>> = submodules
             .into_iter()
             .map(|submodule| {
+                /*
                 println!("new submodule: {:?}", submodule);
                 for element in submodule.image() {
                     println!("element:{:?}", element)
                 }
+                */
                 Relation::<R, I>::from((&direct, submodule))
             })
             .collect();
 
-        for relation in relations_zn_out.iter() {
+        /*
+        for relation in &relations_zn_out {
             println!("{:?}", relation);
         }
+        */
 
         assert_eq!(relations_zn_out.len(), 6);
 
@@ -518,17 +530,15 @@ mod test {
             .map(|buffer| Matrix::from_buffer(buffer, 3, 3))
             .collect::<Vec<Matrix<bool>>>();
 
-        for matrix_ok in matrices_zn_ok.iter() {
+        for matrix_ok in &matrices_zn_ok {
             assert!(matrices_zn_out
                 .iter()
-                .find(|matrix_out| *matrix_out == matrix_ok)
-                .is_some());
+                .any(|matrix_out| matrix_out == matrix_ok));
         }
-        for matrix_out in matrices_zn_out.iter() {
+        for matrix_out in &matrices_zn_out {
             assert!(matrices_zn_ok
                 .iter()
-                .find(|matrix_ok| *matrix_ok == matrix_out)
-                .is_some());
+                .any(|matrix_ok| matrix_ok == matrix_out));
         }
     }
 
@@ -550,20 +560,19 @@ mod test {
         );
 
         let submodules = direct.clone().submodules_goursat();
-        let helper_data = HelperData::<R>::new(&direct);
+        // let helper_data = HelperData::<R>::new(&direct);
 
-        let relations_on_zn: Vec<Relation<R, I>> = submodules
+        let relations_on_zn = submodules
             .into_iter()
-            .map(|submodule| Relation::<R, I>::from((&direct, submodule)))
-            .collect();
+            .map(|submodule| Relation::<R, I>::from((&direct, submodule)));
 
         assert_eq!(relations_on_zn.len(), 15);
     }
 
     #[test]
     fn z3_category_from_function() {
-        use typenum::{Unsigned, U3 as N};
-        let n = N::to_usize();
+        use typenum::U3 as N;
+        // let n = N::to_usize();
         type R = C<N>;
         type I = CIdeal<N>;
 
@@ -575,16 +584,11 @@ mod test {
             .hom_sets
             .into_values()
             .find(|hom_set_fixed_source| {
-                hom_set_fixed_source
-                    .clone()
-                    .into_values()
-                    .find(|relations| {
-                        relations
-                            .iter()
-                            .find(|relation| relation.source().cardinality() != 1)
-                            .is_some()
-                    })
-                    .is_some()
+                hom_set_fixed_source.clone().into_values().any(|relations| {
+                    relations
+                        .iter()
+                        .any(|relation| relation.source().cardinality() != 1)
+                })
             })
             .expect("there is a relation with non-trivial source");
 
@@ -593,8 +597,7 @@ mod test {
             .find(|relations| {
                 relations
                     .iter()
-                    .find(|relation| relation.target().cardinality() != 1)
-                    .is_some()
+                    .any(|relation| relation.target().cardinality() != 1)
             })
             .expect("there is a relation with non-trivial target");
 
@@ -625,17 +628,15 @@ mod test {
             .map(|buffer| Matrix::from_buffer(buffer, 3, 3))
             .collect::<Vec<Matrix<bool>>>();
 
-        for matrix_ok in matrices_zn_ok.iter() {
+        for matrix_ok in &matrices_zn_ok {
             assert!(matrices_zn_out
                 .iter()
-                .find(|matrix_out| *matrix_out == matrix_ok)
-                .is_some());
+                .any(|matrix_out| matrix_out == matrix_ok));
         }
-        for matrix_out in matrices_zn_out.iter() {
+        for matrix_out in &matrices_zn_out {
             assert!(matrices_zn_ok
                 .iter()
-                .find(|matrix_ok| *matrix_ok == matrix_out)
-                .is_some());
+                .any(|matrix_ok| matrix_ok == matrix_out));
         }
     }
 
@@ -646,16 +647,16 @@ mod test {
         type I = CIdeal<N>;
 
         let category = Category::<CanonModule<R, I>, Relation<R, I>>::new(1);
-        print!("{:?}", category);
+        // print!("{:?}", category);
 
         let hom_set_zn_zn: Vec<Relation<R, I>> = category
             .hom_sets
             .into_iter()
-            .find(|(source, _)| source.cardinality() == N::to_usize().into())
+            .find(|(source, _)| source.cardinality() == N::to_usize())
             .expect("there is a hom_set with non-trivial source")
             .1
             .into_iter()
-            .find(|(target, _)| target.cardinality() == N::to_usize().into())
+            .find(|(target, _)| target.cardinality() == N::to_usize())
             .expect("there is a hom_set with non-trivial target")
             .1;
 
@@ -715,10 +716,8 @@ mod test {
             let id_source = Relation::<R, I>::identity(morphism.source());
             let id_target = Relation::<R, I>::identity(morphism.target());
 
-            unsafe {
-                assert_eq!(morphism, id_source.compose_unchecked(&morphism));
-                assert_eq!(morphism, morphism.compose_unchecked(&id_target));
-            }
+            assert_eq!(Some(morphism.clone()), id_source.try_compose(&morphism));
+            assert_eq!(Some(morphism.clone()), morphism.try_compose(&id_target));
         }
     }
 }

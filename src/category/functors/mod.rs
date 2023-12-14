@@ -58,7 +58,7 @@ impl<
                     .flat_map(|(_, morphisms)| morphisms.par_iter().map(M::clone))
             })
             //temporary!!!!!
-            .filter(|morphism| morphism.is_wide())
+            .filter(IsWide::is_wide)
             .collect();
 
         //step 2. generate raw szymczak classes (by raw i mean they are unsorted by object and endomorphisms keep their cycles)
@@ -104,7 +104,7 @@ impl<
                     raw_iso_classes.par_iter_mut().find_any(|raw_iso_class| {
                         W::are_isomorphic(
                             &endo_wrapped,
-                            raw_iso_class.get(0).expect("RawIsoClass is never empty"),
+                            raw_iso_class.first().expect("RawIsoClass is never empty"),
                             category,
                         )
                     });
@@ -134,10 +134,10 @@ impl<
                         .find_any(|right_raw_iso_class| {
                             W::are_isomorphic(
                                 left_raw_iso_class
-                                    .get(0)
+                                    .first()
                                     .expect("RawIsoClass is never empty"),
                                 right_raw_iso_class
-                                    .get(0)
+                                    .first()
                                     .expect("RawIsoClass is never empty"),
                                 category,
                             )

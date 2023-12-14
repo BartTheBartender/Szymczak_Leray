@@ -89,7 +89,7 @@ impl<
             .expect("source should be an object in the category")
             .get(target)
             .expect("target should be an object in the category")
-            .to_vec()
+            .clone()
     }
 }
 
