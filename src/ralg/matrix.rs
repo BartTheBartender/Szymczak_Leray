@@ -1,8 +1,8 @@
 use crate::ralg::{
-    module::canon::element::Element as CanonElement,
+    module::{canon::element::Element as CanonElement, Module},
     ring::{
         ideal::Ideal, AdditivePartialGroup, AdditivePartialMonoid, Bezout as BezoutRing, Demesne,
-        Ring,
+        MultiplicativePartialMonoid, Ring,
     },
 };
 use itertools::Itertools;
@@ -111,37 +111,57 @@ impl<T> VecD2<T> {
             .get_mut(col.wrapping_add(self.nof_cols.wrapping_mul(row)))
     }
 
-    pub fn get_minor(&self, cols: &[usize], rows: &[usize]) -> VecD2<&T> {
+    pub fn get_minor<I, J>(&self, cols: I, rows: J) -> VecD2<&T>
+    where
+        I: IntoIterator<Item = usize> + Clone,
+        J: IntoIterator<Item = usize> + Clone,
+        <I as IntoIterator>::IntoIter: Clone,
+    {
         VecD2 {
-            nof_cols: cols.iter().filter(|&&col| col < self.nof_cols).count(),
-            nof_rows: rows.iter().filter(|&&row| row < self.nof_rows).count(),
-            buffer: self
-                .buffer
-                .iter()
-                .zip((0..self.nof_rows).cartesian_product(0..self.nof_cols))
-                .filter(|&(_t, (row, col))| rows.contains(&row) && cols.contains(&col))
-                .map(|(t, _crd)| t)
+            nof_cols: cols
+                .clone()
+                .into_iter()
+                .filter(|&col| col < self.nof_cols)
+                .count(),
+            nof_rows: rows
+                .clone()
+                .into_iter()
+                .filter(|&row| row < self.nof_rows)
+                .count(),
+            buffer: rows
+                .into_iter()
+                .cartesian_product(cols)
+                .filter_map(|(row, col)| self.get(col, row))
                 .collect(),
         }
     }
 
-    pub fn get_minor_mut(&mut self, cols: &[usize], rows: &[usize]) -> VecD2<&mut T> {
+    /*
+    pub fn get_minor_mut<I, J>(&mut self, cols: I, rows: J) -> VecD2<&mut T>
+    where
+        I: IntoIterator<Item = usize> + Clone,
+        J: IntoIterator<Item = usize> + Clone,
+        <I as IntoIterator>::IntoIter: Clone,
+    {
         VecD2 {
-            nof_cols: cols.iter().filter(|&&col| col < self.nof_cols).count(),
-            nof_rows: rows.iter().filter(|&&row| row < self.nof_rows).count(),
-            buffer: self
-                .buffer
-                .iter_mut()
-                .zip((0..self.nof_rows).cartesian_product(0..self.nof_cols))
-                .filter(|&(ref _t, (row, col))| rows.contains(&row) && cols.contains(&col))
-                .map(|(t, _crd)| t)
+            nof_cols: cols
+                .clone()
+                .into_iter()
+                .filter(|&col| col < self.nof_cols)
+                .count(),
+            nof_rows: rows
+                .clone()
+                .into_iter()
+                .filter(|&row| row < self.nof_rows)
+                .count(),
+            buffer: rows
+                .into_iter()
+                .cartesian_product(cols)
+                .filter_map(|(row, col)| self.get_mut(col, row))
                 .collect(),
         }
     }
-
-    pub const fn shape(&self) -> (usize, usize) {
-        (self.nof_cols, self.nof_rows)
-    }
+    */
 
     /* ## iterators */
 
@@ -210,6 +230,16 @@ impl<T> VecD2<T> {
         (0..self.nof_cols).map(|col| self.col(col))
     }
 
+    /* # properties */
+
+    pub const fn shape(&self) -> (usize, usize) {
+        (self.nof_cols, self.nof_rows)
+    }
+
+    pub const fn is_square(&self) -> bool {
+        self.nof_cols == self.nof_rows
+    }
+
     /* # transformations */
 
     pub fn transpose(self) -> Self {
@@ -237,35 +267,61 @@ impl<T: Clone> VecD2<T> {
     }
 }
 
-// this can be placed in a better spot
-use std::ops;
-impl<T> VecD2<T>
-where
-    T: Copy + ops::BitOr<T, Output = T> + ops::BitAnd<T, Output = T>,
-{
-    // this assumes that self.rows == other.cols
-    pub fn compose_unchecked_bool(&self, other: &Self) -> Self {
+impl<T: Copy> VecD2<T> {
+    fn copied(&self) -> Self {
         Self {
             nof_cols: self.nof_cols,
-            nof_rows: other.nof_rows,
-            buffer: (0..other.nof_rows)
-                .flat_map(|row| {
-                    (0..self.nof_cols).map(move |col| {
-                        other
-                            .row(row)
-                            .zip(self.col(col))
-                            .map(|(r, c)| *r & *c)
-                            .reduce(|acc, nxt| acc | nxt)
-                            // this is not neccesarily true and could be replaced by an `unwrap_or_else` call
-                            .expect("matrices are not empty")
-                    })
-                })
+            nof_rows: self.nof_rows,
+            buffer: self.buffer.clone(),
+        }
+    }
+
+    pub fn get_copied(&self, col: usize, row: usize) -> Option<T> {
+        self.buffer
+            .get(col.wrapping_add(self.nof_cols.wrapping_mul(row)))
+            .copied()
+    }
+
+    pub fn get_minor_copied<I, J>(&self, cols: I, rows: J) -> Self
+    where
+        I: IntoIterator<Item = usize> + Clone,
+        J: IntoIterator<Item = usize> + Clone,
+        <I as IntoIterator>::IntoIter: Clone,
+    {
+        Self {
+            nof_cols: cols
+                .clone()
+                .into_iter()
+                .filter(|&col| col < self.nof_cols)
+                .count(),
+            nof_rows: rows
+                .clone()
+                .into_iter()
+                .filter(|&row| row < self.nof_rows)
+                .count(),
+            buffer: rows
+                .into_iter()
+                .cartesian_product(cols)
+                .filter_map(|(row, col)| self.get_copied(col, row))
                 .collect(),
         }
     }
 
-    pub fn buffer(&self) -> Vec<T> {
-        self.buffer.clone()
+    fn row_copied(&self, row: usize) -> impl Iterator<Item = T> + '_ {
+        self.buffer
+            .iter()
+            .skip(row.wrapping_mul(self.nof_cols))
+            .take(self.nof_cols)
+            .copied()
+    }
+
+    fn col_copied(&self, col: usize) -> impl Iterator<Item = T> + '_ {
+        self.buffer
+            .iter()
+            .skip(col)
+            .step_by(self.nof_cols)
+            .take(self.nof_rows)
+            .copied()
     }
 }
 
@@ -275,6 +331,7 @@ where
 pub type Matrix<R: Ring> = VecD2<R>;
 
 /* ## conversion */
+// TODO : move this as Into to CanonElement
 
 impl<R: Ring, I: Ideal<Parent = R> + Ord> From<CanonElement<R, I>> for Matrix<R> {
     fn from(element: CanonElement<R, I>) -> Self {
@@ -333,9 +390,9 @@ impl<R: Ring> AdditivePartialGroup for Matrix<R> {
     }
 }
 
-/* ## matrix operations */
+/* ## multiplicative structure */
 
-impl<R: Ring> Matrix<R> {
+impl<R: Ring + Copy> Matrix<R> {
     pub fn identity(nof_cols: usize, nof_rows: usize) -> Self {
         Self::from_buffer(
             (0..nof_rows).flat_map(|r| {
@@ -348,11 +405,141 @@ impl<R: Ring> Matrix<R> {
             nof_rows,
         )
     }
+
+    /// helper mostly to check how much time is spent on this
+    const fn are_composable(left: &Self, right: &Self) -> bool {
+        left.nof_rows == right.nof_cols
+    }
+
+    /**
+    returns other * self.
+    will crash if the dimensions are invalid
+    */
+    pub unsafe fn compose(&self, other: &Self) -> Self {
+        Self {
+            nof_cols: self.nof_cols,
+            nof_rows: other.nof_rows,
+            buffer: (0..other.nof_rows)
+                .flat_map(|row| {
+                    (0..self.nof_cols).map(move |col| {
+                        other
+                            .row_copied(row)
+                            .zip(self.col_copied(col))
+                            .map(|(r, c)| r.mul(c))
+                            .reduce(R::add)
+                            .unwrap_or_else(R::zero)
+                    })
+                })
+                .collect(),
+        }
+    }
+
+    /// returns other * self if composable
+    pub fn try_compose(&self, other: &Self) -> Option<Self> {
+        // safe since we first check the necessay condition
+        Self::are_composable(self, other).then_some(unsafe { self.compose(other) })
+    }
+
+    #[allow(
+        clippy::multiple_unsafe_ops_per_block,
+        reason = "both have the same safety condition"
+    )]
+    pub fn try_left_inverse(&self) -> Option<Self> {
+        // (A^T * A)^(−1) * A^T
+        let transpose = self.clone().transpose();
+        // matrix is always composable with its transpose
+        unsafe {
+            self.compose(&transpose)
+                .try_inv()
+                .map(|square| transpose.compose(&square))
+        }
+    }
+
+    #[allow(
+        clippy::multiple_unsafe_ops_per_block,
+        reason = "both have the same safety condition"
+    )]
+    pub fn try_right_inverse(&self) -> Option<Self> {
+        // A^T * (A * A^T)^(−1)
+        let transpose = self.clone().transpose();
+        // matrix is always composable with its transpose
+        unsafe {
+            transpose
+                .compose(self)
+                .try_inv()
+                .map(|square| square.compose(&transpose))
+        }
+    }
 }
 
-impl<R: Ring + Copy> Matrix<R> {
-    /* # elementary operations */
+impl<R: Ring + Copy> MultiplicativePartialMonoid for Matrix<R> {
+    fn try_mul(self, other: Self) -> Option<Self> {
+        self.try_compose(&other)
+    }
 
+    fn own_one(&self) -> Self {
+        let (nof_cols, nof_rows) = self.shape();
+        Self::identity(nof_cols, nof_rows)
+    }
+
+    fn is_one(&self) -> bool {
+        *self == self.own_one()
+    }
+
+    fn is_invable(&self) -> bool {
+        self.try_characteristic_polynomial()
+            .and_then(|poly| poly.first().map(MultiplicativePartialMonoid::is_invable))
+            .is_some()
+    }
+
+    fn try_inv(self) -> Option<Self> {
+        self.try_characteristic_polynomial().and_then(|p| {
+            let size = self.shape().0; // if char_poly returns Some, then self is square
+            let (determinant, coeffs) = p
+                .split_first()
+                .expect("char polynomial will have at least one term");
+            determinant.try_inv().map(|dinv| {
+                coeffs
+                    .iter()
+                    .enumerate()
+                    .map(|(j, c)| {
+                        self.clone()
+                            .try_pow(j)
+                            .expect("square matrix will be self composable")
+                            .mul(*c)
+                    })
+                    .reduce(|acc, next| {
+                        acc.try_add(next)
+                            .expect("all matrices have the same shape as self")
+                    })
+                    .unwrap_or_else(|| self.own_one())
+                    .mul(dinv.mul(R::one().neg().pow(size - 1)))
+            })
+        })
+    }
+}
+
+impl<R: Ring + Copy> Module<R> for Matrix<R> {
+    fn mul(self, r: R) -> Self {
+        Self {
+            nof_cols: self.nof_cols,
+            nof_rows: self.nof_rows,
+            buffer: self
+                .buffer
+                .into_iter()
+                .map(|element| element.mul(r))
+                .collect(),
+        }
+    }
+
+    fn mul_assign(&mut self, r: R) {
+        self.buffer = self.buffer.iter().map(|element| element.mul(r)).collect();
+    }
+}
+
+/* ## matrix operations */
+
+impl<R: Ring + Copy> Matrix<R> {
     fn mul_row_by(&mut self, row: usize, r: R) {
         for v in self.row_mut(row) {
             v.mul_assign(r);
@@ -378,43 +565,13 @@ impl<R: Ring + Copy> Matrix<R> {
             t.add_assign(m.mul(r));
         }
     }
-
-    /* # composition */
-    // this could be covered by implementing PartialAbelianMorphism for Matrix
-
-    /**
-    returns other * self.
-    will panic if the dimensions are invalid
-    */
-    pub fn compose(&self, other: &Self) -> Self {
-        assert!(
-            self.nof_rows == other.nof_cols,
-            "cannot compose, invalid dimensions"
-        );
-        Self {
-            nof_cols: self.nof_cols,
-            nof_rows: other.nof_rows,
-            buffer: (0..other.nof_rows)
-                .flat_map(|row| {
-                    (0..self.nof_cols).map(move |col| {
-                        other
-                            .row(row)
-                            .zip(self.col(col))
-                            .map(|(r, c)| r.mul(*c))
-                            .reduce(R::add)
-                            .unwrap_or_else(R::zero)
-                    })
-                })
-                .collect(),
-        }
-    }
 }
 
 /* ## characteristic polynomial */
 
 impl<R: Ring + Copy> Matrix<R> {
     /**
-    produces a square toeplitz matrix with zeros above the diagonal.
+    produces a toeplitz matrix with zeros above the diagonal.
     toeplitz means every diagonal is constant
     */
     pub fn toeplitz_lower_triangular<I: Iterator<Item = R>>(first_col: I, nof_cols: usize) -> Self {
@@ -432,14 +589,58 @@ impl<R: Ring + Copy> Matrix<R> {
         )
     }
 
-    /**
-    will only produce defined behaviour for square matrices.
-    may panic otherwise.
+    /// this assumes the matrix is square, otherwise may produce undefined behaviour or panic
+    #[allow(
+        clippy::arithmetic_side_effects,
+        reason = "i am to lazy to do this correctly now"
+    )]
+    unsafe fn characteristic_polynomial_unchecked(&self) -> Vec<R> {
+        let size = self.nof_cols;
+        let matrix_m = |j: usize| -> Self { self.get_minor_copied((j + 1)..size, (j + 1)..size) };
+        let matrix_r = |j: usize| -> Self { self.get_minor_copied((j + 1)..=size, [j]) };
+        let matrix_s = |j: usize| -> Self { self.get_minor_copied([j], (j + 1)..=size) };
+        let matrix_c = |j: usize| -> Self {
+            Self::toeplitz_lower_triangular(
+                (0..(size + 1 - j)).map(|i| match i {
+                    0 => R::one(),
+                    1 => (*self.get(j, j).expect("j will be smaller than size")).neg(),
+                    ith => matrix_s(j)
+                        .compose(
+                            &matrix_m(j)
+                                .try_pow(ith - 2)
+                                .expect("square matrix will be self composable"),
+                        )
+                        .compose(&matrix_r(j))
+                        .get(0, 0)
+                        .expect("the resulting matrix should have shape (1,1)")
+                        .neg(),
+                }),
+                size - j,
+            )
+        };
+        // this is rahter ugly, maybe it can be done better
+        (0..size)
+            .rev()
+            .map(matrix_c)
+            .reduce(|acc, next| acc.compose(&next))
+            .unwrap()
+            .buffer
+            // we want the degree zero coefficient to be on the front of the iterator
+            .into_iter()
+            .rev()
+            .collect()
+    }
 
+    /**
+    will only produce result for square matrices.
     uses Berkowitz's algorithm
     */
-    pub fn characteristic_polynomial(&self) -> Option<Vec<R>> {
-        (self.nof_cols == self.nof_rows).then_some(todo!())
+    pub fn try_characteristic_polynomial(&self) -> Option<Vec<R>> {
+        // safe since we first check the necessary condition
+        unsafe {
+            self.is_square()
+                .then_some(self.characteristic_polynomial_unchecked())
+        }
     }
 }
 
@@ -524,6 +725,39 @@ impl<R: Copy + BezoutRing + Into<u16>> Matrix<R> {
             }
         }
         (u, smith, v)
+    }
+}
+
+// - - -
+
+use std::ops;
+impl<T> VecD2<T>
+where
+    T: Copy + ops::BitOr<T, Output = T> + ops::BitAnd<T, Output = T>,
+{
+    // this assumes that self.rows == other.cols
+    pub fn compose_unchecked_bool(&self, other: &Self) -> Self {
+        Self {
+            nof_cols: self.nof_cols,
+            nof_rows: other.nof_rows,
+            buffer: (0..other.nof_rows)
+                .flat_map(|row| {
+                    (0..self.nof_cols).map(move |col| {
+                        other
+                            .row(row)
+                            .zip(self.col(col))
+                            .map(|(r, c)| *r & *c)
+                            .reduce(|acc, nxt| acc | nxt)
+                            // this is not neccesarily true and could be replaced by an `unwrap_or_else` call
+                            .expect("matrices are not empty")
+                    })
+                })
+                .collect(),
+        }
+    }
+
+    pub fn buffer(&self) -> Vec<T> {
+        self.buffer.clone()
     }
 }
 
@@ -628,15 +862,15 @@ mod test {
     fn reading_minors() {
         let m = VecD2::<u8>::from_buffer([3, 4, 5, 9, 14, 19, 15, 24, 33], 3, 3);
         assert_eq!(
-            m.get_minor(&[0], &[0, 2]),
+            m.get_minor([0], [0, 2]),
             VecD2::<&u8>::from_buffer([&3, &15], 1, 2)
         );
         assert_eq!(
-            m.get_minor(&[0, 1], &[1, 2]),
+            m.get_minor([0, 1], [1, 2]),
             VecD2::<&u8>::from_buffer([&9, &14, &15, &24], 2, 2)
         );
         assert_eq!(
-            m.get_minor(&[3], &[4, 6]),
+            m.get_minor([3], [4, 6]),
             VecD2::<&u8>::from_buffer([], 0, 0)
         );
     }
@@ -708,19 +942,19 @@ mod test {
         type R = C<U54>;
         let a = Matrix::<R>::from_buffer([0, 1, 1, 0].map(R::from), 2, 2);
         let b = Matrix::<R>::from_buffer([1, 0, 0, 1].map(R::from), 2, 2);
-        assert_eq!(a.compose(&a), b);
+        assert_eq!(a.try_compose(&a), Some(b));
 
         let a = Matrix::<R>::from_buffer([0, 1, 2, 0, 1, 2].map(R::from), 3, 2);
         let b = Matrix::<R>::from_buffer([0, 1, 1].map(R::from), 1, 3);
         let c = Matrix::<R>::from_buffer([3, 3].map(R::from), 1, 2);
-        assert_eq!(b.compose(&a), c);
+        assert_eq!(b.try_compose(&a), Some(c));
 
         let a = Matrix::<R>::from_buffer([0, 1, 2, 3, 4, 5].map(R::from), 3, 2);
         let b = Matrix::<R>::from_buffer([0, 1, 2, 3, 4, 5].map(R::from), 2, 3);
         let c = Matrix::<R>::from_buffer([3, 4, 5, 9, 14, 19, 15, 24, 33].map(R::from), 3, 3);
         let d = Matrix::<R>::from_buffer([10, 13, 28, 40].map(R::from), 2, 2);
-        assert_eq!(a.compose(&b), c);
-        assert_eq!(b.compose(&a), d);
+        assert_eq!(a.try_compose(&b), Some(c));
+        assert_eq!(b.try_compose(&a), Some(d));
     }
 
     /* ## elementary operations */
@@ -769,6 +1003,45 @@ mod test {
         assert_eq!(
             Matrix::<R>::toeplitz_lower_triangular([1, 2, 3].map(R::from).into_iter(), 3),
             Matrix::<R>::from_buffer([1, 0, 0, 2, 1, 0, 3, 2, 1].map(R::from), 3, 3),
+        );
+
+        assert_eq!(
+            Matrix::<R>::toeplitz_lower_triangular([1, 2, 3].map(R::from).into_iter(), 2),
+            Matrix::<R>::from_buffer([1, 0, 2, 1, 3, 2].map(R::from), 2, 3),
+        );
+    }
+
+    #[test]
+    fn characteristic_polynomial() {
+        type R = C<U32>;
+        assert_eq!(
+            Matrix::<R>::from_buffer([1, 0, 0, 1].map(R::from), 2, 2)
+                .try_characteristic_polynomial(),
+            Some([1, 30, 1].map(R::from).to_vec())
+        );
+        assert_eq!(
+            Matrix::<R>::from_buffer([1, 2, 3, 4].map(R::from), 2, 2)
+                .try_characteristic_polynomial(),
+            Some([30, 27, 1].map(R::from).to_vec())
+        );
+        assert_eq!(
+            Matrix::<R>::from_buffer([1, 0, 0, 0, 1, 0, 0, 0, 1].map(R::from), 3, 3)
+                .try_characteristic_polynomial(),
+            Some([31, 3, 29, 1].map(R::from).to_vec())
+        );
+        assert_eq!(
+            Matrix::<R>::from_buffer([1, 2, 3, 2, 5, 8, 3, 5, 7].map(R::from), 3, 3)
+                .try_characteristic_polynomial(),
+            Some([0, 26, 19, 1].map(R::from).to_vec())
+        );
+        assert_eq!(
+            Matrix::<R>::from_buffer(
+                [1, 2, 3, 4, 2, 3, 4, 1, 3, 4, 1, 2, 4, 1, 2, 3].map(R::from),
+                4,
+                4
+            )
+            .try_characteristic_polynomial(),
+            Some([0, 0, 4, 24, 1].map(R::from).to_vec())
         );
     }
 

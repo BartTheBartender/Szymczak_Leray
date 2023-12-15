@@ -55,19 +55,37 @@ pub trait AdditiveGroup: AdditiveMonoid + AdditivePartialGroup {
 
 /* # multiplicative structure */
 
-pub trait MultiplicativePartialMonoid: Demesne {
+pub trait MultiplicativePartialMonoid: Demesne + Clone {
     fn try_mul(self, other: Self) -> Option<Self>;
 
     fn own_one(&self) -> Self;
     fn is_one(&self) -> bool;
     fn is_invable(&self) -> bool;
     fn try_inv(self) -> Option<Self>;
+
+    fn try_pow(self, exponent: usize) -> Option<Self> {
+        match exponent {
+            0 => Some(self.own_one()),
+            n => self
+                .clone()
+                .try_pow(n - 1)
+                .map(|prev| prev.try_mul(self))
+                .flatten(),
+        }
+    }
 }
 
 pub trait MultiplicativeMonoid: MultiplicativePartialMonoid + Enumerable {
     fn one() -> Self;
     fn mul(self, other: Self) -> Self;
     fn mul_assign(&mut self, other: Self);
+
+    fn pow(self, exponent: usize) -> Self {
+        match exponent {
+            0 => Self::one(),
+            n => self.clone().mul(self.pow(n - 1)),
+        }
+    }
 }
 
 /* # rings */

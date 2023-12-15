@@ -45,6 +45,7 @@ impl<O: Object + Hash, M: Morphism<O>> Wrapper<O, M> for Szymczak<O, M> {
         self.morphism
     }
 
+    // TODO : chciałbym też mieć funkcję, która sprawdza ten szymczak izomorfizm bez generowania wszystkich morfizmów w całej kategorii
     fn are_isomorphic(left: &Self, right: &Self, category: &Category<O, M>) -> bool {
         let l: &M = &left.morphism;
         let r: &M = &right.morphism;

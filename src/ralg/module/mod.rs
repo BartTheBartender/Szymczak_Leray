@@ -18,12 +18,18 @@ we would have to somehow encode every ideal as a separate type
 — which by itself is doable, i think —
 and the module would have to depend on a list of ideals,
 of possibly unknown at compile time lenght.
+
+so, technically, this is a partial module,
+but since actual modules are undoable,
+we omit the 'partial' identifier for brevity.
 */
+/// an element of some module
 pub trait Module<R: Ring>: AdditivePartialGroup {
     fn mul(self, r: R) -> Self;
     fn mul_assign(&mut self, r: R);
 }
 
+/// an object of the category of modules over the ring
 pub trait ModuleObject<R: Ring>: Concrete {
     fn is_trivial(&self) -> bool;
     fn trivial() -> Self;

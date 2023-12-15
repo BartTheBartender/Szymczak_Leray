@@ -116,30 +116,62 @@ pub trait IsWide<O: Object>: Morphism<O> {
     fn is_wide(&self) -> bool;
 }
 
-pub trait PreAbelianEndo<O: Object>: Morphism<O> + PreAbelian<O> {
-    fn high_kernel(self) -> Self {
-        let mut last_self = self.clone();
-        let mut last_kernel = last_self.kernel();
+// this could probably be yeeted from here, but i want some separation
+pub trait Lerayable<O: Object>: Morphism<O> + PreAbelian<O> {
+    fn try_left_inverse(&self) -> Option<Self>; // this could be in all morphisms
+    fn try_right_inverse(&self) -> Option<Self>; // this could be in all morphisms
 
-        loop {
-            let new_self = unsafe { last_self.compose_unchecked(&self) };
-            let new_kernel = new_self.kernel();
-            if new_kernel == last_kernel {
-                return new_kernel;
-            }
-
-            last_self = new_self;
-            last_kernel = new_kernel;
-        }
+    fn try_leray_kernel(&self) -> Option<Self> {
+        self.try_cycle().map(|mut cycle| {
+            cycle
+                .pop()
+                .expect("cycle will contain at least one iteration")
+                .kernel()
+        })
     }
 
-    /*
-    fn high_cokernel(&self) -> Self {
-        // probably not the fastest, but will work consistently
-        self.cycle()
-            .pop()
-            .expect("cycle will contain at least one iteration")
-            .cokernel()
+    fn try_leray_cokernel(&self) -> Option<Self> {
+        self.try_cycle().map(|mut cycle| {
+            cycle
+                .pop()
+                .expect("cycle will contain at least one iteration")
+                .cokernel()
+        })
     }
-    */
+
+    #[allow(
+        clippy::multiple_unsafe_ops_per_block,
+        reason = "same reason for safety"
+    )]
+    fn try_left_leray_functor(&self) -> Option<Self> {
+        self.try_leray_kernel().and_then(|hk| {
+            let q = hk.cokernel();
+            q.try_right_inverse()
+                // safe by construction
+                .map(|s| unsafe { s.compose_unchecked(self).compose_unchecked(&q) })
+        })
+    }
+
+    #[allow(
+        clippy::multiple_unsafe_ops_per_block,
+        reason = "same reason for safety"
+    )]
+    fn try_right_leray_functor(&self) -> Option<Self> {
+        self.try_leray_cokernel().and_then(|hc| {
+            let k = hc.cokernel();
+            k.try_left_inverse()
+                // safe by construction
+                .map(|s| unsafe { k.compose_unchecked(self).compose_unchecked(&s) })
+        })
+    }
+
+    fn try_leray_functor(&self) -> Option<Self> {
+        self.try_left_leray_functor()
+            .and_then(|llf| llf.try_right_leray_functor())
+    }
+
+    fn try_leray_functor_alt(&self) -> Option<Self> {
+        self.try_right_leray_functor()
+            .and_then(|llf| llf.try_left_leray_functor())
+    }
 }

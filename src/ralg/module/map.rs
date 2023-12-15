@@ -1,8 +1,8 @@
 use crate::{
     category::{
         morphism::{
-            Abelian, Concrete as ConcreteMorphism, Enumerable as EnumerableMorphism, Morphism,
-            PreAbelian,
+            Abelian, Concrete as ConcreteMorphism, Enumerable as EnumerableMorphism, Lerayable,
+            Morphism, PreAbelian,
         },
         object::Concrete as ConcreteObject,
     },
@@ -14,7 +14,7 @@ use crate::{
         ring::{
             ideal::{Ideal, Principal as PrincipalIdeal},
             AdditivePartialGroup, AdditivePartialMonoid, Bezout as BezoutRing, Demesne,
-            Factorial as FactorialRing, Ring,
+            Factorial as FactorialRing, MultiplicativePartialMonoid, Ring,
         },
     },
 };
@@ -128,16 +128,15 @@ impl<R: Ring + Copy, I: Ideal<Parent = R> + Ord> Morphism<CanonModule<R, I>>
     }
 
     fn is_iso(&self) -> bool {
-        // let zero = CanonModule::trivial();
-        // self.kernel().source() == zero && self.cokernel().target() == zero
-        todo!();
+        self.matrix.is_invable()
     }
 
     fn try_compose(&self, other: &Self) -> Option<Self> {
         (self.target == other.source).then_some(Self {
             source: Arc::clone(&self.source),
             target: Arc::clone(&other.target),
-            matrix: self.matrix.compose(&other.matrix),
+            // safe since we check for necessary condition
+            matrix: unsafe { self.matrix.compose(&other.matrix) },
         })
     }
 
@@ -148,10 +147,6 @@ impl<R: Ring + Copy, I: Ideal<Parent = R> + Ord> Morphism<CanonModule<R, I>>
             target: Arc::clone(&other.target),
             matrix: self.matrix.compose(&other.matrix),
         }
-    }
-
-    fn try_cycle(&self) -> Option<Vec<Self>> {
-        todo!()
     }
 }
 
@@ -218,7 +213,8 @@ impl<R: Ring + Copy, I: Ideal<Parent = R> + Ord> ConcreteMorphism<CanonModule<R,
                 (0, _d) | (_d, 0) => self.target.zero(),
                 (_s, _t) => self
                     .target
-                    .element_from_matrix(Matrix::from(element).compose(&self.matrix)),
+                    // safe since we check for necessary condition
+                    .element_from_matrix(unsafe { Matrix::from(element).compose(&self.matrix) }),
             })
     }
 }
@@ -383,6 +379,25 @@ impl<R: BezoutRing + FactorialRing + Into<u16>, I: PrincipalIdeal<Parent = R> + 
 {
 }
 
+impl<R: BezoutRing + FactorialRing + Into<u16>, I: PrincipalIdeal<Parent = R> + Ord>
+    Lerayable<CanonModule<R, I>> for CanonToCanon<R, I>
+{
+    fn try_left_inverse(&self) -> Option<Self> {
+        self.matrix.try_left_inverse().map(|matrix| Self {
+            source: Arc::clone(&self.target),
+            target: Arc::clone(&self.source),
+            matrix,
+        })
+    }
+
+    fn try_right_inverse(&self) -> Option<Self> {
+        self.matrix.try_right_inverse().map(|matrix| Self {
+            source: Arc::clone(&self.target),
+            target: Arc::clone(&self.source),
+            matrix,
+        })
+    }
+}
 // - - -
 
 #[cfg(test)]
