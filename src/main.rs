@@ -7,6 +7,8 @@
 #![feature(trait_alias)]
 #![feature(associated_type_bounds)]
 #![feature(lint_reasons)]
+#![feature(arc_unwrap_or_clone)]
+#![feature(return_position_impl_trait_in_trait)]
 /* this feature is necessary to constrain matrices,
 however, a bug inside it prevents using type aliases for other types
 */
