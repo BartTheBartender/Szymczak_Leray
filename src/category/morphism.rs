@@ -115,3 +115,31 @@ pub trait IsMatching<O: Object>: Morphism<O> {
 pub trait IsWide<O: Object>: Morphism<O> {
     fn is_wide(&self) -> bool;
 }
+
+pub trait Relation<O: Object>: Morphism<O> {
+    //if x R y and x' R y, then x = x'
+    fn is_univalent(&self) -> bool;
+    //if x R y and x R y', then y = y'
+    fn is_injective(&self) -> bool;
+    //for every x exists y: x R y
+    fn is_total(&self) -> bool;
+    //for every y exists x: x R y
+    fn is_surjective(&self) -> bool;
+
+    fn is_a_map(&self) -> bool {
+        self.is_univalent() && self.is_total()
+    }
+
+    fn is_a_matching(&self) -> bool {
+        self.is_injective() && self.is_univalent()
+    }
+
+    fn is_wide(&self) -> bool {
+        self.is_total() && self.is_surjective()
+    }
+
+    //i don't know if it is correct for a mono/epi relation to be a function as well, so i don't implement it (but it is obvious how to do that)
+    fn is_iso(&self) -> bool {
+        self.is_wide() && self.is_a_matching()
+    }
+}

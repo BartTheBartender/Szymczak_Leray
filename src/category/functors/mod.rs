@@ -25,7 +25,7 @@ pub trait Wrapper<O: Object + Hash, M: Morphism<O>>: Sized {
 }
 
 type Endos<M> = Vec<M>;
-type RawIsoClass<W> = Vec<W>;
+type RawIsoClass<M> = Vec<M>;
 type IsoClass<O, M> = HashMap<O, Vec<M>>;
 
 #[derive(Debug)]

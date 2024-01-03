@@ -24,13 +24,13 @@ use std::{fmt, sync::Arc};
 use typenum::{IsGreater, U1};
 
 #[derive(Clone, PartialEq, Eq, Hash)]
-pub struct Relation<R: Ring, I: Ideal<Parent = R> + Ord> {
+pub struct MRelation<R: Ring, I: Ideal<Parent = R> + Ord> {
     pub source: Arc<CanonModule<R, I>>,
     pub target: Arc<CanonModule<R, I>>,
     pub matrix: Matrix<bool>,
 }
 
-impl<R: Ring + fmt::Debug, I: Ideal<Parent = R> + Ord + fmt::Debug> fmt::Debug for Relation<R, I> {
+impl<R: Ring + fmt::Debug, I: Ideal<Parent = R> + Ord + fmt::Debug> fmt::Debug for MRelation<R, I> {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         let mut matrix_out = String::new();
 
@@ -58,7 +58,7 @@ impl<R: Ring + fmt::Debug, I: Ideal<Parent = R> + Ord + fmt::Debug> fmt::Debug f
     }
 }
 impl<R: Ring + fmt::Display, I: Ideal<Parent = R> + Ord + fmt::Display> fmt::Display
-    for Relation<R, I>
+    for MRelation<R, I>
 where
     CanonModule<R, I>: fmt::Display,
 {
@@ -85,12 +85,12 @@ where
     }
 }
 
-impl<R: Ring, I: Ideal<Parent = R> + Ord> PrettyName for Relation<R, I> {
-    const PRETTY_NAME: &'static str = "Relation";
+impl<R: Ring, I: Ideal<Parent = R> + Ord> PrettyName for MRelation<R, I> {
+    const PRETTY_NAME: &'static str = "MRelation";
 }
 
 //important code  - generation of the category of R-modules and relations
-impl<R: Ring + Copy, I: Ideal<Parent = R> + Ord> Morphism<CanonModule<R, I>> for Relation<R, I> {
+impl<R: Ring + Copy, I: Ideal<Parent = R> + Ord> Morphism<CanonModule<R, I>> for MRelation<R, I> {
     type B = Arc<CanonModule<R, I>>;
 
     fn source(&self) -> Self::B {
@@ -134,7 +134,7 @@ impl<R: Ring + Copy, I: Ideal<Parent = R> + Ord> Morphism<CanonModule<R, I>> for
 }
 
 impl<R: Ring + Copy + Into<u16>, I: PrincipalIdeal<Parent = R> + Ord>
-    From<(&DirectModule<R, I>, CanonToCanon<R, I>)> for Relation<R, I>
+    From<(&DirectModule<R, I>, CanonToCanon<R, I>)> for MRelation<R, I>
 {
     /**
     the morphism should be mono in order for this conversion to work
@@ -231,7 +231,7 @@ impl<R: Ring + Copy + Into<u16>, I: PrincipalIdeal<Parent = R> + Ord>
 
 impl<Period: Radix + IsGreater<U1> + Send + Sync>
     EnumerableMorphism<CanonModule<C<Period>, CIdeal<Period>>>
-    for Relation<C<Period>, CIdeal<Period>>
+    for MRelation<C<Period>, CIdeal<Period>>
 {
     fn hom(source: Self::B, target: Self::B) -> impl Iterator<Item = Self> + Clone {
         let direct = DirectModule::sumproduct(&source, &target);
@@ -244,7 +244,7 @@ impl<Period: Radix + IsGreater<U1> + Send + Sync>
     }
 }
 
-impl<R: Ring + Copy, I: Ideal<Parent = R> + Ord> IsMap<CanonModule<R, I>> for Relation<R, I> {
+impl<R: Ring + Copy, I: Ideal<Parent = R> + Ord> IsMap<CanonModule<R, I>> for MRelation<R, I> {
     fn is_a_map(&self) -> bool {
         self.matrix
             .cols()
@@ -252,7 +252,7 @@ impl<R: Ring + Copy, I: Ideal<Parent = R> + Ord> IsMap<CanonModule<R, I>> for Re
     }
 }
 
-impl<R: Ring + Copy, I: Ideal<Parent = R> + Ord> IsMatching<CanonModule<R, I>> for Relation<R, I> {
+impl<R: Ring + Copy, I: Ideal<Parent = R> + Ord> IsMatching<CanonModule<R, I>> for MRelation<R, I> {
     fn is_a_matching(&self) -> bool {
         self.matrix
             .cols()
@@ -264,7 +264,7 @@ impl<R: Ring + Copy, I: Ideal<Parent = R> + Ord> IsMatching<CanonModule<R, I>> f
     }
 }
 
-impl<R: Ring + Copy, I: Ideal<Parent = R> + Ord> IsWide<CanonModule<R, I>> for Relation<R, I> {
+impl<R: Ring + Copy, I: Ideal<Parent = R> + Ord> IsWide<CanonModule<R, I>> for MRelation<R, I> {
     fn is_wide(&self) -> bool {
         self.matrix
             .cols()
@@ -302,7 +302,7 @@ mod test {
         use typenum::{Unsigned, U5 as N};
         type R = C<N>;
         type I = CIdeal<N>;
-        let category = Category::<CanonModule<R, I>, Relation<R, I>>::new(1);
+        let category = Category::<CanonModule<R, I>, MRelation<R, I>>::new(1);
 
         // println!("{:?}", category);
 
@@ -366,42 +366,42 @@ mod test {
         let four_ok: Vec<bool> = four_ok_raw.into_iter().map(|entry| entry == 1).collect();
         let top_ok: Vec<bool> = top_ok_raw.into_iter().map(|entry| entry == 1).collect();
 
-        let bottom: Relation<R, I> = hom_set_zn_zn
+        let bottom: MRelation<R, I> = hom_set_zn_zn
             .iter()
             .find(|relation| relation.matrix.buffer() == bottom_ok)
             .expect("there are exactly eight relations")
             .clone();
-        let zero: Relation<R, I> = hom_set_zn_zn
+        let zero: MRelation<R, I> = hom_set_zn_zn
             .iter()
             .find(|relation| relation.matrix.buffer() == zero_ok)
             .expect("there are exactly eight relations")
             .clone();
-        let zero_dagger: Relation<R, I> = hom_set_zn_zn
+        let zero_dagger: MRelation<R, I> = hom_set_zn_zn
             .iter()
             .find(|relation| relation.matrix.buffer() == zero_dagger_ok)
             .expect("there are exactly eight relations")
             .clone();
-        let one: Relation<R, I> = hom_set_zn_zn
+        let one: MRelation<R, I> = hom_set_zn_zn
             .iter()
             .find(|relation| relation.matrix.buffer() == one_ok)
             .expect("there are exactly eight relations")
             .clone();
-        let two: Relation<R, I> = hom_set_zn_zn
+        let two: MRelation<R, I> = hom_set_zn_zn
             .iter()
             .find(|relation| relation.matrix.buffer() == two_ok)
             .expect("there are exactly eight relations")
             .clone();
-        let three: Relation<R, I> = hom_set_zn_zn
+        let three: MRelation<R, I> = hom_set_zn_zn
             .iter()
             .find(|relation| relation.matrix.buffer() == three_ok)
             .expect("there are exactly eight relations")
             .clone();
-        let four: Relation<R, I> = hom_set_zn_zn
+        let four: MRelation<R, I> = hom_set_zn_zn
             .iter()
             .find(|relation| relation.matrix.buffer() == four_ok)
             .expect("there are exactly eight relations")
             .clone();
-        let top: Relation<R, I> = hom_set_zn_zn
+        let top: MRelation<R, I> = hom_set_zn_zn
             .iter()
             .find(|relation| relation.matrix.buffer() == top_ok)
             .expect("there are exactly eight relations")
@@ -484,7 +484,7 @@ mod test {
         let submodules = direct.clone().submodules_goursat();
         // let helper_data = HelperData::<R>::new(&direct);
 
-        let relations_zn_out: Vec<Relation<R, I>> = submodules
+        let relations_zn_out: Vec<MRelation<R, I>> = submodules
             .into_iter()
             .map(|submodule| {
                 /*
@@ -493,7 +493,7 @@ mod test {
                     println!("element:{:?}", element)
                 }
                 */
-                Relation::<R, I>::from((&direct, submodule))
+                MRelation::<R, I>::from((&direct, submodule))
             })
             .collect();
 
@@ -564,7 +564,7 @@ mod test {
 
         let relations_on_zn = submodules
             .into_iter()
-            .map(|submodule| Relation::<R, I>::from((&direct, submodule)));
+            .map(|submodule| MRelation::<R, I>::from((&direct, submodule)));
 
         assert_eq!(relations_on_zn.len(), 15);
     }
@@ -576,7 +576,7 @@ mod test {
         type R = C<N>;
         type I = CIdeal<N>;
 
-        let category = Category::<CanonModule<R, I>, Relation<R, I>>::new(1);
+        let category = Category::<CanonModule<R, I>, MRelation<R, I>>::new(1);
 
         assert_eq!(category.hom_sets.len(), 2);
 
@@ -592,7 +592,7 @@ mod test {
             })
             .expect("there is a relation with non-trivial source");
 
-        let relations_zn_out: Vec<Relation<R, I>> = hom_sets_fixed_source
+        let relations_zn_out: Vec<MRelation<R, I>> = hom_sets_fixed_source
             .into_values()
             .find(|relations| {
                 relations
@@ -646,10 +646,10 @@ mod test {
         type R = C<N>;
         type I = CIdeal<N>;
 
-        let category = Category::<CanonModule<R, I>, Relation<R, I>>::new(1);
+        let category = Category::<CanonModule<R, I>, MRelation<R, I>>::new(1);
         // print!("{:?}", category);
 
-        let hom_set_zn_zn: Vec<Relation<R, I>> = category
+        let hom_set_zn_zn: Vec<MRelation<R, I>> = category
             .hom_sets
             .into_iter()
             .find(|(source, _)| source.cardinality() == N::to_usize())
@@ -690,7 +690,7 @@ mod test {
         type I = CIdeal<N>;
         let n = N::to_usize();
 
-        let category = Category::<CanonModule<R, I>, Relation<R, I>>::new(1);
+        let category = Category::<CanonModule<R, I>, MRelation<R, I>>::new(1);
         let zn = CanonModule::<R, I>::from_iter([2]);
 
         let hom_set_znxzn = category.hom_set(&zn, &zn);
@@ -710,11 +710,11 @@ mod test {
         type R = C<N>;
         type I = CIdeal<N>;
 
-        let morphisms = Category::<CanonModule<R, I>, Relation<R, I>>::new(1).into_morphisms();
+        let morphisms = Category::<CanonModule<R, I>, MRelation<R, I>>::new(1).into_morphisms();
 
         for morphism in morphisms {
-            let id_source = Relation::<R, I>::identity(morphism.source());
-            let id_target = Relation::<R, I>::identity(morphism.target());
+            let id_source = MRelation::<R, I>::identity(morphism.source());
+            let id_target = MRelation::<R, I>::identity(morphism.target());
 
             assert_eq!(Some(morphism.clone()), id_source.try_compose(&morphism));
             assert_eq!(Some(morphism.clone()), morphism.try_compose(&id_target));
