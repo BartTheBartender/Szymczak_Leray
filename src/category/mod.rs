@@ -22,6 +22,36 @@ pub struct Category<O: Object, M: Morphism<O>> {
     pub hom_sets: HomSet<O, M>,
 }
 
+impl<O: Object + Hash, M: Morphism<O>> Category<O, M> {
+    //this function should be used only if predicate is st.
+    //predicate(id) and predicate(f) && predicate(g) => predicate(g*f)
+    pub fn subcategory(self, predicate: impl Fn(&M) -> bool) -> Self {
+        Self {
+            hom_sets: self
+                .hom_sets
+                .into_iter()
+                .map(|(source, hom_sets_fixed_source)| {
+                    (
+                        source,
+                        hom_sets_fixed_source
+                            .into_iter()
+                            .map(|(target, morphisms)| {
+                                (
+                                    target,
+                                    morphisms
+                                        .into_iter()
+                                        .filter(|morphism| predicate(morphism))
+                                        .collect::<Vec<M>>(),
+                                )
+                            })
+                            .collect::<HashMap<O, Vec<M>>>(),
+                    )
+                })
+                .collect::<HomSet<O, M>>(),
+        }
+    }
+}
+
 impl<
         O: Object + Hash + Clone + PartiallyEnumerableObject + DuplicableObject + fmt::Debug,
         M: Morphism<O, B = Arc<O>> + EnumerableMorphism<O> + Clone + fmt::Debug,

@@ -1,5 +1,5 @@
 use crate::category::{
-    morphism::{IsMap, IsMatching, IsWide, Morphism}, //i leave to you implementation of try_cycle for arbitrary morphism, afterwards it will be removed. CanonToCanon should implement the Hash trait if we want to put it in the functor
+    morphism::{Morphism, Relation}, //i leave to you implementation of try_cycle for arbitrary morphism, afterwards it will be removed. CanonToCanon should implement the Hash trait if we want to put it in the functor
     // importowanie Endo as Morphism jest strasznie cursed
     object::Object,
     Category,
@@ -36,7 +36,7 @@ pub struct IsoClasses<O: Object + Hash, M: Morphism<O>, W: Wrapper<O, M>> {
 
 impl<
         O: Object + Hash + Clone + Sync + Send,
-        M: Morphism<O> + Sync + Send + IsWide<O>,
+        M: Morphism<O> + Sync + Send,
         W: Wrapper<O, M> + Sync + Send,
     > IsoClasses<O, M, W>
 {
@@ -58,7 +58,6 @@ impl<
                     .flat_map(|(_, morphisms)| morphisms.par_iter().map(M::clone))
             })
             //temporary!!!!!
-            .filter(IsWide::is_wide)
             .collect();
 
         //step 2. generate raw szymczak classes (by raw i mean they are unsorted by object and endomorphisms keep their cycles)
@@ -93,6 +92,7 @@ impl<
     }
 
     fn raw_functor_final_step(endos: Endos<M>, category: &Category<O, M>) -> Vec<RawIsoClass<W>> {
+        //tutaj następuje wyliczanie cykli w Szymczaku/redukcji w Leray
         let endos_wrapped = endos.into_iter().map(move |endo| {
             W::from_morphism(endo).expect("This morphism should be an endomorphism")
         });
@@ -179,7 +179,7 @@ impl<
 
 impl<
         O: Object + Hash + Display + PrettyName,
-        M: Morphism<O> + Debug + IsMap<O> + IsMatching<O> + PrettyName,
+        M: Morphism<O> + Debug + Relation<O> + PrettyName,
         W: Wrapper<O, M>,
     > Display for IsoClasses<O, M, W>
 {
@@ -213,12 +213,12 @@ impl<O: Object + Hash, M: Morphism<O>, W: Wrapper<O, M>> PrettyName for IsoClass
     default const PRETTY_NAME: &'static str = "Not specified";
 }
 
-impl<O: Object + Hash, M: Morphism<O> + IsMap<O>, W: Wrapper<O, M>> IsoClasses<O, M, W> {
+impl<O: Object + Hash, M: Morphism<O> + Relation<O>, W: Wrapper<O, M>> IsoClasses<O, M, W> {
     pub fn map_in_every_class(&self) -> bool {
         self.buffer.iter().all(|iso_class| {
             iso_class
                 .values()
-                .any(|endos| endos.iter().any(IsMap::<O>::is_a_map))
+                .any(|endos| endos.iter().any(Relation::<O>::is_a_map))
         })
     }
 }
@@ -275,15 +275,19 @@ pub struct IsoClassesFull<O: Object + Hash + Clone, M: Morphism<O>, W: WrapperFu
 
 impl<
         O: Object + Hash + Clone + Sync + Send,
-        M: Morphism<O> + Sync + Send + IsMatching<O> + IsMap<O>,
+        M: Morphism<O> + Sync + Send,
         W: WrapperFull<O, M> + Sync + Send,
     > IsoClassesFull<O, M, W>
 {
-    pub fn all_isos(iso_classes: IsoClasses<O, M, W>, category: &Category<O, M>) -> Self {
+    pub fn all_isos(
+        iso_classes: IsoClasses<O, M, W>,
+        category: &Category<O, M>,
+        predicate: impl Fn(&M) -> bool,
+    ) -> Self {
         let buffer: Vec<_> = iso_classes
             .buffer
             .into_iter()
-            .map(|iso_class: IsoClass<O, M>| Self::all_isos_class(iso_class, category))
+            .map(|iso_class: IsoClass<O, M>| Self::all_isos_class(iso_class, category, &predicate))
             .collect();
 
         Self { buffer }
@@ -292,6 +296,7 @@ impl<
     fn all_isos_class(
         iso_class: IsoClass<O, M>,
         category: &Category<O, M>,
+        predicate: impl Fn(&M) -> bool,
     ) -> IsoClassFull<O, M, W> {
         //
         let endos: Vec<M> = iso_class
@@ -299,9 +304,9 @@ impl<
             .flat_map(IntoIterator::into_iter)
             .collect();
 
-        let bijs: Vec<M> = endos
+        let special: Vec<M> = endos
             .iter()
-            .filter(|endo| endo.is_iso())
+            .filter(|endo| predicate(endo))
             .map(Clone::clone)
             .collect();
 
@@ -310,7 +315,7 @@ impl<
             .map(|endo| W::from_morphism(endo))
             .map(|endo_wrapped| endo_wrapped.expect("This morphism should be an endomorphism"));
 
-        let bijs_wrapped: Vec<W> = bijs
+        let special_wrapped: Vec<W> = special
             .into_iter()
             .map(|endo| W::from_morphism(endo))
             .map(|endo_wrapped| endo_wrapped.expect("This morphism should be an endomorphism"))
@@ -318,13 +323,13 @@ impl<
 
         endos_wrapped
             .flat_map(|endo_wrapped| {
-                bijs_wrapped
+                special_wrapped
                     .clone()
                     .into_par_iter()
-                    .map(move |bij_wrapped| IsoPair {
+                    .map(move |special_wrapped| IsoPair {
                         left: W::into_morphism(endo_wrapped.clone()),
-                        right: W::into_morphism(bij_wrapped.clone()),
-                        isos: W::all_isos(&endo_wrapped, &bij_wrapped, category),
+                        right: W::into_morphism(special_wrapped.clone()),
+                        isos: W::all_isos(&endo_wrapped, &special_wrapped, category),
                         object_type: PhantomData::<O>,
                     })
             })

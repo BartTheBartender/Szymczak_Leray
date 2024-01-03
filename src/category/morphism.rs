@@ -143,3 +143,7 @@ pub trait Relation<O: Object>: Morphism<O> {
         self.is_wide() && self.is_a_matching()
     }
 }
+
+pub trait AreIsomorphic<O: Object>: Morphism<O> {
+    fn are_isomorphic(&self, other: &Self) -> bool;
+}

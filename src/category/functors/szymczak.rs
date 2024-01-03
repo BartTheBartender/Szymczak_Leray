@@ -255,7 +255,7 @@ impl<O: Object + Hash + Display + Clone + Send + Sync, M: Morphism<O> + Debug + 
 mod test {
     use super::*;
     use crate::{
-        category::{morphism::Morphism, object::Concrete, relation::Relation, Category},
+        category::{morphism::Morphism, mrelation::MRelation, object::Concrete, Category},
         ralg::{
             cgroup::{ideal::CIdeal, C},
             module::canon::object::Object as Module,
@@ -265,20 +265,20 @@ mod test {
 
     type R = C<N>;
     type I = CIdeal<N>;
-    type W = Szymczak<Module<R, I>, Relation<R, I>>;
+    type W = Szymczak<Module<R, I>, MRelation<R, I>>;
 
     #[test]
     fn szymczak_isomorphism_is_equivalence() {
         use typenum::{Unsigned, U5 as N};
 
-        let category = Category::<Module<R, I>, Relation<R, I>>::new(1);
+        let category = Category::<Module<R, I>, MRelation<R, I>>::new(1);
         let zn: Module<R, I> = category
             .clone()
             .into_objects()
             .into_iter()
             .find(|object| object.cardinality() == N::to_usize())
             .expect("there is a module of given cardinality");
-        let hom_set_zn_zn: Vec<Relation<R, I>> = category.hom_set(&zn, &zn);
+        let hom_set_zn_zn: Vec<MRelation<R, I>> = category.hom_set(&zn, &zn);
 
         assert_eq!(
             hom_set_zn_zn.first().unwrap().source().as_ref(),
@@ -334,14 +334,14 @@ mod test {
 
     #[test]
     fn szymczak_isomorphism_isnt_identically_true_nor_false() {
-        let category = Category::<Module<R, I>, Relation<R, I>>::new(1);
+        let category = Category::<Module<R, I>, MRelation<R, I>>::new(1);
         let zn: Module<R, I> = category
             .clone()
             .into_objects()
             .into_iter()
             .find(|object| object.cardinality() == N::to_usize())
             .expect("there is a module of given cardinality");
-        let hom_set_zn_zn: Vec<Relation<R, I>> = category.hom_set(&zn, &zn);
+        let hom_set_zn_zn: Vec<MRelation<R, I>> = category.hom_set(&zn, &zn);
 
         assert_eq!(hom_set_zn_zn.len(), N::to_usize() + 3);
 
@@ -373,7 +373,7 @@ mod test {
 
     #[test]
     fn is_identity() {
-        let category = Category::<Module<R, I>, Relation<R, I>>::new(1);
+        let category = Category::<Module<R, I>, MRelation<R, I>>::new(1);
 
         let all_objects = category.clone().into_objects();
 
@@ -443,7 +443,7 @@ mod test {
 
     #[test]
     fn szymczak_isomorphism_different_base_objects() {
-        let category = Category::<Module<R, I>, Relation<R, I>>::new(1);
+        let category = Category::<Module<R, I>, MRelation<R, I>>::new(1);
 
         let all_objects = category.clone().into_objects();
         assert_eq!(all_objects.len(), 2);
@@ -494,9 +494,9 @@ mod test {
                 type I = CIdeal<$p>;
                 let p = $p::to_usize();
 
-                let category = Category::<Module<R, I>, Relation<R, I>>::new(1);
+                let category = Category::<Module<R, I>, MRelation<R, I>>::new(1);
                 let szymczak_classes =
-                    SzymczakClasses::<Module<R, I>, Relation<R, I>>::functor::<20>(&category);
+                    SzymczakClasses::<Module<R, I>, MRelation<R, I>>::functor::<20>(&category);
                 assert_eq!(szymczak_classes.buffer.len(), p);
             }
         };

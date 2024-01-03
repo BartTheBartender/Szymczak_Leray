@@ -102,7 +102,7 @@ however, a bug inside it prevents using type aliases for other types
 
 mod category;
 mod ralg;
-mod util;
+// mod util;
 
 // - - -
 
@@ -138,13 +138,13 @@ fn main() -> std::io::Result<()> {
     let szymczak_classes_time_elapsed = szymczak_classes_time.elapsed();
 
     ////warning: it is assumed that the file is run from directory "szymczak_leray"
-    //fs::write(format!("results/szymczak-wide/txt/dim{}/Z{}-dim-{}", DIM, N::to_usize(), DIM), format!("{}===\nCategory generated after: {}\nIsomorphisms classes generated after: {}\nParameter of the recursion: {}\n", szymczak_classes, category_time_elapsed.as_secs_f64(), szymczak_classes_time_elapsed.as_secs_f64(), RECURSION_PARAMETER))?;
+    // fs::write(format!("results/szymczak-wide/txt/dim{}/Z{}-dim-{}", DIM, N::to_usize(), DIM), format!("{}===\nCategory generated after: {}\nIsomorphisms classes generated after: {}\nParameter of the recursion: {}\n", szymczak_classes, category_time_elapsed.as_secs_f64(), szymczak_classes_time_elapsed.as_secs_f64(), RECURSION_PARAMETER))?;
 
     println!("{szymczak_classes}");
-    let szymczak_classes_full_time = Instant::now();
-    let szymczak_classes_full =
-        SzymczakClassesFull::<Module<R, I>, MRelation<R, I>>::all_isos(szymczak_classes, &category);
-    let szymczak_classes_full_time_elapsed = szymczak_classes_full_time.elapsed();
+    // let szymczak_classes_full_time = Instant::now();
+    // let szymczak_classes_full =
+    //     SzymczakClassesFull::<Module<R, I>, MRelation<R, I>>::all_isos(szymczak_classes, &category);
+    // let szymczak_classes_full_time_elapsed = szymczak_classes_full_time.elapsed();
     // println!("{szymczak_classes_full}");
 
     // fs::write(format!("results/szymczak-wide-full/txt/dim{}/Z{}-dim-{}", DIM, N::to_usize(), DIM), format!("{}===\nCategory generated after: {}\nIsomorphisms classes generated after: {}\nAll isomorphisms added after: {}\nParameter of the recursion: {}\n", szymczak_classes_full, category_time_elapsed.as_secs_f64(), szymczak_classes_time_elapsed.as_secs_f64(), szymczak_classes_full_time_elapsed.as_secs_f64(), RECURSION_PARAMETER))?;
