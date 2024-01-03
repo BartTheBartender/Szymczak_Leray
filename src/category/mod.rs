@@ -12,8 +12,8 @@ use std::{collections::HashMap, fmt, hash::Hash, sync::Arc};
 
 pub mod functors;
 pub mod morphism;
+pub mod mrelation;
 pub mod object;
-pub mod relation;
 
 pub type HomSet<Object, M> = HashMap<Object, HashMap<Object, Vec<M>>>;
 

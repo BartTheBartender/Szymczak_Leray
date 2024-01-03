@@ -109,7 +109,7 @@ mod util;
 use crate::{
     category::{
         functors::szymczak::{SzymczakClasses, SzymczakClassesFull},
-        relation::MRelation,
+        mrelation::MRelation,
         Category,
     },
     ralg::{
