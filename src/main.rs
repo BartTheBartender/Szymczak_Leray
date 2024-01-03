@@ -1,5 +1,4 @@
 #![feature(specialization)]
-#![feature(return_position_impl_trait_in_trait)]
 #![feature(generic_const_exprs)]
 #![feature(let_chains)]
 #![feature(btree_extract_if)]
@@ -7,8 +6,9 @@
 #![feature(extract_if)]
 #![feature(trait_alias)]
 #![feature(associated_type_bounds)]
-#![feature(arc_unwrap_or_clone)]
 #![feature(lint_reasons)]
+#![feature(arc_unwrap_or_clone)]
+#![feature(return_position_impl_trait_in_trait)]
 /* this feature is necessary to constrain matrices,
 however, a bug inside it prevents using type aliases for other types
 */
@@ -102,14 +102,14 @@ however, a bug inside it prevents using type aliases for other types
 
 mod category;
 mod ralg;
-mod util;
+// mod util;
 
 // - - -
 
 use crate::{
     category::{
         functors::szymczak::{SzymczakClasses, SzymczakClassesFull},
-        relation::Relation,
+        mrelation::MRelation,
         Category,
     },
     ralg::{
@@ -119,36 +119,37 @@ use crate::{
 };
 use std::{fs, time::Instant};
 // parameters for the code
-use typenum::{Unsigned, U4 as N};
+use typenum::{Unsigned, U3 as N};
 type Int = u16;
 type R = C<N>;
 type I = CIdeal<N>;
-const DIM: Int = 2;
+const DIM: Int = 1;
 const RECURSION_PARAMETER: usize = 8;
 
 fn main() -> std::io::Result<()> {
-    //
     let category_time = Instant::now();
-    let category = Category::<Module<R, I>, Relation<R, I>>::new(DIM);
+    let category = Category::<Module<R, I>, MRelation<R, I>>::new(DIM);
     let category_time_elapsed = category_time.elapsed();
 
     let szymczak_classes_time = Instant::now();
-    let szymczak_classes = SzymczakClasses::<Module<R, I>, Relation<R, I>>::functor::<
+    let szymczak_classes = SzymczakClasses::<Module<R, I>, MRelation<R, I>>::functor::<
         { RECURSION_PARAMETER },
     >(&category);
     let szymczak_classes_time_elapsed = szymczak_classes_time.elapsed();
 
-    //warning: it is assumed that the file is run from directory "szymczak_leray"
-    fs::write(format!("results/szymczak-wide/txt/dim{}/Z{}-dim-{}", DIM, N::to_usize(), DIM), format!("{}===\nCategory generated after: {}\nIsomorphisms classes generated after: {}\nParameter of the recursion: {}\n", szymczak_classes, category_time_elapsed.as_secs_f64(), szymczak_classes_time_elapsed.as_secs_f64(), RECURSION_PARAMETER))?;
+    ////warning: it is assumed that the file is run from directory "szymczak_leray"
+    // fs::write(format!("results/szymczak-wide/txt/dim{}/Z{}-dim-{}", DIM, N::to_usize(), DIM), format!("{}===\nCategory generated after: {}\nIsomorphisms classes generated after: {}\nParameter of the recursion: {}\n", szymczak_classes, category_time_elapsed.as_secs_f64(), szymczak_classes_time_elapsed.as_secs_f64(), RECURSION_PARAMETER))?;
 
-    let szymczak_classes_full_time = Instant::now();
-    let szymczak_classes_full =
-        SzymczakClassesFull::<Module<R, I>, Relation<R, I>>::all_isos(szymczak_classes, &category);
-    let szymczak_classes_full_time_elapsed = szymczak_classes_full_time.elapsed();
+    println!("{szymczak_classes}");
+    // let szymczak_classes_full_time = Instant::now();
+    // let szymczak_classes_full =
+    //     SzymczakClassesFull::<Module<R, I>, MRelation<R, I>>::all_isos(szymczak_classes, &category);
+    // let szymczak_classes_full_time_elapsed = szymczak_classes_full_time.elapsed();
+    // println!("{szymczak_classes_full}");
 
-    fs::write(format!("results/szymczak-wide-full/txt/dim{}/Z{}-dim-{}", DIM, N::to_usize(), DIM), format!("{}===\nCategory generated after: {}\nIsomorphisms classes generated after: {}\nAll isomorphisms added after: {}\nParameter of the recursion: {}\n", szymczak_classes_full, category_time_elapsed.as_secs_f64(), szymczak_classes_time_elapsed.as_secs_f64(), szymczak_classes_full_time_elapsed.as_secs_f64(), RECURSION_PARAMETER))?;
+    // fs::write(format!("results/szymczak-wide-full/txt/dim{}/Z{}-dim-{}", DIM, N::to_usize(), DIM), format!("{}===\nCategory generated after: {}\nIsomorphisms classes generated after: {}\nAll isomorphisms added after: {}\nParameter of the recursion: {}\n", szymczak_classes_full, category_time_elapsed.as_secs_f64(), szymczak_classes_time_elapsed.as_secs_f64(), szymczak_classes_full_time_elapsed.as_secs_f64(), RECURSION_PARAMETER))?;
 
-    println!("Category generated after: {}\nIsomorphisms classes generated after: {}\nAll isomorphisms added after: {}\nParameter of the recursion: {}", category_time_elapsed.as_secs_f64(), szymczak_classes_time_elapsed.as_secs_f64(), szymczak_classes_full_time_elapsed.as_secs_f64(), RECURSION_PARAMETER);
+    // println!("Category generated after: {}\nIsomorphisms classes generated after: {}\nAll isomorphisms added after: {}\nParameter of the recursion: {}", category_time_elapsed.as_secs_f64(), szymczak_classes_time_elapsed.as_secs_f64(), szymczak_classes_full_time_elapsed.as_secs_f64(), RECURSION_PARAMETER);
 
     Ok(())
 }

@@ -116,6 +116,23 @@ impl<R: Ring + Copy, I: Ideal<Parent = R> + Ord> Morphism<CanonModule<R, I>>
         Arc::clone(&self.target)
     }
 
+    fn identity(object: Self::B) -> Self {
+        Self::new(
+            &object,
+            &object,
+            match object.dimension() {
+                0 => Matrix::from_buffer([], 0, 0),
+                d => Matrix::identity(d, d),
+            },
+        )
+    }
+
+    fn is_iso(&self) -> bool {
+        // let zero = CanonModule::trivial();
+        // self.kernel().source() == zero && self.cokernel().target() == zero
+        todo!();
+    }
+
     fn try_compose(&self, other: &Self) -> Option<Self> {
         (self.target == other.source).then_some(Self {
             source: Arc::clone(&self.source),
@@ -124,13 +141,17 @@ impl<R: Ring + Copy, I: Ideal<Parent = R> + Ord> Morphism<CanonModule<R, I>>
         })
     }
 
-    fn compose(&self, other: &Self) -> Self {
+    unsafe fn compose_unchecked(&self, other: &Self) -> Self {
         assert!(self.target == other.source, "middle object mismatch");
         Self {
             source: Arc::clone(&self.source),
             target: Arc::clone(&other.target),
             matrix: self.matrix.compose(&other.matrix),
         }
+    }
+
+    fn try_cycle(&self) -> Option<Vec<Self>> {
+        todo!()
     }
 }
 

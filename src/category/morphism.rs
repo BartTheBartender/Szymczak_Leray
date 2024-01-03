@@ -3,7 +3,7 @@ use crate::{
     ralg::ring::{AdditivePartialGroup, AdditivePartialMonoid},
 };
 use dedup::noncon::DedupNonConAdapter;
-use std::{borrow::Borrow, collections::HashSet, hash::Hash};
+use std::borrow::Borrow;
 
 /**
 all the following traits should bre prefixed with Partial,
@@ -14,19 +14,47 @@ this seems like a lot of work for no actual benefit other than pedantry.
 /*
 if we ever need this trait to work between different types,
 source and target can be split,
-then Compose and Apply become separate traits.
+then Compose becomes a separate trait.
 however, right now my problem is that too many things have the same type,
 not the other way around.
 */
-pub trait Morphism<O: Object>: Sized {
+pub trait Morphism<O: Object>: Sized + Clone + Eq {
     type B: Borrow<O>;
 
     fn source(&self) -> Self::B;
     fn target(&self) -> Self::B;
 
-    fn compose(&self, other: &Self) -> Self;
+    fn identity(object: Self::B) -> Self;
+    fn is_iso(&self) -> bool;
+
+    unsafe fn compose_unchecked(&self, other: &Self) -> Self;
     fn try_compose(&self, other: &Self) -> Option<Self> {
-        (self.target().borrow() == other.source().borrow()).then_some(self.compose(other))
+        (self.target().borrow() == other.source().borrow())
+            .then_some(unsafe { self.compose_unchecked(other) }) // safe since we just checked if composable
+    }
+
+    fn is_endo(&self) -> bool {
+        self.source().borrow() == self.target().borrow()
+    }
+
+    fn try_cycle(&self) -> Option<Vec<Self>> {
+        self.is_endo().then_some({
+            let mut seen_iterations = Vec::new(); // this could be a HashSet or a BTreeSet if Morphism implemented Hash or Ord
+
+            seen_iterations.push(Self::identity(self.source()));
+            std::iter::successors(Some(Self::identity(self.source())), |current_iteration| {
+                // compose safe, since endo is self composable
+                let next_iteration = unsafe { current_iteration.clone().compose_unchecked(self) };
+                match seen_iterations.contains(&next_iteration) {
+                    true => None,
+                    false => {
+                        seen_iterations.push(next_iteration.clone());
+                        Some(next_iteration)
+                    }
+                }
+            })
+            .collect()
+        })
     }
 }
 
@@ -49,34 +77,6 @@ where
             // this forces references to be returned and makes liftime managfement easier
             .collect::<Vec<_>>()
             .into_iter()
-    }
-}
-
-pub trait Endo<O: Object>: Morphism<O> + Clone + Eq + Hash {
-    // get rid of this trait, incorporate into Morphism
-    fn identity(object: Self::B) -> Self;
-
-    fn try_cycle(&self) -> Option<Vec<Self>> {
-        // nie ma potrzeby trzymać całego morfizmu, wystarczy perfekcyjny hash
-        (self.source().borrow() == self.target().borrow()).then_some({
-            let mut seen_iterations = HashSet::new();
-
-            seen_iterations.insert(Self::identity(self.source()));
-            std::iter::successors(Some(Self::identity(self.source())), |current_iteration| {
-                let next_iteration = current_iteration
-                    .clone()
-                    .try_compose(self)
-                    .expect("endo should be self composable");
-                match seen_iterations.contains(&next_iteration) {
-                    true => None,
-                    false => {
-                        seen_iterations.insert(next_iteration.clone());
-                        Some(next_iteration)
-                    }
-                }
-            })
-            .collect()
-        })
     }
 }
 
@@ -103,6 +103,7 @@ pub trait Abelian<O: Object>: PreAbelian<O> + AdditivePartialGroup {
     }
 }
 
+// these should be only defined for relations
 pub trait IsMap<O: Object>: Morphism<O> {
     fn is_a_map(&self) -> bool;
 }
@@ -115,28 +116,34 @@ pub trait IsWide<O: Object>: Morphism<O> {
     fn is_wide(&self) -> bool;
 }
 
-pub trait IsBij<O: Object>: Morphism<O> {
-    fn is_a_bijection(&self) -> bool;
-}
+pub trait Relation<O: Object>: Morphism<O> {
+    //if x R y and x' R y, then x = x'
+    fn is_univalent(&self) -> bool;
+    //if x R y and x R y', then y = y'
+    fn is_injective(&self) -> bool;
+    //for every x exists y: x R y
+    fn is_total(&self) -> bool;
+    //for every y exists x: x R y
+    fn is_surjective(&self) -> bool;
 
-/*
-pub trait AbelianEndoMorphism<R: Ring, Object: Module<R> + Eq>:
-    EndoMorphism<Object> + AbelianMorphism<R, Object, Object>
-{
-    fn high_kernel(&self) -> Self {
-        // probably not the fastest, but will work consistently
-        self.cycle()
-            .pop()
-            .expect("cycle will contain at least one iteration")
-            .kernel()
+    fn is_a_map(&self) -> bool {
+        self.is_univalent() && self.is_total()
     }
 
-    fn high_cokernel(&self) -> Self {
-        // probably not the fastest, but will work consistently
-        self.cycle()
-            .pop()
-            .expect("cycle will contain at least one iteration")
-            .cokernel()
+    fn is_a_matching(&self) -> bool {
+        self.is_injective() && self.is_univalent()
+    }
+
+    fn is_wide(&self) -> bool {
+        self.is_total() && self.is_surjective()
+    }
+
+    //i don't know if it is correct for a mono/epi relation to be a function as well, so i don't implement it (but it is obvious how to do that)
+    fn is_iso(&self) -> bool {
+        self.is_wide() && self.is_a_matching()
     }
 }
-*/
+
+pub trait AreIsomorphic<O: Object>: Morphism<O> {
+    fn are_isomorphic(&self, other: &Self) -> bool;
+}
